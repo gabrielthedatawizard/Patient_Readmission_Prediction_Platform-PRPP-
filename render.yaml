@@ -1,0 +1,17 @@
+# Render.com deployment configuration
+services:
+  - type: web
+    name: trip-platform-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://trip-platform.vercel.app
