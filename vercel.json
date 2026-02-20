@@ -3,6 +3,10 @@
   "name": "trip-platform",
   "builds": [
     {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -12,10 +16,17 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/static/(.*)",
       "headers": {
         "cache-control": "s-maxage=31536000,immutable"
       }
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
@@ -23,6 +34,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "@trip_api_url"
+    "REACT_APP_API_URL": "/api"
   }
 }

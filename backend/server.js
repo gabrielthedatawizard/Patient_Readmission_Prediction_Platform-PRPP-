@@ -1,6 +1,6 @@
 /**
  * TRIP Platform - Backend Server
- * Main entry point for the Express.js API server
+ * Express app is exported so it can run both locally and as a Vercel function.
  */
 
 const express = require('express');
@@ -8,28 +8,37 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 
-// Load environment variables
+const authRoutes = require('./src/routes/auth');
+const patientsRoutes = require('./src/routes/patients');
+const predictionsRoutes = require('./src/routes/predictions');
+
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-// Middleware
 app.use(helmet());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-// CORS configuration for production
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-app.use(cors(corsOptions));
-
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -39,7 +48,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Root endpoint
 app.get('/api', (req, res) => {
   res.json({
     name: 'TRIP Platform API',
@@ -54,39 +62,25 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Placeholder API routes (to be implemented)
-app.get('/api/patients', (req, res) => {
-  res.json({
-    message: 'Patients endpoint - to be implemented',
-    status: 'ready'
-  });
-});
+app.use('/api/patients', patientsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/predictions', predictionsRoutes);
 
-app.post('/api/auth/login', (req, res) => {
-  res.json({
-    message: 'Authentication endpoint - to be implemented',
-    status: 'ready'
-  });
-});
-
-app.get('/api/predictions/:patientId', (req, res) => {
-  res.json({
-    message: 'Risk prediction endpoint - to be implemented',
-    status: 'ready',
-    patientId: req.params.patientId
-  });
-});
-
-// Error handling middleware
 app.use((err, req, res, next) => {
+  if (err.message && err.message.startsWith('CORS blocked')) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: err.message
+    });
+  }
+
   console.error(err.stack);
-  res.status(500).json({
+  return res.status(500).json({
     error: 'Internal Server Error',
     message: err.message
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -94,18 +88,12 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                      TRIP Backend API                      ║
-║         Tanzania Readmission Intelligence Platform         ║
-╚════════════════════════════════════════════════════════════╝
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`TRIP Backend API running on http://localhost:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`API docs: http://localhost:${PORT}/api`);
+  });
+}
 
-✓ Server running on: http://localhost:${PORT}
-✓ Environment: ${process.env.NODE_ENV || 'development'}
-✓ API Documentation: http://localhost:${PORT}/api
-
-Ready to receive requests...
-  `);
-});
+module.exports = app;
