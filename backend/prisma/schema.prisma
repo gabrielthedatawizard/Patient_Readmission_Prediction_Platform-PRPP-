@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  done
+}
+
+enum Priority {
+  low
+  medium
+  high
+}
+
+enum RiskTier {
+  Low
+  Medium
+  High
+}
+
+model Region {
+  id         String     @id @default(uuid())
+  code       String     @unique
+  name       String
+  facilities Facility[]
+  users      User[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Facility {
+  id           String    @id
+  name         String
+  level        String
+  district     String
+  region       Region    @relation(fields: [regionId], references: [id])
+  regionId     String
+  users        User[]
+  patients     Patient[]
+  visits       Visit[]
+  predictions  Prediction[]
+  tasks        Task[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([regionId])
+  @@index([district])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  label       String
+  permissions Json
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       String
+  facility     Facility?  @relation(fields: [facilityId], references: [id])
+  facilityId   String?
+  region       Region?    @relation(fields: [regionId], references: [id])
+  regionId     String?
+  mfaEnabled   Boolean    @default(false)
+  mfaSecret    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+  predictions  Prediction[] @relation("PredictionGeneratedBy")
+  taskUpdates  Task[]       @relation("TaskUpdatedBy")
+
+  @@index([roleId])
+  @@index([facilityId])
+  @@index([regionId])
+}
+
+model Patient {
+  id          String     @id
+  name        String
+  age         Int
+  gender      String
+  phone       String?
+  address     String?
+  insurance   String?
+  status      String     @default("admitted")
+  facility    Facility   @relation(fields: [facilityId], references: [id])
+  facilityId  String
+  visits      Visit[]
+  tasks       Task[]
+  predictions Prediction[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([facilityId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Visit {
+  id            String      @id @default(uuid())
+  patient       Patient     @relation(fields: [patientId], references: [id])
+  patientId     String
+  facility      Facility    @relation(fields: [facilityId], references: [id])
+  facilityId    String
+  admissionDate DateTime
+  dischargeDate DateTime?
+  diagnosis     String
+  ward          String
+  lengthOfStay  Int?
+  prediction    Prediction?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([patientId, admissionDate])
+  @@index([facilityId, admissionDate])
+  @@index([dischargeDate])
+}
+
+model Prediction {
+  id               String     @id @default(uuid())
+  patient          Patient    @relation(fields: [patientId], references: [id])
+  patientId        String
+  visit            Visit?     @relation(fields: [visitId], references: [id])
+  visitId          String?    @unique
+  facility         Facility   @relation(fields: [facilityId], references: [id])
+  facilityId       String
+  generatedBy      User?      @relation("PredictionGeneratedBy", fields: [generatedById], references: [id])
+  generatedById    String?
+  score            Int
+  tier             RiskTier
+  factors          Json
+  explanation      String?
+  confidence       Float
+  confidenceLow    Int
+  confidenceHigh   Int
+  modelVersion     String
+  modelType        String
+  fallbackUsed     Boolean    @default(false)
+  dataQuality      Json?
+  overrideTier     RiskTier?
+  overrideReason   String?
+  overriddenAt     DateTime?
+  tasks            Task[]
+  generatedAt      DateTime   @default(now())
+
+  @@index([patientId, generatedAt])
+  @@index([facilityId, generatedAt])
+  @@index([score, tier])
+}
+
+model Task {
+  id              String      @id @default(uuid())
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  patientId       String
+  prediction      Prediction?  @relation(fields: [predictionId], references: [id])
+  predictionId    String?
+  facility        Facility     @relation(fields: [facilityId], references: [id])
+  facilityId      String
+  title           String
+  category        String
+  priority        Priority
+  status          TaskStatus   @default(pending)
+  assignee        String?
+  dueDate         DateTime
+  completedAt     DateTime?
+  updatedBy       User?        @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
+  updatedById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([predictionId, status])
+  @@index([facilityId, dueDate])
+  @@index([patientId, status])
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  user        User?     @relation(fields: [userId], references: [id])
+  userId      String?
+  facility    Facility? @relation(fields: [facilityId], references: [id])
+  facilityId  String?
+  action      String
+  resource    String?
+  details     Json?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, action, createdAt])
+  @@index([facilityId, createdAt])
+  @@index([action, createdAt])
+}

@@ -11,6 +11,9 @@ const helmet = require('helmet');
 const authRoutes = require('./src/routes/auth');
 const patientsRoutes = require('./src/routes/patients');
 const predictionsRoutes = require('./src/routes/predictions');
+const tasksRoutes = require('./src/routes/tasks');
+const analyticsRoutes = require('./src/routes/analytics');
+const auditRoutes = require('./src/routes/audit');
 
 dotenv.config();
 
@@ -32,7 +35,7 @@ app.use(
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
@@ -44,7 +47,19 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     message: 'TRIP Backend API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    services: {
+      auth: 'up',
+      patients: 'up',
+      predictions: 'up',
+      tasks: 'up',
+      analytics: 'up',
+      audit: 'up'
+    },
+    resilience: {
+      offlineFallbackEnabled: true,
+      localRulesModelEnabled: true
+    }
   });
 });
 
@@ -55,16 +70,22 @@ app.get('/api', (req, res) => {
     description: 'Tanzania Readmission Intelligence Platform',
     endpoints: {
       health: '/api/health',
-      patients: '/api/patients',
       auth: '/api/auth',
-      predictions: '/api/predictions'
+      patients: '/api/patients',
+      predictions: '/api/predictions',
+      tasks: '/api/tasks',
+      analytics: '/api/analytics',
+      audit: '/api/audit'
     }
   });
 });
 
-app.use('/api/patients', patientsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/patients', patientsRoutes);
 app.use('/api/predictions', predictionsRoutes);
+app.use('/api/tasks', tasksRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use((err, req, res, next) => {
   if (err.message && err.message.startsWith('CORS blocked')) {

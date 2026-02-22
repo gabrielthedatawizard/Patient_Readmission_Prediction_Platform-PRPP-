@@ -1,0 +1,352 @@
+const bcrypt = require('bcryptjs');
+const { PrismaClient, RiskTier, Priority, TaskStatus } = require('@prisma/client');
+const { ROLE_PERMISSIONS } = require('../src/config/roles');
+
+const prisma = new PrismaClient();
+
+const DEMO_PASSWORD = 'Trip@2026';
+
+const regions = [
+  { code: 'DAR', name: 'Dar es Salaam' },
+  { code: 'ARU', name: 'Arusha' },
+  { code: 'MWZ', name: 'Mwanza' },
+  { code: 'DOD', name: 'Dodoma' },
+  { code: 'MBE', name: 'Mbeya' }
+];
+
+const facilities = [
+  { id: 'FAC-MNH-001', name: 'Muhimbili National Hospital', level: 'national_referral', district: 'Ilala', regionCode: 'DAR' },
+  { id: 'FAC-ARH-001', name: 'Arusha Regional Hospital', level: 'regional_referral', district: 'Arusha', regionCode: 'ARU' },
+  { id: 'FAC-MWZ-001', name: 'Mwanza Regional Hospital', level: 'regional_referral', district: 'Nyamagana', regionCode: 'MWZ' },
+  { id: 'FAC-DOD-001', name: 'Dodoma District Hospital', level: 'district', district: 'Dodoma', regionCode: 'DOD' },
+  { id: 'FAC-MBE-001', name: 'Mbeya Zonal Hospital', level: 'zonal_referral', district: 'Mbeya', regionCode: 'MBE' }
+];
+
+const roleAssignments = {
+  facility_manager: { facilityId: 'FAC-MNH-001' },
+  clinician: { facilityId: 'FAC-ARH-001' },
+  nurse: { facilityId: 'FAC-ARH-001' },
+  pharmacist: { facilityId: 'FAC-MWZ-001' },
+  hro: { facilityId: 'FAC-DOD-001' },
+  chw: { facilityId: 'FAC-DOD-001' },
+  rhmt: { regionCode: 'DAR' },
+  chmt: { regionCode: 'ARU' }
+};
+
+const patientSeeds = [
+  {
+    id: 'PT-2026-0001',
+    name: 'Amina Mwambungu',
+    age: 67,
+    gender: 'female',
+    phone: '+255700100001',
+    address: 'Ilala, Dar es Salaam',
+    insurance: 'NHIF',
+    status: 'admitted',
+    facilityId: 'FAC-MNH-001'
+  },
+  {
+    id: 'PT-2026-0002',
+    name: 'Juma Kweka',
+    age: 44,
+    gender: 'male',
+    phone: '+255700100002',
+    address: 'Arusha City, Arusha',
+    insurance: 'Cash',
+    status: 'admitted',
+    facilityId: 'FAC-ARH-001'
+  },
+  {
+    id: 'PT-2026-0003',
+    name: 'Rehema Mussa',
+    age: 73,
+    gender: 'female',
+    phone: null,
+    address: 'Chamwino, Dodoma',
+    insurance: 'NHIF',
+    status: 'discharge_planning',
+    facilityId: 'FAC-DOD-001'
+  }
+];
+
+async function seedRegions() {
+  const regionMap = new Map();
+
+  for (const region of regions) {
+    const saved = await prisma.region.upsert({
+      where: { code: region.code },
+      update: { name: region.name },
+      create: region
+    });
+
+    regionMap.set(saved.code, saved);
+  }
+
+  return regionMap;
+}
+
+async function seedFacilities(regionMap) {
+  for (const facility of facilities) {
+    const region = regionMap.get(facility.regionCode);
+
+    await prisma.facility.upsert({
+      where: { id: facility.id },
+      update: {
+        name: facility.name,
+        level: facility.level,
+        district: facility.district,
+        regionId: region.id
+      },
+      create: {
+        id: facility.id,
+        name: facility.name,
+        level: facility.level,
+        district: facility.district,
+        regionId: region.id
+      }
+    });
+  }
+}
+
+async function seedRoles() {
+  const roleMap = new Map();
+
+  for (const [slug, permissions] of Object.entries(ROLE_PERMISSIONS)) {
+    const saved = await prisma.role.upsert({
+      where: { slug },
+      update: {
+        label: slug.replace(/_/g, ' '),
+        permissions
+      },
+      create: {
+        slug,
+        label: slug.replace(/_/g, ' '),
+        permissions
+      }
+    });
+
+    roleMap.set(slug, saved);
+  }
+
+  return roleMap;
+}
+
+async function seedUsers(roleMap, regionMap) {
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
+  for (const slug of Object.keys(ROLE_PERMISSIONS)) {
+    const assignment = roleAssignments[slug] || {};
+    const role = roleMap.get(slug);
+
+    let regionId = null;
+
+    if (assignment.regionCode) {
+      regionId = regionMap.get(assignment.regionCode)?.id || null;
+    } else if (assignment.facilityId) {
+      const facility = facilities.find((item) => item.id === assignment.facilityId);
+      if (facility) {
+        regionId = regionMap.get(facility.regionCode)?.id || null;
+      }
+    }
+
+    await prisma.user.upsert({
+      where: { email: `${slug}@trip.go.tz` },
+      update: {
+        fullName: `${slug.replace(/_/g, ' ')} Demo User`,
+        passwordHash,
+        roleId: role.id,
+        facilityId: assignment.facilityId || null,
+        regionId,
+        mfaEnabled: false,
+        mfaSecret: null
+      },
+      create: {
+        email: `${slug}@trip.go.tz`,
+        fullName: `${slug.replace(/_/g, ' ')} Demo User`,
+        passwordHash,
+        roleId: role.id,
+        facilityId: assignment.facilityId || null,
+        regionId,
+        mfaEnabled: false,
+        mfaSecret: null
+      }
+    });
+  }
+}
+
+async function seedPatients() {
+  for (const patient of patientSeeds) {
+    await prisma.patient.upsert({
+      where: { id: patient.id },
+      update: {
+        name: patient.name,
+        age: patient.age,
+        gender: patient.gender,
+        phone: patient.phone,
+        address: patient.address,
+        insurance: patient.insurance,
+        status: patient.status,
+        facilityId: patient.facilityId
+      },
+      create: patient
+    });
+  }
+}
+
+async function seedClinicalRecords() {
+  const clinician = await prisma.user.findUnique({
+    where: { email: 'clinician@trip.go.tz' }
+  });
+
+  if (!clinician) {
+    return;
+  }
+
+  const visitId = 'VIS-TRIP-DEMO-0001';
+
+  await prisma.visit.upsert({
+    where: { id: visitId },
+    update: {
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      admissionDate: new Date('2026-02-10T08:00:00Z'),
+      diagnosis: 'I50.9',
+      ward: 'Medical Ward B',
+      lengthOfStay: 9
+    },
+    create: {
+      id: visitId,
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      admissionDate: new Date('2026-02-10T08:00:00Z'),
+      diagnosis: 'I50.9',
+      ward: 'Medical Ward B',
+      lengthOfStay: 9
+    }
+  });
+
+  const prediction = await prisma.prediction.upsert({
+    where: { visitId },
+    update: {
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      generatedById: clinician.id,
+      score: 78,
+      tier: RiskTier.High,
+      factors: [
+        { factor: 'Frequent prior admissions', weight: 0.29 },
+        { factor: 'Comorbidity burden', weight: 0.24 },
+        { factor: 'Transport barrier', weight: 0.18 }
+      ],
+      explanation: 'High risk because of frequent prior admissions, comorbidity burden, and transport barrier.',
+      confidence: 0.82,
+      confidenceLow: 68,
+      confidenceHigh: 88,
+      modelVersion: 'trip-rules-xgb-surrogate-v1',
+      modelType: 'xgboost_surrogate',
+      fallbackUsed: false,
+      dataQuality: { completeness: 0.9, missingCriticalFields: [], imputedValues: {} },
+      generatedAt: new Date('2026-02-19T09:15:00Z')
+    },
+    create: {
+      visitId,
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      generatedById: clinician.id,
+      score: 78,
+      tier: RiskTier.High,
+      factors: [
+        { factor: 'Frequent prior admissions', weight: 0.29 },
+        { factor: 'Comorbidity burden', weight: 0.24 },
+        { factor: 'Transport barrier', weight: 0.18 }
+      ],
+      explanation: 'High risk because of frequent prior admissions, comorbidity burden, and transport barrier.',
+      confidence: 0.82,
+      confidenceLow: 68,
+      confidenceHigh: 88,
+      modelVersion: 'trip-rules-xgb-surrogate-v1',
+      modelType: 'xgboost_surrogate',
+      fallbackUsed: false,
+      dataQuality: { completeness: 0.9, missingCriticalFields: [], imputedValues: {} },
+      generatedAt: new Date('2026-02-19T09:15:00Z')
+    }
+  });
+
+  const taskId = 'TASK-TRIP-DEMO-0001';
+
+  await prisma.task.upsert({
+    where: { id: taskId },
+    update: {
+      patientId: 'PT-2026-0001',
+      predictionId: prediction.id,
+      facilityId: 'FAC-MNH-001',
+      title: 'Complete medication reconciliation within 24 hours',
+      category: 'medication',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      dueDate: new Date('2026-02-20T12:00:00Z'),
+      updatedById: clinician.id
+    },
+    create: {
+      id: taskId,
+      patientId: 'PT-2026-0001',
+      predictionId: prediction.id,
+      facilityId: 'FAC-MNH-001',
+      title: 'Complete medication reconciliation within 24 hours',
+      category: 'medication',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      dueDate: new Date('2026-02-20T12:00:00Z'),
+      updatedById: clinician.id
+    }
+  });
+}
+
+async function seedAuditLog() {
+  const clinician = await prisma.user.findUnique({
+    where: { email: 'clinician@trip.go.tz' }
+  });
+
+  if (!clinician) {
+    return;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      userId: clinician.id,
+      facilityId: clinician.facilityId,
+      action: 'seed_bootstrap',
+      resource: 'system:seed',
+      details: {
+        seededAt: new Date().toISOString(),
+        note: 'Initial TRIP phase 2 dataset loaded.'
+      },
+      ipAddress: '127.0.0.1'
+    }
+  });
+}
+
+async function main() {
+  console.log('Seeding TRIP PostgreSQL baseline...');
+
+  const regionMap = await seedRegions();
+  await seedFacilities(regionMap);
+
+  const roleMap = await seedRoles();
+  await seedUsers(roleMap, regionMap);
+  await seedPatients();
+  await seedClinicalRecords();
+  await seedAuditLog();
+
+  console.log('Seed complete.');
+  console.log(`Demo login password for all seeded users: ${DEMO_PASSWORD}`);
+}
+
+main()
+  .catch((error) => {
+    console.error('Seed failed:', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
