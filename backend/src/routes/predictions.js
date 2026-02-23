@@ -5,6 +5,7 @@
 
 const express = require('express');
 const {
+  appendSyncEvent,
   createPrediction,
   createTasks,
   getPatientForUser,
@@ -154,6 +155,22 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     }
   });
 
+  await appendSyncEvent({
+    facilityId: prediction.facilityId,
+    eventType: 'mutation',
+    operation: 'prediction_generated',
+    entityType: 'prediction',
+    entityId: prediction.id,
+    payload: {
+      predictionId: prediction.id,
+      patientId: prediction.patientId,
+      tier: prediction.tier,
+      score: prediction.score
+    },
+    actorUserId: req.user.id,
+    ipAddress: req.ip
+  });
+
   return res.status(201).json({
     prediction,
     tasks: generatedTasks,
@@ -219,6 +236,20 @@ router.post('/:predictionId/override', requirePermission('predictions:override')
       newTier,
       reason
     }
+  });
+
+  await appendSyncEvent({
+    facilityId: prediction.facilityId,
+    eventType: 'mutation',
+    operation: 'prediction_overridden',
+    entityType: 'prediction',
+    entityId: prediction.id,
+    payload: {
+      predictionId: prediction.id,
+      tier: prediction.tier
+    },
+    actorUserId: req.user.id,
+    ipAddress: req.ip
   });
 
   return res.json({ prediction });

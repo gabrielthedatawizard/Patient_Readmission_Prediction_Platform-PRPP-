@@ -1,11 +1,14 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './styles/index.css';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import { I18nProvider } from "./context/I18nProvider";
+import "./styles/index.css";
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>
+    <I18nProvider>
+      <App />
+    </I18nProvider>
+  </React.StrictMode>,
 );

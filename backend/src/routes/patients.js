@@ -5,6 +5,7 @@
 
 const express = require('express');
 const {
+  appendSyncEvent,
   createPatientForUser,
   getPatientForUser,
   getFacilityById,
@@ -175,6 +176,20 @@ router.post('/', requirePermission('patients:write'), asyncHandler(async (req, r
       }
     });
 
+    await appendSyncEvent({
+      facilityId: patient.facilityId,
+      eventType: 'mutation',
+      operation: 'patient_created',
+      entityType: 'patient',
+      entityId: patient.id,
+      payload: {
+        patientId: patient.id,
+        status: patient.status
+      },
+      actorUserId: req.user.id,
+      ipAddress: req.ip
+    });
+
     return res.status(201).json({ patient });
   } catch (error) {
     return res.status(403).json({
@@ -209,6 +224,20 @@ router.put('/:id', requirePermission('patients:write'), asyncHandler(async (req,
     await logAudit(req, {
       action: 'patient_updated',
       resource: `patient:${patient.id}`
+    });
+
+    await appendSyncEvent({
+      facilityId: patient.facilityId,
+      eventType: 'mutation',
+      operation: 'patient_updated',
+      entityType: 'patient',
+      entityId: patient.id,
+      payload: {
+        patientId: patient.id,
+        status: patient.status
+      },
+      actorUserId: req.user.id,
+      ipAddress: req.ip
     });
 
     return res.json({ patient });

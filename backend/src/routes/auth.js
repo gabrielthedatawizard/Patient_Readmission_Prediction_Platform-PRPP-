@@ -4,7 +4,7 @@
  */
 
 const express = require('express');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
 const { signAccessToken, requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../utils/asyncHandler');

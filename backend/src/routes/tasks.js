@@ -5,6 +5,7 @@
 
 const express = require('express');
 const {
+  appendSyncEvent,
   createTasks,
   getPatientForUser,
   listTasksForUser,
@@ -89,6 +90,20 @@ router.post('/', requirePermission('tasks:write'), asyncHandler(async (req, res)
     }
   });
 
+  await appendSyncEvent({
+    facilityId: task.facilityId,
+    eventType: 'mutation',
+    operation: 'task_created',
+    entityType: 'task',
+    entityId: task.id,
+    payload: {
+      taskId: task.id,
+      status: task.status
+    },
+    actorUserId: req.user.id,
+    ipAddress: req.ip
+  });
+
   return res.status(201).json({ task });
 }));
 
@@ -130,6 +145,20 @@ router.patch('/:id', requirePermission('tasks:write'), asyncHandler(async (req, 
       status: task.status,
       assignee: task.assignee
     }
+  });
+
+  await appendSyncEvent({
+    facilityId: task.facilityId,
+    eventType: 'mutation',
+    operation: 'task_updated',
+    entityType: 'task',
+    entityId: task.id,
+    payload: {
+      taskId: task.id,
+      status: task.status
+    },
+    actorUserId: req.user.id,
+    ipAddress: req.ip
   });
 
   return res.json({ task });

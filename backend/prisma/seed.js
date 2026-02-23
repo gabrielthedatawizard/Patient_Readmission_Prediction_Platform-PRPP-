@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { PrismaClient, RiskTier, Priority, TaskStatus } = require('@prisma/client');
 const { ROLE_PERMISSIONS } = require('../src/config/roles');
 
@@ -43,7 +43,23 @@ const patientSeeds = [
     address: 'Ilala, Dar es Salaam',
     insurance: 'NHIF',
     status: 'admitted',
-    facilityId: 'FAC-MNH-001'
+    facilityId: 'FAC-MNH-001',
+    clinicalProfile: {
+      age: 67,
+      priorAdmissions12m: 3,
+      lengthOfStayDays: 9,
+      charlsonIndex: 4,
+      egfr: 52,
+      hemoglobin: 9.6,
+      hba1c: 8.9,
+      phoneAccess: true,
+      transportationDifficulty: true,
+      livesAlone: false,
+      highRiskMedicationCount: 2,
+      icuStayDays: 0,
+      bpSystolic: 148,
+      bpDiastolic: 92
+    }
   },
   {
     id: 'PT-2026-0002',
@@ -54,7 +70,23 @@ const patientSeeds = [
     address: 'Arusha City, Arusha',
     insurance: 'Cash',
     status: 'admitted',
-    facilityId: 'FAC-ARH-001'
+    facilityId: 'FAC-ARH-001',
+    clinicalProfile: {
+      age: 44,
+      priorAdmissions12m: 1,
+      lengthOfStayDays: 4,
+      charlsonIndex: 2,
+      egfr: 82,
+      hemoglobin: 12.5,
+      hba1c: 7.2,
+      phoneAccess: true,
+      transportationDifficulty: false,
+      livesAlone: false,
+      highRiskMedicationCount: 0,
+      icuStayDays: 0,
+      bpSystolic: 130,
+      bpDiastolic: 85
+    }
   },
   {
     id: 'PT-2026-0003',
@@ -65,7 +97,23 @@ const patientSeeds = [
     address: 'Chamwino, Dodoma',
     insurance: 'NHIF',
     status: 'discharge_planning',
-    facilityId: 'FAC-DOD-001'
+    facilityId: 'FAC-DOD-001',
+    clinicalProfile: {
+      age: 73,
+      priorAdmissions12m: 2,
+      lengthOfStayDays: 11,
+      charlsonIndex: 5,
+      egfr: null,
+      hemoglobin: 10.1,
+      hba1c: null,
+      phoneAccess: false,
+      transportationDifficulty: true,
+      livesAlone: true,
+      highRiskMedicationCount: 1,
+      icuStayDays: 1,
+      bpSystolic: null,
+      bpDiastolic: null
+    }
   }
 ];
 

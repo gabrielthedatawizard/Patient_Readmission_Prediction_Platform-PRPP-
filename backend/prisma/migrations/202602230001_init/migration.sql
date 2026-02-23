@@ -61,6 +61,7 @@ CREATE TABLE "Patient" (
   "address" TEXT,
   "insurance" TEXT,
   "status" TEXT NOT NULL DEFAULT 'admitted',
+  "clinicalProfile" JSONB,
   "facilityId" TEXT NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,

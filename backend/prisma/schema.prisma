@@ -98,6 +98,7 @@ model Patient {
   address     String?
   insurance   String?
   status      String     @default("admitted")
+  clinicalProfile Json?
   facility    Facility   @relation(fields: [facilityId], references: [id])
   facilityId  String
   visits      Visit[]

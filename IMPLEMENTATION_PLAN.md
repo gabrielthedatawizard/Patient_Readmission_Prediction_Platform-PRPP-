@@ -10,7 +10,7 @@
 - [x] Phase 1: Backend foundation (RBAC, auth, row-level access, audit logs, explainable risk engine fallback, task/analytics/audit APIs).
 - [ ] Phase 2: PostgreSQL + Prisma schema + migrations (replace in-memory store).
 - [ ] Phase 3: Offline-first sync contracts (queue model, conflict policy, idempotent APIs).
-- [ ] Phase 4: Swahili-first i18n infrastructure and terminology packs.
+- [x] Phase 4: Swahili-first i18n infrastructure and terminology packs.
 - [ ] Phase 5: Frontend data layer integration with new APIs (auth, patients, predictions, tasks, analytics).
 - [ ] Phase 6: Explainability UI (factor bars, CI display, clinician override workflow).
 - [ ] Phase 7: Fairness and data quality dashboards with alert thresholds.
@@ -36,3 +36,14 @@
 - Data provider selector at `backend/src/data/index.js`.
 - Prisma-backed repository implementation at `backend/src/data/prismaStore.js`.
 - Remaining for Phase 2: apply migration in a live PostgreSQL environment, run seed, and execute end-to-end route tests with `TRIP_DATA_PROVIDER=prisma`.
+- Phase 3 backend contracts started:
+- Sync pull/push APIs at `backend/src/routes/sync.js`.
+- Idempotency replay service at `backend/src/services/idempotencyService.js`.
+- Sync event feed functions in both data providers (`backend/src/data/store.js`, `backend/src/data/prismaStore.js`).
+- Phase 4 delivered:
+- Centralized i18n context/provider with persisted language preference at `src/context/I18nProvider.jsx`.
+- Swahili-first translation catalog and clinical terminology pack at `src/config/translations.js` and `src/config/terminology.js`.
+- App shell, login flow, and landing page now consume shared translations (`src/App.jsx`, `src/pages/LoginPage.jsx`, `src/pages/LandingPage.jsx`).
+- Vercel deployment hardening delivered:
+- Runtime now avoids hidden backend-only dependencies for auth hashing and env loading (`backend/src/routes/auth.js`, `backend/src/data/store.js`, `backend/src/data/prismaStore.js`, `backend/server.js`).
+- Vercel runtime configuration and deploy docs updated (`vercel.json`, `DEPLOYMENT.md`, `.env.production`).

@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { prisma } = require('../lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';
@@ -343,6 +343,7 @@ async function createPatientForUser(user, payload) {
       address: payload.address || null,
       insurance: payload.insurance || null,
       status: payload.status || 'admitted',
+      clinicalProfile: payload.clinicalProfile || { age: Number(payload.age) },
       facilityId
     }
   });
@@ -377,6 +378,13 @@ async function updatePatientForUser(user, patientId, payload) {
       address: payload.address,
       insurance: payload.insurance,
       status: payload.status,
+      clinicalProfile:
+        payload.clinicalProfile && typeof payload.clinicalProfile === 'object'
+          ? {
+              ...(current.clinicalProfile || {}),
+              ...payload.clinicalProfile
+            }
+          : undefined,
       facilityId: payload.facilityId
     }
   });
@@ -541,6 +549,28 @@ async function listTasksForUser(user, filters = {}) {
   });
 
   return tasks.map(mapTask);
+}
+
+async function getTaskForUser(user, taskId) {
+  if (!taskId) {
+    return null;
+  }
+
+  const task = await prisma.task.findUnique({
+    where: {
+      id: taskId
+    }
+  });
+
+  if (!task) {
+    return null;
+  }
+
+  if (!(await canAccessFacility(user, task.facilityId))) {
+    return null;
+  }
+
+  return mapTask(task);
 }
 
 async function updateTaskForUser(user, taskId, patch) {
@@ -734,6 +764,88 @@ async function buildFairnessSnapshot() {
   };
 }
 
+async function appendSyncEvent(entry) {
+  const created = await prisma.auditLog.create({
+    data: {
+      userId: entry.actorUserId || null,
+      facilityId: entry.facilityId || null,
+      action: 'sync_event',
+      resource: `${entry.entityType}:${entry.entityId}`,
+      details: {
+        eventType: entry.eventType || 'mutation',
+        operation: entry.operation,
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        payload: entry.payload || {},
+        actorUserId: entry.actorUserId || null
+      },
+      ipAddress: entry.ipAddress || null
+    }
+  });
+
+  return {
+    id: created.id,
+    cursor: `${toDateIso(created.createdAt)}|${created.id}`,
+    facilityId: created.facilityId,
+    eventType: created.details?.eventType || 'mutation',
+    operation: created.details?.operation || null,
+    entityType: created.details?.entityType || null,
+    entityId: created.details?.entityId || null,
+    payload: created.details?.payload || {},
+    actorUserId: created.details?.actorUserId || null,
+    createdAt: toDateIso(created.createdAt)
+  };
+}
+
+async function listSyncEventsForUser(user, options = {}) {
+  const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 500);
+  const where = {
+    action: 'sync_event'
+  };
+
+  if (options.since) {
+    const sinceRaw = String(options.since).split('|')[0];
+    const since = new Date(sinceRaw);
+    if (!Number.isNaN(since.getTime())) {
+      where.createdAt = {
+        gt: since
+      };
+    }
+  }
+
+  if (options.facilityId) {
+    where.facilityId = options.facilityId;
+  } else if (user.role === 'rhmt' || user.role === 'chmt') {
+    const accessible = await resolveAccessibleFacilityIds(user);
+    where.facilityId = {
+      in: accessible
+    };
+  } else if (user.role !== 'moh' && user.role !== 'ml_engineer') {
+    where.facilityId = user.facilityId || '__none__';
+  }
+
+  const logs = await prisma.auditLog.findMany({
+    where,
+    orderBy: {
+      createdAt: 'asc'
+    },
+    take: limit
+  });
+
+  return logs.map((log) => ({
+    id: log.id,
+    cursor: `${toDateIso(log.createdAt)}|${log.id}`,
+    facilityId: log.facilityId,
+    eventType: log.details?.eventType || 'mutation',
+    operation: log.details?.operation || null,
+    entityType: log.details?.entityType || null,
+    entityId: log.details?.entityId || null,
+    payload: log.details?.payload || {},
+    actorUserId: log.details?.actorUserId || null,
+    createdAt: toDateIso(log.createdAt)
+  }));
+}
+
 module.exports = {
   DEMO_PASSWORD,
   getFacilityById,
@@ -753,9 +865,12 @@ module.exports = {
   updatePredictionOverrideForUser,
   createTasks,
   listTasksForUser,
+  getTaskForUser,
   updateTaskForUser,
   createAuditLog,
   listAuditLogsForUser,
+  appendSyncEvent,
+  listSyncEventsForUser,
   buildDataQualitySnapshot,
   buildFairnessSnapshot
 };

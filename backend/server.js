@@ -5,7 +5,6 @@
 
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const helmet = require('helmet');
 
 const authRoutes = require('./src/routes/auth');
@@ -14,27 +13,74 @@ const predictionsRoutes = require('./src/routes/predictions');
 const tasksRoutes = require('./src/routes/tasks');
 const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
+const syncRoutes = require('./src/routes/sync');
 
-dotenv.config();
+try {
+  require('dotenv').config();
+} catch (error) {
+  // dotenv is optional in serverless deployments where env vars are injected by platform.
+}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+
+function normalizeOrigin(origin) {
+  return String(origin || '')
+    .trim()
+    .replace(/\/$/, '');
+}
+
+function resolveVercelOrigin(value) {
+  const normalized = normalizeOrigin(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith('https://') || normalized.startsWith('http://')) {
+    return normalized;
+  }
+
+  return `https://${normalized}`;
+}
+
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
+const allowAllOrigins = configuredOrigins.includes('*');
+
+const allowedOrigins = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...configuredOrigins.filter((origin) => origin !== '*')
+]);
+
+const vercelOrigins = [
+  process.env.VERCEL_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
+]
+  .map(resolveVercelOrigin)
+  .filter(Boolean);
+
+vercelOrigins.forEach((origin) => allowedOrigins.add(origin));
 
 app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowAllOrigins) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.has(normalizeOrigin(origin))) {
         return callback(null, true);
       }
 
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
-    credentials: true,
+    credentials: !allowAllOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   })
@@ -54,7 +100,8 @@ app.get('/api/health', (req, res) => {
       predictions: 'up',
       tasks: 'up',
       analytics: 'up',
-      audit: 'up'
+      audit: 'up',
+      sync: 'up'
     },
     resilience: {
       offlineFallbackEnabled: true,
@@ -75,7 +122,8 @@ app.get('/api', (req, res) => {
       predictions: '/api/predictions',
       tasks: '/api/tasks',
       analytics: '/api/analytics',
-      audit: '/api/audit'
+      audit: '/api/audit',
+      sync: '/api/sync'
     }
   });
 });
@@ -86,6 +134,7 @@ app.use('/api/predictions', predictionsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/sync', syncRoutes);
 
 app.use((err, req, res, next) => {
   if (err.message && err.message.startsWith('CORS blocked')) {

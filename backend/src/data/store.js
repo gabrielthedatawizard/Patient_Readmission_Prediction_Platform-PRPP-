@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
 const { ROLES } = require('../config/roles');
 
@@ -137,6 +137,8 @@ const patients = [
 const predictions = [];
 const tasks = [];
 const auditLogs = [];
+const syncEvents = [];
+let syncCursor = 0;
 
 function nowIso() {
   return new Date().toISOString();
@@ -439,6 +441,16 @@ function listTasksForUser(user, filters = {}) {
   });
 }
 
+function getTaskForUser(user, taskId) {
+  const task = tasks.find((item) => item.id === taskId);
+
+  if (!task || !canAccessFacility(user, task.facilityId)) {
+    return null;
+  }
+
+  return task;
+}
+
 function updateTaskForUser(user, taskId, patch) {
   const task = tasks.find((item) => item.id === taskId);
 
@@ -570,6 +582,59 @@ function buildFairnessSnapshot() {
   };
 }
 
+function appendSyncEvent(entry) {
+  syncCursor += 1;
+
+  const event = {
+    id: randomUUID(),
+    cursor: String(syncCursor),
+    facilityId: entry.facilityId || null,
+    eventType: entry.eventType || 'mutation',
+    operation: entry.operation,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    payload: entry.payload || {},
+    actorUserId: entry.actorUserId || null,
+    createdAt: nowIso()
+  };
+
+  syncEvents.push(event);
+  if (syncEvents.length > 20000) {
+    syncEvents.splice(0, syncEvents.length - 20000);
+  }
+
+  return event;
+}
+
+function listSyncEventsForUser(user, options = {}) {
+  const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 500);
+  const sinceRaw = String(options.since || '').trim();
+  const sinceCursor = Number(sinceRaw || 0);
+  let sinceTimestampMs = null;
+
+  if (sinceRaw && (!Number.isFinite(sinceCursor) || sinceCursor <= 0)) {
+    const maybeTime = sinceRaw.split('|')[0];
+    const parsed = new Date(maybeTime).getTime();
+    if (Number.isFinite(parsed)) {
+      sinceTimestampMs = parsed;
+    }
+  }
+
+  let scoped = syncEvents.filter((event) => canAccessFacility(user, event.facilityId));
+
+  if (options.facilityId) {
+    scoped = scoped.filter((event) => event.facilityId === options.facilityId);
+  }
+
+  if (Number.isFinite(sinceCursor) && sinceCursor > 0) {
+    scoped = scoped.filter((event) => Number(event.cursor) > sinceCursor);
+  } else if (sinceTimestampMs !== null) {
+    scoped = scoped.filter((event) => new Date(event.createdAt).getTime() > sinceTimestampMs);
+  }
+
+  return scoped.slice(0, limit);
+}
+
 module.exports = {
   DEMO_PASSWORD,
   facilities,
@@ -591,9 +656,12 @@ module.exports = {
   updatePredictionOverrideForUser,
   createTasks,
   listTasksForUser,
+  getTaskForUser,
   updateTaskForUser,
   createAuditLog,
   listAuditLogsForUser,
+  appendSyncEvent,
+  listSyncEventsForUser,
   buildDataQualitySnapshot,
   buildFairnessSnapshot
 };

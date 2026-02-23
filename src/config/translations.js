@@ -1,202 +1,546 @@
 /**
  * TRIP Translations
- * English and Swahili localization
+ * Swahili-first localization dictionary.
  */
+
+export const DEFAULT_LANGUAGE = "sw";
+export const SUPPORTED_LANGUAGES = ["sw", "en"];
 
 export const translations = {
   en: {
     // Navigation
-    dashboard: 'Dashboard',
-    patients: 'Patients',
-    analytics: 'Analytics',
-    discharge: 'Discharge Workflow',
-    tasks: 'Tasks & Follow-up',
-    dataQuality: 'Data Quality',
-    modelOps: 'Model Operations',
-    settings: 'Settings',
-    logout: 'Logout',
+    dashboard: "Dashboard",
+    patients: "Patients",
+    analytics: "Analytics",
+    discharge: "Discharge Workflow",
+    tasks: "Tasks & Follow-up",
+    dataQuality: "Data Quality",
+    modelOps: "Model Operations",
+    settings: "Settings",
+    logout: "Logout",
+    notifications: "Notifications",
+
+    // Shared labels
+    welcome: "Welcome",
+    national: "National",
+    filter: "Filter",
+    appTagline: "Readmission Intelligence",
+    footerPlatform:
+      "Tanzania Readmission Intelligence Platform (TRIP) · Ministry of Health",
+    footerSecureTagline: "Secure · Auditable · AI-Powered",
+    ministryCopyright: "Ministry of Health, Tanzania",
+    languageLabel: "Language",
+    languageEnglish: "English",
+    languageSwahili: "Kiswahili",
 
     // Dashboard
-    welcome: 'Welcome',
-    readmissionRate: '30-Day Readmission Rate',
-    highRiskDischarges: 'High-Risk Discharges',
-    avgLengthOfStay: 'Avg Length of Stay',
-    interventionRate: 'Intervention Completion',
+    readmissionRate: "30-Day Readmission Rate",
+    highRiskDischarges: "High-Risk Discharges",
+    avgLengthOfStay: "Avg Length of Stay",
+    interventionRate: "Intervention Completion",
     todayDischarges: "Today's Discharges",
-    actionQueue: 'Action Queue',
-    riskDistribution: 'Risk Distribution',
-    
-    // Patient
-    search: 'Search patients...',
-    viewDetails: 'View Details',
-    patientProfile: 'Patient Profile',
-    clinicalHistory: 'Clinical History',
-    riskFactors: 'Risk Factors',
-    
-    // Risk
-    lowRisk: 'Low Risk',
-    mediumRisk: 'Medium Risk',
-    highRisk: 'High Risk',
-    riskScore: 'Risk Score',
-    whyThisRisk: 'Why This Risk Score?',
-    
+    actionQueue: "Action Queue",
+    riskDistribution: "Risk Distribution",
+    customRange: "Custom Range",
+    kpiReadmissionDelta: "2.1% lower",
+    kpiHighRiskDelta: "5 more than avg",
+    kpiAvgStayDelta: "0.3 days shorter",
+    kpiInterventionDelta: "6% higher",
+    highRiskNoDischargePlan: "High Risk - No Discharge Plan",
+    dueHoursAgo: "Due: 2 hours ago",
+    taskMedicationReconciliation: "Medication Reconciliation",
+    dueTodayAt: "Due: Today 3:00 PM",
+    taskFollowup7Day: "7-Day Follow-up Call",
+    patientsPending: "12 patients pending",
+    scheduledTomorrow: "Scheduled: Tomorrow",
+    viewAllPatients: "View All Patients",
+    viewAllTasks: "View All Tasks",
+    dischargeShareLow: "72% of discharges",
+    dischargeShareMedium: "21% of discharges",
+    dischargeShareHigh: "7% of discharges",
+    dataQualityDashboard: "Data Quality Dashboard",
+    dataQualityInProgress: "This feature is under development.",
+    backToDashboard: "Back to Dashboard",
+    dischargeWorkflowCompleted: "Discharge workflow completed.",
+
+    // Patient and risk
+    search: "Search patients...",
+    viewDetails: "View Details",
+    patientProfile: "Patient Profile",
+    clinicalHistory: "Clinical History",
+    riskFactors: "Risk Factors",
+    lowRisk: "Low Risk",
+    mediumRisk: "Medium Risk",
+    highRisk: "High Risk",
+    riskScore: "Risk Score",
+    whyThisRisk: "Why This Risk Score?",
+    riskSuffix: "Risk",
+    ageShort: "y",
+
     // Actions
-    completeDischarge: 'Complete Discharge',
-    assignTask: 'Assign Task',
-    scheduleFollowUp: 'Schedule Follow-up',
-    viewReport: 'View Report',
-    exportData: 'Export Data',
-    
+    completeDischarge: "Complete Discharge",
+    assignTask: "Assign Task",
+    scheduleFollowUp: "Schedule Follow-up",
+    viewReport: "View Report",
+    exportData: "Export Data",
+
     // Discharge
-    dischargeWorkflow: 'Discharge Workflow',
-    clinicalReadiness: 'Clinical Readiness',
-    medicationReconciliation: 'Medication Reconciliation',
-    patientEducation: 'Patient Education',
-    followUpPlan: 'Follow-up Plan',
-    referralCommunity: 'Referral & Community',
-    dischargeSummary: 'Discharge Summary',
-    
+    dischargeWorkflow: "Discharge Workflow",
+    clinicalReadiness: "Clinical Readiness",
+    medicationReconciliation: "Medication Reconciliation",
+    patientEducation: "Patient Education",
+    followUpPlan: "Follow-up Plan",
+    referralCommunity: "Referral & Community",
+    dischargeSummary: "Discharge Summary",
+
     // Time
-    today: 'Today',
-    yesterday: 'Yesterday',
-    lastWeek: 'Last Week',
-    lastMonth: 'Last Month',
-    last7Days: 'Last 7 Days',
-    last30Days: 'Last 30 Days',
-    last90Days: 'Last 90 Days',
-    
+    today: "Today",
+    yesterday: "Yesterday",
+    lastWeek: "Last Week",
+    lastMonth: "Last Month",
+    last7Days: "Last 7 Days",
+    last30Days: "Last 30 Days",
+    last90Days: "Last 90 Days",
+
     // Status
-    pending: 'Pending',
-    completed: 'Completed',
-    overdue: 'Overdue',
-    inProgress: 'In Progress',
-    
+    pending: "Pending",
+    completed: "Completed",
+    overdue: "Overdue",
+    inProgress: "In Progress",
+
     // Common
-    save: 'Save',
-    cancel: 'Cancel',
-    close: 'Close',
-    edit: 'Edit',
-    delete: 'Delete',
-    confirm: 'Confirm',
-    back: 'Back',
-    next: 'Next',
-    previous: 'Previous',
-    submit: 'Submit',
-    loading: 'Loading...',
-    error: 'Error',
-    success: 'Success',
-    
+    save: "Save",
+    cancel: "Cancel",
+    close: "Close",
+    edit: "Edit",
+    delete: "Delete",
+    confirm: "Confirm",
+    back: "Back",
+    next: "Next",
+    previous: "Previous",
+    submit: "Submit",
+    loading: "Loading...",
+    error: "Error",
+    success: "Success",
+
     // Roles
-    mohAdmin: 'MoH National Admin',
-    rhmt: 'Regional Health Management Team',
-    chmt: 'Council/District Health Management',
-    facilityManager: 'Facility Manager',
-    clinician: 'Clinician',
-    nurse: 'Nurse',
-    pharmacist: 'Pharmacist',
-    hro: 'Health Records Officer',
-    chw: 'Community Health Worker',
-    mlEngineer: 'ML Engineer / Data Steward'
+    mohAdmin: "MoH National Admin",
+    rhmt: "Regional Health Management Team",
+    chmt: "Council/District Health Management",
+    facilityManager: "Facility Manager",
+    clinician: "Clinician",
+    nurse: "Nurse",
+    pharmacist: "Pharmacist",
+    hro: "Health Records Officer",
+    chw: "Community Health Worker",
+    mlEngineer: "ML Engineer / Data Steward",
+
+    // Login
+    loginBackHome: "Back to Home",
+    loginWelcomeBack: "Welcome Back!",
+    loginIntro:
+      "Access TRIP to monitor outcomes, predict readmissions, and improve care delivery.",
+    loginAIPowered: "AI-Powered",
+    loginPredictionAccuracy: "84% prediction accuracy",
+    loginSecure: "Secure",
+    loginEncryption: "256-bit encryption",
+    loginNationwide: "Nationwide",
+    loginFacilitiesCount: "150+ facilities",
+    loginStepSelectRole: "Select Role",
+    loginStepSignIn: "Sign In",
+    loginSelectRoleTitle: "Select Your Role",
+    loginSelectRoleHelp:
+      "Choose your role to access the appropriate dashboard.",
+    loginContinue: "Continue",
+    loginSignInTitle: "Sign In",
+    loginSignInAs: "Sign in as",
+    loginEmailLabel: "Email / Staff ID",
+    loginEmailPlaceholder: "staffid@moh.go.tz",
+    loginPasswordLabel: "Password",
+    loginRememberMe: "Remember me",
+    loginForgotPassword: "Forgot password?",
+    loginSigningIn: "Signing in...",
+    loginSignInSecurely: "Sign In Securely",
+    loginChangeRole: "Change Role",
+    loginMfaBanner: "MFA Required · SSO Ready · ISO 27001 Compliant",
+    loginNeedHelp: "Need help?",
+    loginContactSupport: "Contact Support",
+
+    // Landing
+    landingNavFeatures: "Features",
+    landingNavAbout: "About",
+    landingNavTestimonials: "Testimonials",
+    landingNavContact: "Contact",
+    landingSignIn: "Sign In",
+    landingGetStarted: "Get Started",
+    landingBadgeMinistry: "Ministry of Health, Tanzania",
+    landingHeroTitlePrefix: "Prevent Readmissions with",
+    landingHeroTitleHighlight: "AI-Powered Intelligence",
+    landingHeroDescription:
+      "TRIP helps providers identify high-risk patients, optimize discharge planning, and reduce preventable readmissions across Tanzania.",
+    landingStartTrial: "Start Free Trial",
+    landingWatchDemo: "Watch Demo",
+    landingTrustedBy: "Trusted by leading healthcare institutions",
+    landingStatsReduction: "Reduction in Readmissions",
+    landingStatsFacilities: "Healthcare Facilities",
+    landingStatsPatients: "Patients Monitored",
+    landingStatsAccuracy: "Prediction Accuracy",
+    landingFeaturesTitlePrefix: "Everything You Need to",
+    landingFeaturesTitleHighlight: "Reduce Readmissions",
+    landingFeaturesSubtitle:
+      "Comprehensive tools designed for Tanzania's healthcare system.",
+    landingFeature1Title: "AI-Powered Risk Prediction",
+    landingFeature1Desc:
+      "Machine learning models analyze patient data to predict readmission risk with 84% accuracy.",
+    landingFeature2Title: "Clinical Decision Support",
+    landingFeature2Desc:
+      "Evidence-based recommendations guide discharge planning and intervention strategies.",
+    landingFeature3Title: "Multi-Level Access",
+    landingFeature3Desc:
+      "Role-based dashboards for clinicians, managers, and health administrators.",
+    landingFeature4Title: "Real-time Analytics",
+    landingFeature4Desc:
+      "Track readmission trends, intervention outcomes, and facility benchmarks.",
+    landingFeature5Title: "EMR Integration",
+    landingFeature5Desc:
+      "Seamlessly connects with existing hospital information systems.",
+    landingFeature6Title: "Multi-language Support",
+    landingFeature6Desc:
+      "Available in English and Swahili for Tanzania healthcare facilities.",
+    landingAboutTitlePrefix: "Built for Tanzania's",
+    landingAboutTitleHighlight: "Healthcare System",
+    landingAboutDesc:
+      "TRIP is developed with the Ministry of Health to address practical care challenges across diverse facilities.",
+    landingAboutBullet1: "HIPAA-aligned data security controls",
+    landingAboutBullet2: "Offline-capable workflows for rural facilities",
+    landingAboutBullet3: "Integrated with DHIS2 and national HMIS",
+    landingAboutBullet4: "24/7 support in English and Swahili",
+    landingPanelTitle: "TRIP Platform",
+    landingPanelVersion: "Version 2.3.0",
+    landingPanelRealtime: "Real-time Monitoring",
+    landingPanelActive: "Active",
+    landingPanelDataSecurity: "Data Security",
+    landingPanelUptime: "Uptime",
+    landingTestimonialsTitlePrefix: "Trusted by Healthcare",
+    landingTestimonialsTitleHighlight: "Professionals",
+    landingTestimonialsSubtitle:
+      "See what healthcare providers across Tanzania say about TRIP.",
+    landingTestimonial1Quote:
+      "TRIP transformed how we manage discharges. AI predictions help us focus resources on high-risk patients.",
+    landingTestimonial1Role: "Medical Director, Muhimbili Hospital",
+    landingTestimonial2Quote:
+      "We have seen a major reduction in unplanned readmissions since deploying TRIP.",
+    landingTestimonial2Role: "Regional Health Coordinator",
+    landingTestimonial3Quote:
+      "The multilingual support and intuitive interface make it practical for frontline teams.",
+    landingTestimonial3Role: "Nurse Manager, Temeke Hospital",
+    landingCtaTitle: "Ready to Reduce Readmissions?",
+    landingCtaDesc:
+      "Join 150+ healthcare facilities using TRIP to improve patient outcomes.",
+    landingCtaPrimary: "Get Started Now",
+    landingCtaSecondary: "Contact Team",
+    footerProduct: "Product",
+    footerCompany: "Company",
+    footerSupport: "Support",
+    footerFeatures: "Features",
+    footerPricing: "Pricing",
+    footerSecurity: "Security",
+    footerIntegrations: "Integrations",
+    footerAbout: "About",
+    footerBlog: "Blog",
+    footerCareers: "Careers",
+    footerContact: "Contact",
+    footerHelpCenter: "Help Center",
+    footerDocumentation: "Documentation",
+    footerApiReference: "API Reference",
+    footerStatus: "Status",
+    footerPrivacyPolicy: "Privacy Policy",
+    footerTermsService: "Terms of Service",
+    footerCookiePolicy: "Cookie Policy",
+    footerRights: "All rights reserved.",
+
+    // Notifications
+    notificationHighRiskPatient: "High Risk Patient",
+    notificationHighRiskPatientBody: "Amina Mwambungu requires discharge plan",
+    notificationFollowupDue: "Follow-up Due",
+    notificationFollowupDueBody: "12 patients need 7-day calls",
+    notificationDataQualityImproved: "Data Quality Improved",
+    notificationDataQualityImprovedBody: "Missing data down 15% this week",
   },
 
   sw: {
-    // Urambazaji
-    dashboard: 'Dashibodi',
-    patients: 'Wagonjwa',
-    analytics: 'Uchambuzi',
-    discharge: 'Mchakato wa Kuondoka',
-    tasks: 'Kazi na Ufuatiliaji',
-    dataQuality: 'Ubora wa Data',
-    modelOps: 'Uendeshaji wa Modeli',
-    settings: 'Mipangilio',
-    logout: 'Ondoka',
+    // Navigation
+    dashboard: "Dashibodi",
+    patients: "Wagonjwa",
+    analytics: "Uchambuzi",
+    discharge: "Mchakato wa Kuondoka",
+    tasks: "Kazi na Ufuatiliaji",
+    dataQuality: "Ubora wa Data",
+    modelOps: "Uendeshaji wa Modeli",
+    settings: "Mipangilio",
+    logout: "Ondoka",
+    notifications: "Arifa",
 
-    // Dashibodi
-    welcome: 'Karibu',
-    readmissionRate: 'Kiwango cha Kurudi Hospitali',
-    highRiskDischarges: 'Hatari ya Juu Kuondoka',
-    avgLengthOfStay: 'Wastani wa Kukaa Hospitali',
-    interventionRate: 'Ukamilishaji wa Hatua',
-    todayDischarges: 'Wanaondoka Leo',
-    actionQueue: 'Foleni ya Hatua',
-    riskDistribution: 'Usambazaji wa Hatari',
-    
-    // Mgonjwa
-    search: 'Tafuta wagonjwa...',
-    viewDetails: 'Tazama Maelezo',
-    patientProfile: 'Wasifu wa Mgonjwa',
-    clinicalHistory: 'Historia ya Matibabu',
-    riskFactors: 'Sababu za Hatari',
-    
-    // Hatari
-    lowRisk: 'Hatari Ndogo',
-    mediumRisk: 'Hatari ya Kati',
-    highRisk: 'Hatari Kubwa',
-    riskScore: 'Alama ya Hatari',
-    whyThisRisk: 'Kwa Nini Hatari Hii?',
-    
-    // Vitendo
-    completeDischarge: 'Kamilisha Kuondoka',
-    assignTask: 'Kabidhi Kazi',
-    scheduleFollowUp: 'Panga Ufuatiliaji',
-    viewReport: 'Tazama Ripoti',
-    exportData: 'Hamisha Data',
-    
-    // Kuondoka
-    dischargeWorkflow: 'Mchakato wa Kuondoka',
-    clinicalReadiness: 'Utayari wa Kimatibabu',
-    medicationReconciliation: 'Upatanishaji wa Dawa',
-    patientEducation: 'Elimu kwa Mgonjwa',
-    followUpPlan: 'Mpango wa Ufuatiliaji',
-    referralCommunity: 'Uelekezaji na Jamii',
-    dischargeSummary: 'Muhtasari wa Kuondoka',
-    
-    // Muda
-    today: 'Leo',
-    yesterday: 'Jana',
-    lastWeek: 'Wiki Iliyopita',
-    lastMonth: 'Mwezi Uliopita',
-    last7Days: 'Siku 7 Zilizopita',
-    last30Days: 'Siku 30 Zilizopita',
-    last90Days: 'Siku 90 Zilizopita',
-    
-    // Hali
-    pending: 'Inasubiri',
-    completed: 'Imekamilika',
-    overdue: 'Imechelewa',
-    inProgress: 'Inaendelea',
-    
-    // Kawaida
-    save: 'Hifadhi',
-    cancel: 'Ghairi',
-    close: 'Funga',
-    edit: 'Hariri',
-    delete: 'Futa',
-    confirm: 'Thibitisha',
-    back: 'Rudi',
-    next: 'Ifuatayo',
-    previous: 'Iliyotangulia',
-    submit: 'Wasilisha',
-    loading: 'Inapakia...',
-    error: 'Kosa',
-    success: 'Imefanikiwa',
-    
-    // Majukumu
-    mohAdmin: 'Msimamizi wa Wizara ya Afya',
-    rhmt: 'Timu ya Usimamizi wa Afya Mkoa',
-    chmt: 'Timu ya Usimamizi wa Afya Wilaya',
-    facilityManager: 'Meneja wa Kituo',
-    clinician: 'Daktari/Afisa wa Kliniki',
-    nurse: 'Muuguzi',
-    pharmacist: 'Mfamasia',
-    hro: 'Afisa wa Rekodi za Afya',
-    chw: 'Mhudumu wa Afya ya Jamii',
-    mlEngineer: 'Mhandisi wa AI / Msimamizi wa Data'
-  }
+    // Shared labels
+    welcome: "Karibu",
+    national: "Kitaifa",
+    filter: "Chuja",
+    appTagline: "Uchambuzi wa Kurudi Hospitali",
+    footerPlatform:
+      "Mfumo wa Akili ya Kurudi Hospitali Tanzania (TRIP) · Wizara ya Afya",
+    footerSecureTagline: "Salama · Inakaguliwa · Inaendeshwa na AI",
+    ministryCopyright: "Wizara ya Afya, Tanzania",
+    languageLabel: "Lugha",
+    languageEnglish: "English",
+    languageSwahili: "Kiswahili",
+
+    // Dashboard
+    readmissionRate: "Kiwango cha Kurudi Hospitali ndani ya Siku 30",
+    highRiskDischarges: "Wanaoondoka Wenye Hatari Kubwa",
+    avgLengthOfStay: "Wastani wa Muda wa Kulazwa",
+    interventionRate: "Ukamilishaji wa Hatua",
+    todayDischarges: "Wanaoondoka Leo",
+    actionQueue: "Foleni ya Hatua",
+    riskDistribution: "Usambazaji wa Hatari",
+    customRange: "Muda Maalum",
+    kpiReadmissionDelta: "2.1% chini",
+    kpiHighRiskDelta: "5 zaidi ya wastani",
+    kpiAvgStayDelta: "siku 0.3 chini",
+    kpiInterventionDelta: "6% juu",
+    highRiskNoDischargePlan: "Hatari Kubwa - Hakuna Mpango wa Kuondoka",
+    dueHoursAgo: "Mwisho: Saa 2 zilizopita",
+    taskMedicationReconciliation: "Upatanishaji wa Dawa",
+    dueTodayAt: "Mwisho: Leo saa 3:00 PM",
+    taskFollowup7Day: "Simu ya Ufuatiliaji ya Siku 7",
+    patientsPending: "Wagonjwa 12 wanasubiri",
+    scheduledTomorrow: "Imepangwa: Kesho",
+    viewAllPatients: "Tazama Wagonjwa Wote",
+    viewAllTasks: "Tazama Kazi Zote",
+    dischargeShareLow: "72% ya wanaoondoka",
+    dischargeShareMedium: "21% ya wanaoondoka",
+    dischargeShareHigh: "7% ya wanaoondoka",
+    dataQualityDashboard: "Dashibodi ya Ubora wa Data",
+    dataQualityInProgress: "Kipengele hiki kinaendelea kutengenezwa.",
+    backToDashboard: "Rudi Dashibodi",
+    dischargeWorkflowCompleted: "Mchakato wa kuondoka umekamilika.",
+
+    // Patient and risk
+    search: "Tafuta wagonjwa...",
+    viewDetails: "Tazama Maelezo",
+    patientProfile: "Wasifu wa Mgonjwa",
+    clinicalHistory: "Historia ya Matibabu",
+    riskFactors: "Sababu za Hatari",
+    lowRisk: "Hatari Ndogo",
+    mediumRisk: "Hatari ya Kati",
+    highRisk: "Hatari Kubwa",
+    riskScore: "Alama ya Hatari",
+    whyThisRisk: "Kwa Nini Alama Hii ya Hatari?",
+    riskSuffix: "Hatari",
+    ageShort: "m",
+
+    // Actions
+    completeDischarge: "Kamilisha Kuondoka",
+    assignTask: "Kabidhi Kazi",
+    scheduleFollowUp: "Panga Ufuatiliaji",
+    viewReport: "Tazama Ripoti",
+    exportData: "Hamisha Data",
+
+    // Discharge
+    dischargeWorkflow: "Mchakato wa Kuondoka",
+    clinicalReadiness: "Utayari wa Kimatibabu",
+    medicationReconciliation: "Upatanishaji wa Dawa",
+    patientEducation: "Elimu kwa Mgonjwa",
+    followUpPlan: "Mpango wa Ufuatiliaji",
+    referralCommunity: "Rufaa na Jamii",
+    dischargeSummary: "Muhtasari wa Kuondoka",
+
+    // Time
+    today: "Leo",
+    yesterday: "Jana",
+    lastWeek: "Wiki Iliyopita",
+    lastMonth: "Mwezi Uliopita",
+    last7Days: "Siku 7 Zilizopita",
+    last30Days: "Siku 30 Zilizopita",
+    last90Days: "Siku 90 Zilizopita",
+
+    // Status
+    pending: "Inasubiri",
+    completed: "Imekamilika",
+    overdue: "Imechelewa",
+    inProgress: "Inaendelea",
+
+    // Common
+    save: "Hifadhi",
+    cancel: "Ghairi",
+    close: "Funga",
+    edit: "Hariri",
+    delete: "Futa",
+    confirm: "Thibitisha",
+    back: "Rudi",
+    next: "Ifuatayo",
+    previous: "Iliyotangulia",
+    submit: "Wasilisha",
+    loading: "Inapakia...",
+    error: "Kosa",
+    success: "Imefanikiwa",
+
+    // Roles
+    mohAdmin: "Msimamizi wa Taifa wa Wizara ya Afya",
+    rhmt: "Timu ya Usimamizi wa Afya ya Mkoa",
+    chmt: "Timu ya Usimamizi wa Afya ya Wilaya",
+    facilityManager: "Meneja wa Kituo",
+    clinician: "Daktari / Afisa wa Kliniki",
+    nurse: "Muuguzi",
+    pharmacist: "Mfamasia",
+    hro: "Afisa wa Rekodi za Afya",
+    chw: "Mhudumu wa Afya ya Jamii",
+    mlEngineer: "Mhandisi wa AI / Msimamizi wa Data",
+
+    // Login
+    loginBackHome: "Rudi Nyumbani",
+    loginWelcomeBack: "Karibu Tena!",
+    loginIntro:
+      "Ingia TRIP kufuatilia matokeo, kutabiri kurudi hospitali, na kuboresha utoaji wa huduma.",
+    loginAIPowered: "Inaendeshwa na AI",
+    loginPredictionAccuracy: "Usahihi wa utabiri 84%",
+    loginSecure: "Salama",
+    loginEncryption: "Usimbaji wa 256-bit",
+    loginNationwide: "Nchi Nzima",
+    loginFacilitiesCount: "Vituo 150+",
+    loginStepSelectRole: "Chagua Wajibu",
+    loginStepSignIn: "Ingia",
+    loginSelectRoleTitle: "Chagua Wajibu Wako",
+    loginSelectRoleHelp: "Chagua wajibu wako ili kufungua dashibodi sahihi.",
+    loginContinue: "Endelea",
+    loginSignInTitle: "Ingia",
+    loginSignInAs: "Ingia kama",
+    loginEmailLabel: "Barua Pepe / Namba ya Mtumishi",
+    loginEmailPlaceholder: "staffid@moh.go.tz",
+    loginPasswordLabel: "Nenosiri",
+    loginRememberMe: "Nikumbuke",
+    loginForgotPassword: "Umesahau nenosiri?",
+    loginSigningIn: "Inaingia...",
+    loginSignInSecurely: "Ingia kwa Usalama",
+    loginChangeRole: "Badili Wajibu",
+    loginMfaBanner: "MFA inahitajika · SSO ipo tayari · Inatii ISO 27001",
+    loginNeedHelp: "Unahitaji msaada?",
+    loginContactSupport: "Wasiliana na Timu ya Usaidizi",
+
+    // Landing
+    landingNavFeatures: "Vipengele",
+    landingNavAbout: "Kuhusu",
+    landingNavTestimonials: "Maoni",
+    landingNavContact: "Mawasiliano",
+    landingSignIn: "Ingia",
+    landingGetStarted: "Anza",
+    landingBadgeMinistry: "Wizara ya Afya, Tanzania",
+    landingHeroTitlePrefix: "Zuia Kurudi Hospitali kwa",
+    landingHeroTitleHighlight: "Akili Inayoendeshwa na AI",
+    landingHeroDescription:
+      "TRIP husaidia wahudumu kutambua wagonjwa wa hatari kubwa, kuboresha mipango ya kuondoka, na kupunguza kurudi hospitali kunakozuilika nchini Tanzania.",
+    landingStartTrial: "Anza Jaribio Bure",
+    landingWatchDemo: "Tazama Onyesho",
+    landingTrustedBy: "Inaaminiwa na taasisi zinazoongoza za afya",
+    landingStatsReduction: "Upungufu wa Kurudi Hospitali",
+    landingStatsFacilities: "Vituo vya Afya",
+    landingStatsPatients: "Wagonjwa Wanaofuatiliwa",
+    landingStatsAccuracy: "Usahihi wa Utabiri",
+    landingFeaturesTitlePrefix: "Kila Unachohitaji ili",
+    landingFeaturesTitleHighlight: "Kupunguza Kurudi Hospitali",
+    landingFeaturesSubtitle:
+      "Zana kamili zilizoundwa kwa mfumo wa afya wa Tanzania.",
+    landingFeature1Title: "Utabiri wa Hatari kwa AI",
+    landingFeature1Desc:
+      "Mifano ya kujifunza kwa mashine huchambua data ya mgonjwa na kutabiri hatari ya kurudi hospitali kwa usahihi wa 84%.",
+    landingFeature2Title: "Msaada wa Maamuzi ya Kliniki",
+    landingFeature2Desc:
+      "Mapendekezo yanayotegemea ushahidi huongoza mpango wa kuondoka na hatua za kuzuia.",
+    landingFeature3Title: "Ufikiaji wa Ngazi Nyingi",
+    landingFeature3Desc:
+      "Dashibodi za wajibu tofauti kwa madaktari, wasimamizi, na viongozi wa afya.",
+    landingFeature4Title: "Uchambuzi wa Wakati Halisi",
+    landingFeature4Desc:
+      "Fuatilia mwelekeo wa kurudi hospitali, matokeo ya hatua, na viwango vya vituo.",
+    landingFeature5Title: "Uunganishaji na EMR",
+    landingFeature5Desc:
+      "Inaunganishwa bila usumbufu na mifumo iliyopo ya taarifa za hospitali.",
+    landingFeature6Title: "Msaada wa Lugha Nyingi",
+    landingFeature6Desc:
+      "Inapatikana kwa English na Kiswahili kwa vituo vya afya Tanzania.",
+    landingAboutTitlePrefix: "Imejengwa kwa",
+    landingAboutTitleHighlight: "Mfumo wa Afya wa Tanzania",
+    landingAboutDesc:
+      "TRIP imetengenezwa kwa ushirikiano na Wizara ya Afya kushughulikia changamoto halisi za huduma katika vituo tofauti.",
+    landingAboutBullet1: "Udhibiti wa usalama wa data unaolingana na HIPAA",
+    landingAboutBullet2: "Mtiririko wa kazi wa offline kwa vituo vya vijijini",
+    landingAboutBullet3: "Imeunganishwa na DHIS2 na HMIS ya taifa",
+    landingAboutBullet4: "Msaada wa saa 24/7 kwa English na Kiswahili",
+    landingPanelTitle: "Jukwaa la TRIP",
+    landingPanelVersion: "Toleo 2.3.0",
+    landingPanelRealtime: "Ufuatiliaji wa Wakati Halisi",
+    landingPanelActive: "Inaendelea",
+    landingPanelDataSecurity: "Usalama wa Data",
+    landingPanelUptime: "Upatikanaji",
+    landingTestimonialsTitlePrefix: "Inaaminiwa na",
+    landingTestimonialsTitleHighlight: "Wataalamu wa Afya",
+    landingTestimonialsSubtitle:
+      "Tazama yanayosemwa na watoa huduma kote Tanzania kuhusu TRIP.",
+    landingTestimonial1Quote:
+      "TRIP imebadilisha jinsi tunavyosimamia kuondoka. Utabiri wa AI hutusaidia kuelekeza rasilimali kwa wagonjwa wa hatari kubwa.",
+    landingTestimonial1Role: "Mkurugenzi wa Tiba, Hospitali ya Muhimbili",
+    landingTestimonial2Quote:
+      "Tumeona kupungua kwa kiasi kikubwa kwa kurudi hospitali kusikopangwa tangu tulipoanza TRIP.",
+    landingTestimonial2Role: "Mratibu wa Afya wa Mkoa",
+    landingTestimonial3Quote:
+      "Msaada wa lugha nyingi na kiolesura rahisi vinaifanya ifae kwa wahudumu wote wa afya.",
+    landingTestimonial3Role: "Meneja wa Uuguzi, Hospitali ya Temeke",
+    landingCtaTitle: "Uko Tayari Kupunguza Kurudi Hospitali?",
+    landingCtaDesc:
+      "Jiunge na vituo 150+ vinavyotumia TRIP kuboresha matokeo ya wagonjwa.",
+    landingCtaPrimary: "Anza Sasa",
+    landingCtaSecondary: "Wasiliana na Timu",
+    footerProduct: "Bidhaa",
+    footerCompany: "Kampuni",
+    footerSupport: "Msaada",
+    footerFeatures: "Vipengele",
+    footerPricing: "Bei",
+    footerSecurity: "Usalama",
+    footerIntegrations: "Uunganishaji",
+    footerAbout: "Kuhusu",
+    footerBlog: "Blogu",
+    footerCareers: "Ajira",
+    footerContact: "Mawasiliano",
+    footerHelpCenter: "Kituo cha Msaada",
+    footerDocumentation: "Nyaraka",
+    footerApiReference: "Marejeo ya API",
+    footerStatus: "Hali ya Mfumo",
+    footerPrivacyPolicy: "Sera ya Faragha",
+    footerTermsService: "Masharti ya Huduma",
+    footerCookiePolicy: "Sera ya Vidakuzi",
+    footerRights: "Haki zote zimehifadhiwa.",
+
+    // Notifications
+    notificationHighRiskPatient: "Mgonjwa wa Hatari Kubwa",
+    notificationHighRiskPatientBody:
+      "Amina Mwambungu anahitaji mpango wa kuondoka",
+    notificationFollowupDue: "Ufuatiliaji Unahitajika",
+    notificationFollowupDueBody: "Wagonjwa 12 wanahitaji simu ya siku 7",
+    notificationDataQualityImproved: "Ubora wa Data Umeimarika",
+    notificationDataQualityImprovedBody: "Data pungufu imeshuka 15% wiki hii",
+  },
 };
 
-export const getTranslation = (key, language = 'en') => {
-  return translations[language]?.[key] || translations.en[key] || key;
+export const getTranslation = (key, language = DEFAULT_LANGUAGE, fallback) => {
+  const candidates = [language, DEFAULT_LANGUAGE, "en"];
+
+  for (const candidate of candidates) {
+    const value = translations[candidate]?.[key];
+    if (value) {
+      return value;
+    }
+  }
+
+  return fallback || key;
 };
 
 export default translations;

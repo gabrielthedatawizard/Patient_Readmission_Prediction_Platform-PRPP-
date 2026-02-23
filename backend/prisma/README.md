@@ -32,6 +32,7 @@ Run from `backend/`:
 - Demo users (`<role>@trip.go.tz`)
 - 3 demo patients
 - 1 demo visit/prediction/task
+- Patient `clinicalProfile` JSON snapshots for model-ready feature parity
 
 Default demo password:
 `Trip@2026`
@@ -39,3 +40,4 @@ Default demo password:
 ## Notes
 - This phase adds DB schema, seed assets, and a Prisma-backed data provider.
 - If Prisma client generation or DB connection is unavailable, the backend falls back to in-memory mode.
+- Sync events are persisted through `AuditLog` rows with `action=sync_event`.
