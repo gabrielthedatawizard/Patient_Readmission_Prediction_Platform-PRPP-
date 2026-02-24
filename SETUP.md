@@ -4,7 +4,7 @@
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js**: Version 18.0.0 or higher
+- **Node.js**: Version 20.19+ (or newer LTS)
 - **npm**: Version 9.0.0 or higher (comes with Node.js)
 - **Git**: For version control
 - **Modern Web Browser**: Chrome, Firefox, Safari, or Edge (latest version)
@@ -12,7 +12,7 @@ Before you begin, ensure you have the following installed:
 ### Verify Installation
 
 ```bash
-node --version  # Should show v18.0.0 or higher
+node --version  # Should show v20.19+ or newer
 npm --version   # Should show 9.0.0 or higher
 git --version   # Should show any recent version
 ```
@@ -52,24 +52,24 @@ Edit `.env` and configure the following variables:
 
 ```env
 # API Configuration
-REACT_APP_API_URL=http://localhost:8000/api
-REACT_APP_ML_API_URL=http://localhost:8001/api
+VITE_API_URL=http://localhost:8000/api
+VITE_ML_API_URL=http://localhost:8001/api
 
 # Authentication
-REACT_APP_SSO_ENABLED=false
-REACT_APP_SSO_PROVIDER=keycloak
-REACT_APP_SSO_URL=
+VITE_SSO_ENABLED=false
+VITE_SSO_PROVIDER=keycloak
+VITE_SSO_URL=
 
 # Feature Flags
-REACT_APP_ENABLE_OFFLINE=true
-REACT_APP_ENABLE_CHW_MODULE=true
-REACT_APP_ENABLE_MODEL_OPS=true
+VITE_ENABLE_OFFLINE=true
+VITE_ENABLE_CHW_MODULE=true
+VITE_ENABLE_MODEL_OPS=true
 
 # Analytics
-REACT_APP_ANALYTICS_ID=
+VITE_ANALYTICS_ID=
 
 # Map Configuration (for facility maps)
-REACT_APP_MAP_API_KEY=
+VITE_MAP_API_KEY=
 ```
 
 ### 4. Start Development Server
@@ -96,8 +96,7 @@ This creates an optimized production build in the `build/` directory.
 ### Preview Production Build
 
 ```bash
-npm install -g serve
-serve -s build
+npm run preview
 ```
 
 ## Development Workflow
@@ -107,12 +106,6 @@ serve -s build
 ```bash
 # Run all tests
 npm test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests in watch mode
-npm test -- --watch
 ```
 
 ### Code Quality
@@ -156,7 +149,7 @@ trip-platform/
 lsof -ti:3000 | xargs kill -9
 
 # Or use a different port
-PORT=3001 npm start
+npm run dev -- --port 3001
 ```
 
 ### Issue: Module not found errors
@@ -172,8 +165,8 @@ npm install
 
 **Solution:**
 ```bash
-# Rebuild Tailwind CSS
-npm run build:css
+# Restart the dev server to reload Vite and Tailwind
+npm start
 ```
 
 ## Browser Compatibility
@@ -213,7 +206,7 @@ Sometimes cached files can cause issues:
 
 ```bash
 node --version
-# If version is < 18, upgrade Node.js
+# If version is below 20.19, upgrade Node.js
 ```
 
 ## Next Steps

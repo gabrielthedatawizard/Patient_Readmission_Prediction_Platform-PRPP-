@@ -4,7 +4,7 @@ This repository is configured to deploy **frontend + backend API** together on V
 
 ## Architecture
 
-- Frontend: Create React App static build (`build/`)
+- Frontend: Vite static build (`build/`)
 - Backend: Express API via Vercel Serverless Function (`api/index.js`)
 - API base path: `/api`
 - Default data mode: in-memory (`TRIP_DATA_PROVIDER=memory`)
@@ -16,14 +16,14 @@ This repository is configured to deploy **frontend + backend API** together on V
   - Builds API from `api/index.js`
   - Routes `/api/*` to Express
   - SPA fallback routes to `index.html`
-  - Uses Node.js 20 runtime for the API function
+  - Uses Vercel Node.js serverless runtime defaults for the API function
 - `backend/server.js`
   - Exports Express app for local + serverless use
   - Supports Vercel hostnames in CORS automatically
   - Treats `dotenv` as optional at runtime
 - `.env.production`
   - Frontend API points to `/api`
-  - Build disables CRA ESLint plugin (`DISABLE_ESLINT_PLUGIN=true`) to avoid CI warning failures
+  - Frontend variables use `VITE_` prefixes
 
 ## 1. Local Verification
 
@@ -72,7 +72,7 @@ Recommended:
 
 Optional frontend override:
 
-- `REACT_APP_API_URL=/api`
+- `VITE_API_URL=/api`
 
 ## 4. Post-Deployment Checks
 

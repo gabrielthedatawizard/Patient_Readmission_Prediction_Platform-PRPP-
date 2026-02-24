@@ -84,8 +84,8 @@ npm start
 ### Frontend (.env)
 Copy `.env.example` and customize:
 ```
-REACT_APP_API_BASE_URL=http://localhost:5000
-REACT_APP_ENV=development
+VITE_API_BASE_URL=http://localhost:5000
+VITE_ENV=development
 ```
 
 ### Backend (.env)
@@ -146,7 +146,7 @@ JWT_SECRET=your_secret_key_here
 ### Frontend Configuration
 Update `src/utils/api.js`:
 ```javascript
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 ```
 
 ### Backend Endpoints

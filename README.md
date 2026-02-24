@@ -155,7 +155,7 @@ trip-platform/
 
 ### Prerequisites
 
-- **Node.js**: v18+ 
+- **Node.js**: v20.19+ (or newer LTS)
 - **npm** or **yarn**
 - **Modern browser**: Chrome, Firefox, Safari, Edge
 
@@ -235,14 +235,11 @@ Adding new languages:
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Frontend test placeholder (no frontend tests configured yet)
 npm test
 
-# Run with coverage
-npm run test:coverage
-
-# E2E tests
-npm run test:e2e
+# Run backend unit tests
+cd backend && npm test
 ```
 
 ## 📦 Building for Production

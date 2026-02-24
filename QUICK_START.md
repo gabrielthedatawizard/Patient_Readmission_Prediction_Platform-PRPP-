@@ -128,7 +128,7 @@ The frontend is ready to connect to backend APIs. See:
 - `src/utils/api.js` - API client template
 - `.env.example` - Configuration options
 
-Currently using **mock data** for demo purposes (set `REACT_APP_MOCK_API=true`).
+Currently using **mock data** for demo purposes (set `VITE_MOCK_API=true`).
 
 ## 📚 Documentation
 
@@ -144,8 +144,8 @@ Currently using **mock data** for demo purposes (set `REACT_APP_MOCK_API=true`).
 
 ```bash
 npm start          # Start development server
-npm build          # Create production build
-npm test           # Run tests
+npm run build      # Create production build
+npm test           # Placeholder (no frontend tests configured yet)
 npm run lint       # Check code quality
 npm run format     # Format code with Prettier
 ```

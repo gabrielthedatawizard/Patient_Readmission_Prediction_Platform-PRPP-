@@ -20,6 +20,12 @@
       }
     },
     {
+      "src": "/assets/(.*)",
+      "headers": {
+        "cache-control": "s-maxage=31536000,immutable"
+      }
+    },
+    {
       "handle": "filesystem"
     },
     {
@@ -28,6 +34,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "/api"
+    "VITE_API_URL": "/api"
   }
 }
