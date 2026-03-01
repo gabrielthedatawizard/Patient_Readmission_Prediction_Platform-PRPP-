@@ -1,88 +1,120 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, Filter, Download, ChevronRight, 
-  User, Calendar, AlertCircle, CheckCircle, Clock
-} from 'lucide-react';
-import Card from '../common/Card';
-import Badge from '../common/Badge';
-import Button from '../common/Button';
-import RiskScoreDisplay from '../common/RiskScoreDisplay';
-import { SAMPLE_PATIENTS } from '../../data/patients';
+import React, { useMemo, useState } from "react";
+import {
+  Search,
+  Download,
+  User,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+} from "lucide-react";
+import Card from "../common/Card";
+import Badge from "../common/Badge";
+import Button from "../common/Button";
+import RiskScoreDisplay from "../common/RiskScoreDisplay";
 
 /**
  * Patients List Component
  * Searchable and filterable patient list with risk indicators
  */
 
-const PatientsList = ({ onPatientSelect }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [riskFilter, setRiskFilter] = useState('all');
-  const [wardFilter, setWardFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('risk'); // risk, name, admission
+const PatientsList = ({ onPatientSelect, patients = [] }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [wardFilter, setWardFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("risk"); // risk, name, admission
 
-  // Get unique wards from patients
   const wards = useMemo(() => {
-    const wardSet = new Set(SAMPLE_PATIENTS.map(p => p.ward));
-    return ['all', ...Array.from(wardSet)];
-  }, []);
+    const wardSet = new Set(
+      patients
+        .map((patient) => patient.ward)
+        .filter((value) => value && String(value).trim().length > 0),
+    );
+    return ["all", ...Array.from(wardSet)];
+  }, [patients]);
 
-  // Filter and sort patients
   const filteredPatients = useMemo(() => {
-    let filtered = [...SAMPLE_PATIENTS];
+    let filtered = [...patients];
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(query) ||
-        p.id.toLowerCase().includes(query) ||
-        p.mrn.toLowerCase().includes(query) ||
-        p.diagnosis.primary.toLowerCase().includes(query)
+      filtered = filtered.filter((patient) => {
+        return (
+          String(patient.name || "")
+            .toLowerCase()
+            .includes(query) ||
+          String(patient.id || "")
+            .toLowerCase()
+            .includes(query) ||
+          String(patient.mrn || "")
+            .toLowerCase()
+            .includes(query) ||
+          String(patient.diagnosis?.primary || "")
+            .toLowerCase()
+            .includes(query)
+        );
+      });
+    }
+
+    if (riskFilter !== "all") {
+      filtered = filtered.filter(
+        (patient) => String(patient.riskTier || "").toLowerCase() === riskFilter,
       );
     }
 
-    // Risk filter
-    if (riskFilter !== 'all') {
-      filtered = filtered.filter(p => p.riskTier.toLowerCase() === riskFilter);
+    if (wardFilter !== "all") {
+      filtered = filtered.filter((patient) => patient.ward === wardFilter);
     }
 
-    // Ward filter
-    if (wardFilter !== 'all') {
-      filtered = filtered.filter(p => p.ward === wardFilter);
-    }
-
-    // Sort
     switch (sortBy) {
-      case 'risk':
-        filtered.sort((a, b) => b.riskScore - a.riskScore);
+      case "risk":
+        filtered.sort(
+          (first, second) =>
+            Number(second.riskScore || 0) - Number(first.riskScore || 0),
+        );
         break;
-      case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
+      case "name":
+        filtered.sort((first, second) =>
+          String(first.name || "").localeCompare(String(second.name || "")),
+        );
         break;
-      case 'admission':
-        filtered.sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate));
+      case "admission":
+        filtered.sort(
+          (first, second) =>
+            new Date(second.admissionDate || 0) - new Date(first.admissionDate || 0),
+        );
         break;
       default:
         break;
     }
 
     return filtered;
-  }, [searchQuery, riskFilter, wardFilter, sortBy]);
+  }, [patients, searchQuery, riskFilter, wardFilter, sortBy]);
 
-  // Statistics
-  const stats = useMemo(() => ({
-    total: SAMPLE_PATIENTS.length,
-    high: SAMPLE_PATIENTS.filter(p => p.riskTier === 'High').length,
-    medium: SAMPLE_PATIENTS.filter(p => p.riskTier === 'Medium').length,
-    low: SAMPLE_PATIENTS.filter(p => p.riskTier === 'Low').length,
-    pendingTasks: SAMPLE_PATIENTS.reduce((acc, p) => 
-      acc + (p.interventionsNeeded?.filter(i => i.status !== 'completed').length || 0), 0
-    )
-  }), []);
+  const stats = useMemo(
+    () => ({
+      total: patients.length,
+      high: patients.filter((patient) => patient.riskTier === "High").length,
+      medium: patients.filter((patient) => patient.riskTier === "Medium").length,
+      low: patients.filter((patient) => patient.riskTier === "Low").length,
+      pendingTasks: patients.reduce(
+        (accumulator, patient) =>
+          accumulator +
+          ((patient.interventionsNeeded || []).filter(
+            (intervention) => intervention.status !== "completed",
+          ).length || 0),
+        0,
+      ),
+    }),
+    [patients],
+  );
 
   const getStatusIcon = (patient) => {
-    const pendingCount = patient.interventionsNeeded?.filter(i => i.status !== 'completed').length || 0;
-    if (patient.riskTier === 'High' && pendingCount > 0) {
+    const pendingCount =
+      patient.interventionsNeeded?.filter(
+        (intervention) => intervention.status !== "completed",
+      ).length || 0;
+    if (patient.riskTier === "High" && pendingCount > 0) {
       return <AlertCircle className="w-5 h-5 text-red-500" />;
     }
     if (pendingCount === 0) {
@@ -92,31 +124,34 @@ const PatientsList = ({ onPatientSelect }) => {
   };
 
   const getStatusText = (patient) => {
-    const pendingCount = patient.interventionsNeeded?.filter(i => i.status !== 'completed').length || 0;
-    if (patient.riskTier === 'High' && pendingCount > 0) {
+    const pendingCount =
+      patient.interventionsNeeded?.filter(
+        (intervention) => intervention.status !== "completed",
+      ).length || 0;
+    if (patient.riskTier === "High" && pendingCount > 0) {
       return `${pendingCount} tasks pending`;
     }
     if (pendingCount === 0) {
-      return 'Ready for discharge';
+      return "Ready for discharge";
     }
     return `${pendingCount} tasks pending`;
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-600 mt-1">Manage and monitor patient readmission risk</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Patients</h1>
+          <p className="text-gray-600 mt-1">
+            Manage and monitor patient readmission risk
+          </p>
         </div>
         <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
           Export List
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <Card className="p-4" hover={false}>
           <p className="text-sm text-gray-500">Total Patients</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
@@ -139,26 +174,23 @@ const PatientsList = ({ onPatientSelect }) => {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1 relative">
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by name, ID, MRN, or diagnosis..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none"
             />
           </div>
 
-          {/* Risk Filter */}
           <select
             value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
-            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            onChange={(event) => setRiskFilter(event.target.value)}
+            className="w-full lg:w-auto px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
           >
             <option value="all">All Risk Levels</option>
             <option value="high">High Risk</option>
@@ -166,23 +198,25 @@ const PatientsList = ({ onPatientSelect }) => {
             <option value="low">Low Risk</option>
           </select>
 
-          {/* Ward Filter */}
           <select
             value={wardFilter}
-            onChange={(e) => setWardFilter(e.target.value)}
-            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            onChange={(event) => setWardFilter(event.target.value)}
+            className="w-full lg:w-auto px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
           >
             <option value="all">All Wards</option>
-            {wards.filter(w => w !== 'all').map(ward => (
-              <option key={ward} value={ward}>{ward}</option>
-            ))}
+            {wards
+              .filter((ward) => ward !== "all")
+              .map((ward) => (
+                <option key={ward} value={ward}>
+                  {ward}
+                </option>
+              ))}
           </select>
 
-          {/* Sort */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            onChange={(event) => setSortBy(event.target.value)}
+            className="w-full lg:w-auto px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
           >
             <option value="risk">Sort by Risk</option>
             <option value="name">Sort by Name</option>
@@ -191,18 +225,17 @@ const PatientsList = ({ onPatientSelect }) => {
         </div>
       </Card>
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <p className="text-sm text-gray-600">
-          Showing <span className="font-semibold">{filteredPatients.length}</span> of{' '}
-          <span className="font-semibold">{SAMPLE_PATIENTS.length}</span> patients
+          Showing <span className="font-semibold">{filteredPatients.length}</span>{" "}
+          of <span className="font-semibold">{patients.length}</span> patients
         </p>
-        {(searchQuery || riskFilter !== 'all' || wardFilter !== 'all') && (
+        {(searchQuery || riskFilter !== "all" || wardFilter !== "all") && (
           <button
             onClick={() => {
-              setSearchQuery('');
-              setRiskFilter('all');
-              setWardFilter('all');
+              setSearchQuery("");
+              setRiskFilter("all");
+              setWardFilter("all");
             }}
             className="text-sm text-teal-600 hover:text-teal-700 font-medium"
           >
@@ -211,29 +244,26 @@ const PatientsList = ({ onPatientSelect }) => {
         )}
       </div>
 
-      {/* Patient List */}
       <div className="space-y-3">
         {filteredPatients.map((patient) => (
-          <Card 
-            key={patient.id} 
+          <Card
+            key={patient.id}
             className="p-4 hover:border-teal-300 cursor-pointer transition-all"
             onClick={() => onPatientSelect(patient)}
           >
-            <div className="flex items-start gap-4">
-              {/* Risk Score */}
-              <RiskScoreDisplay 
-                score={patient.riskScore} 
-                tier={patient.riskTier} 
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <RiskScoreDisplay
+                score={patient.riskScore}
+                tier={patient.riskTier}
                 size="sm"
                 showBadge={false}
               />
 
-              {/* Patient Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap mb-2">
                   <h3 className="font-bold text-gray-900">{patient.name}</h3>
                   <Badge variant="default">{patient.id}</Badge>
-                  <Badge variant={patient.riskTier.toLowerCase()}>
+                  <Badge variant={String(patient.riskTier).toLowerCase()}>
                     {patient.riskTier} Risk
                   </Badge>
                 </div>
@@ -243,62 +273,45 @@ const PatientsList = ({ onPatientSelect }) => {
                     <User className="w-4 h-4" />
                     {patient.age}y · {patient.gender}
                   </span>
-                  <span>{patient.ward}</span>
+                  <span>{patient.ward || "Ward not assigned"}</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    Admitted: {new Date(patient.admissionDate).toLocaleDateString()}
+                    Admitted:{" "}
+                    {patient.admissionDate
+                      ? new Date(patient.admissionDate).toLocaleDateString()
+                      : "N/A"}
                   </span>
-                  <span>LOS: {patient.lengthOfStay} days</span>
+                  <span>LOS: {patient.lengthOfStay || 0} days</span>
                 </div>
 
-                <p className="text-sm font-medium text-gray-700 truncate">
-                  {patient.diagnosis.primary}
-                  {patient.diagnosis.secondary?.length > 0 && (
+                <p className="text-sm font-medium text-gray-700 break-words">
+                  {patient.diagnosis?.primary || "Diagnosis pending"}
+                  {patient.diagnosis?.secondary?.length > 0 && (
                     <span className="text-gray-500">
-                      {' · '}{patient.diagnosis.secondary.join(', ')}
-                  </span>
+                      {" · "}
+                      {patient.diagnosis.secondary.join(", ")}
+                    </span>
                   )}
                 </p>
-
-                {/* Status Bar */}
-                <div className="flex items-center gap-2 mt-3">
-                  {getStatusIcon(patient)}
-                  <span className="text-sm text-gray-600">{getStatusText(patient)}</span>
-                  
-                  {/* Intervention badges */}
-                  {patient.interventionsNeeded?.slice(0, 3).map((intervention, idx) => (
-                    <Badge 
-                      key={idx}
-                      variant={intervention.priority === 'high' ? 'danger' : 'warning'}
-                      size="sm"
-                    >
-                      {intervention.type.replace(/-/g, ' ')}
-                    </Badge>
-                  ))}
-                  {(patient.interventionsNeeded?.length || 0) > 3 && (
-                    <Badge variant="default" size="sm">
-                      +{patient.interventionsNeeded.length - 3} more
-                    </Badge>
-                  )}
-                </div>
               </div>
 
-              {/* Arrow */}
-              <div className="self-center">
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+              <div className="flex flex-col sm:items-end gap-2">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(patient)}
+                  <span className="text-xs font-medium text-gray-600">
+                    {getStatusText(patient)}
+                  </span>
+                </div>
               </div>
             </div>
           </Card>
         ))}
 
-        {/* Empty State */}
         {filteredPatients.length === 0 && (
-          <Card className="p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No patients found</h3>
-            <p className="text-gray-600">Try adjusting your search or filters</p>
+          <Card className="p-10 text-center">
+            <p className="text-sm text-gray-600">
+              No patients match your current filters.
+            </p>
           </Card>
         )}
       </div>

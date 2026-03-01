@@ -178,8 +178,8 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         </p>
       </div>
 
-      <div className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg border-2 border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[760px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Medication</th>
@@ -335,7 +335,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[
           { key: 'day3Call', label: 'Day 3 Phone Call', days: 3 },
           { key: 'day7Call', label: 'Day 7 Phone Call', days: 7 },
@@ -513,7 +513,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-4 bg-gray-50 rounded-lg">
           <p className="text-xs text-gray-500 mb-1">Patient</p>
           <p className="font-semibold text-gray-900">{patient?.name}</p>
@@ -582,16 +582,16 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <Button variant="ghost" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>
           Back
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Discharge Workflow</h1>
           {patient && (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
               {patient.name} · {patient.id} · 
-              <Badge variant={patient.riskTier.toLowerCase()} className="ml-2">
+              <Badge variant={patient.riskTier.toLowerCase()}>
                 {patient.riskTier} Risk
               </Badge>
             </p>
@@ -600,8 +600,9 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </div>
 
       {/* Progress Stepper */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
+      <Card className="p-4 sm:p-6">
+        <div className="overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[720px]">
           {steps.map((step, idx) => {
             const Icon = step.icon;
             const isCompleted = completedSteps.includes(idx);
@@ -636,11 +637,12 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
               </div>
             );
           })}
+          </div>
         </div>
       </Card>
 
       {/* Step Content */}
-      <Card className="p-6 min-h-96">
+      <Card className="p-4 sm:p-6 min-h-96">
         <h2 className="text-xl font-bold text-gray-900 mb-6">
           {steps[currentStep].label}
         </h2>
@@ -648,7 +650,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </Card>
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
         <Button
           variant="ghost"
           onClick={goPrevious}
@@ -658,7 +660,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           Previous
         </Button>
 
-        <div className="flex gap-3">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-3">
           <Button
             variant="secondary"
             onClick={() => markStepComplete(currentStep)}

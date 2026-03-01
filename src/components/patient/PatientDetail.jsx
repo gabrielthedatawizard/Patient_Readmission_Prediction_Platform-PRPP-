@@ -63,26 +63,24 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
       </Button>
 
       {/* Patient Header */}
-      <Card className="p-6" gradient>
+      <Card className="p-4 sm:p-6" gradient>
         <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
-          <div className="flex items-start gap-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl flex items-center justify-center shadow-xl">
+          <div className="flex items-start gap-4 sm:gap-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl flex items-center justify-center shadow-xl">
               <User className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{patient.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{patient.name}</h1>
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge variant="default">{patient.id}</Badge>
                 <Badge variant="default">MRN: {patient.mrn}</Badge>
-                <span className="text-gray-600">·</span>
                 <span className="text-sm font-medium text-gray-700">
                   {patient.age} years · {patient.gender}
                 </span>
-                <span className="text-gray-600">·</span>
                 <Badge variant="primary">{patient.ward}</Badge>
                 {patient.bed && <Badge variant="secondary">Bed {patient.bed}</Badge>}
               </div>
-              <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
                   {patient.facility}
@@ -101,7 +99,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
           <RiskScoreDisplay 
             score={patient.riskScore} 
             tier={patient.riskTier} 
-            size="lg" 
+            size="md" 
           />
         </div>
 
@@ -128,7 +126,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Risk Explanation */}
-        <Card className="lg:col-span-2 p-6">
+        <Card className="lg:col-span-2 p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-6">
             <Info className="w-5 h-5 text-teal-600" />
             <h2 className="text-xl font-bold text-gray-900">Why This Risk Score?</h2>
@@ -242,7 +240,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
         </Card>
 
         {/* Recommended Interventions */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-6">What To Do Now</h2>
           
           <div className="space-y-4">
@@ -314,7 +312,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
       {/* Clinical History & Vitals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Clinical History */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
             <Activity className="w-5 h-5 text-teal-600" />
             Clinical History
@@ -349,7 +347,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
         </Card>
 
         {/* Current Vitals & Labs */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
             <Activity className="w-5 h-5 text-teal-600" />
             Current Vitals & Labs
@@ -382,7 +380,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
           {patient.labs && (
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Lab Values</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(patient.labs).map(([key, value]) => (
                   value !== null && key !== 'lastUpdated' && (
                     <div key={key} className="p-3 bg-gray-50 rounded-lg">
@@ -400,7 +398,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Current Medications</h3>
               <div className="space-y-2">
                 {patient.medications.map((med, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium text-gray-700">{med.name}</span>
                     <span className="text-xs text-gray-500">{med.dose} · {med.frequency}</span>
                   </div>
@@ -413,7 +411,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
 
       {/* Social History */}
       {patient.socialHistory && (
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <PhoneCall className="w-5 h-5 text-teal-600" />
             Social History

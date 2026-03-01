@@ -71,14 +71,14 @@ const Analytics = () => {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics & Benchmarking</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics & Benchmarking</h1>
           <p className="text-gray-600 mt-1">Performance metrics and facility comparison</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            className="w-full sm:w-auto px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
           >
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
@@ -129,7 +129,7 @@ const Analytics = () => {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <div className="flex gap-6">
+        <div className="flex gap-6 overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: BarChart3 },
             { id: 'facilities', label: 'Facility Comparison', icon: Building2 },
@@ -138,7 +138,7 @@ const Analytics = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-4 px-2 font-medium transition-colors relative ${
+              className={`flex items-center gap-2 pb-4 px-2 font-medium transition-colors relative whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'text-teal-600'
                   : 'text-gray-500 hover:text-gray-700'
@@ -342,7 +342,7 @@ const Analytics = () => {
             </table>
           </div>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <Button variant="secondary" icon={<FileText className="w-4 h-4" />}>
               Generate Report
             </Button>

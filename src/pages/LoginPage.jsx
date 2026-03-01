@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
+import { login as loginRequest, normalizeRoleForBackend } from "../services/apiClient";
 
 const LoginPage = ({ onLogin, onBack }) => {
   const [email, setEmail] = useState("");
@@ -50,10 +51,28 @@ const LoginPage = ({ onLogin, onBack }) => {
     setError("");
     setIsLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const session = await loginRequest({
+        email: email.trim().toLowerCase(),
+        password,
+        rememberMe
+      });
 
-    setIsLoading(false);
-    onLogin(selectedRole);
+      setIsLoading(false);
+      onLogin(session);
+    } catch (requestError) {
+      setIsLoading(false);
+      setError(requestError?.message || "Unable to sign in. Please try again.");
+    }
+  };
+
+  const applyDemoRoleHint = (roleId) => {
+    const backendRole = normalizeRoleForBackend(roleId);
+    setSelectedRole(roleId);
+
+    if (!email) {
+      setEmail(`${backendRole}@trip.go.tz`);
+    }
   };
 
   return (
@@ -66,7 +85,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
       <div className="w-full max-w-5xl relative z-10">
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-          <div className="lg:w-5/12 bg-gradient-to-br from-teal-500 to-teal-700 p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+          <div className="lg:w-5/12 bg-gradient-to-br from-teal-500 to-teal-700 p-6 sm:p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
 
@@ -140,8 +159,8 @@ const LoginPage = ({ onLogin, onBack }) => {
             </div>
           </div>
 
-          <div className="lg:w-7/12 p-8 lg:p-12">
-            <div className="flex items-center gap-4 mb-8">
+          <div className="lg:w-7/12 p-5 sm:p-8 lg:p-12">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-8">
               <div
                 className={`flex items-center gap-2 ${currentStep === 1 ? "text-teal-600" : "text-gray-400"}`}
               >
@@ -158,7 +177,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                   {t("loginStepSelectRole")}
                 </span>
               </div>
-              <div className="flex-1 h-px bg-gray-200" />
+              <div className="hidden sm:block flex-1 h-px bg-gray-200" />
               <div
                 className={`flex items-center gap-2 ${currentStep === 2 ? "text-teal-600" : "text-gray-400"}`}
               >
@@ -184,11 +203,11 @@ const LoginPage = ({ onLogin, onBack }) => {
                 </h2>
                 <p className="text-gray-600 mb-6">{t("loginSelectRoleHelp")}</p>
 
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                   {roles.map((role) => (
                     <button
                       key={role.id}
-                      onClick={() => setSelectedRole(role.id)}
+                      onClick={() => applyDemoRoleHint(role.id)}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${
                         selectedRole === role.id
                           ? "border-teal-500 bg-teal-50"
@@ -284,7 +303,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"

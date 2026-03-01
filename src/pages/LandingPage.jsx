@@ -219,7 +219,7 @@ const LandingPage = ({ onLogin }) => {
         )}
       </nav>
 
-      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
+      <section className="relative pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
           <div className="absolute top-1/2 -left-40 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl" />
@@ -235,14 +235,14 @@ const LandingPage = ({ onLogin }) => {
               </span>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
               {t("landingHeroTitlePrefix")}{" "}
               <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">
                 {t("landingHeroTitleHighlight")}
               </span>
             </h1>
 
-            <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
               {t("landingHeroDescription")}
             </p>
 
@@ -283,9 +283,9 @@ const LandingPage = ({ onLogin }) => {
         </div>
       </section>
 
-      <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
+      <section className="py-12 sm:py-16 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 sm:gap-8">
             {stats.map((stat, idx) => (
               <div key={idx} className="text-center">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-teal-100 rounded-xl mb-4">
@@ -301,9 +301,9 @@ const LandingPage = ({ onLogin }) => {
         </div>
       </section>
 
-      <section id="features" className="py-20 lg:py-32">
+      <section id="features" className="py-16 sm:py-20 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
+          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               {t("landingFeaturesTitlePrefix")}{" "}
               <span className="text-teal-600">
@@ -319,7 +319,7 @@ const LandingPage = ({ onLogin }) => {
             {features.map((feature, idx) => (
               <div
                 key={idx}
-                className="group p-8 bg-white rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-xl transition-all duration-300"
+                className="group p-6 sm:p-8 bg-white rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-xl transition-all duration-300"
               >
                 <div
                   className={`w-14 h-14 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center shadow-lg mb-6 group-hover:scale-110 transition-transform`}
@@ -338,9 +338,9 @@ const LandingPage = ({ onLogin }) => {
         </div>
       </section>
 
-      <section id="about" className="py-20 bg-gray-50">
+      <section id="about" className="py-16 sm:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
                 {t("landingAboutTitlePrefix")}{" "}
@@ -425,7 +425,7 @@ const LandingPage = ({ onLogin }) => {
         </div>
       </section>
 
-      <section id="testimonials" className="py-20 lg:py-32">
+      <section id="testimonials" className="py-16 sm:py-20 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -443,7 +443,7 @@ const LandingPage = ({ onLogin }) => {
             {testimonials.map((testimonial, idx) => (
               <div
                 key={idx}
-                className="p-8 bg-white rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow"
+              className="p-6 sm:p-8 bg-white rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow"
               >
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
@@ -473,7 +473,7 @@ const LandingPage = ({ onLogin }) => {
         </div>
       </section>
 
-      <section className="py-20 bg-gradient-to-br from-teal-500 to-teal-700">
+      <section className="py-16 sm:py-20 bg-gradient-to-br from-teal-500 to-teal-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             {t("landingCtaTitle")}
