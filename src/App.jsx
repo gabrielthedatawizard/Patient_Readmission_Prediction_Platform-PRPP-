@@ -441,15 +441,15 @@ const App = () => {
             {patients.slice(0, 4).map((patient) => (
               <div
                 key={patient.id}
-                className="p-4 border-2 border-gray-100 rounded-lg hover:border-teal-200 hover:bg-teal-50/30 transition-all cursor-pointer"
+                className="p-4 border-2 border-gray-100 rounded-lg hover:border-teal-200 hover:bg-teal-50/30 transition-all cursor-pointer overflow-hidden"
                 onClick={() => {
                   setSelectedPatient(patient);
                   setCurrentView("patient-detail");
                 }}
               >
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-col gap-4 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                       <h3 className="font-bold text-gray-900">
                         {patient.name}
                       </h3>
@@ -462,7 +462,7 @@ const App = () => {
                       {patient.age}
                       {t("ageShort")} · {patient.gender} · {patient.ward}
                     </p>
-                    <p className="text-sm font-medium text-gray-700">
+                    <p className="text-sm font-medium text-gray-700 break-words">
                       {patient.diagnosis?.primary || "Diagnosis pending"}
                     </p>
 
@@ -484,13 +484,18 @@ const App = () => {
                         ))}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between md:justify-end gap-4 md:pl-4">
-                    <RiskScoreDisplay
-                      score={patient.riskScore}
-                      tier={patient.riskTier}
-                      size="sm"
-                    />
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 font-medium">Risk score</p>
+                    <div className="flex items-center gap-3">
+                      <RiskScoreDisplay
+                        score={patient.riskScore}
+                        tier={patient.riskTier}
+                        size="sm"
+                        showBadge={false}
+                      />
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </div>
                   </div>
                 </div>
               </div>
