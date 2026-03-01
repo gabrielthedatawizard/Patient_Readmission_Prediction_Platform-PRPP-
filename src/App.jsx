@@ -572,7 +572,7 @@ const App = () => {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="text-center p-6 bg-emerald-50 rounded-xl border-2 border-emerald-200">
-            <p className="text-4xl font-bold text-emerald-700 mb-2">
+            <p className="text-3xl sm:text-4xl font-bold text-emerald-700 mb-2">
               {dashboardStats.lowRiskCount}
             </p>
             <p className="text-sm font-semibold text-emerald-600">
@@ -583,7 +583,7 @@ const App = () => {
             </p>
           </div>
           <div className="text-center p-6 bg-amber-50 rounded-xl border-2 border-amber-200">
-            <p className="text-4xl font-bold text-amber-700 mb-2">
+            <p className="text-3xl sm:text-4xl font-bold text-amber-700 mb-2">
               {dashboardStats.mediumRiskCount}
             </p>
             <p className="text-sm font-semibold text-amber-600">
@@ -594,7 +594,7 @@ const App = () => {
             </p>
           </div>
           <div className="text-center p-6 bg-red-50 rounded-xl border-2 border-red-200">
-            <p className="text-4xl font-bold text-red-700 mb-2">
+            <p className="text-3xl sm:text-4xl font-bold text-red-700 mb-2">
               {dashboardStats.highRiskCount}
             </p>
             <p className="text-sm font-semibold text-red-600">
@@ -612,8 +612,8 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden">
       <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-3 sm:gap-4">
+        <div className="px-3 sm:px-6">
+          <div className="h-16 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
@@ -696,9 +696,6 @@ const App = () => {
               </div>
             </div>
           </div>
-          <div className="md:hidden mt-2 text-xs text-gray-600 truncate">
-            {selectedFacility.region} · {selectedFacility.name}
-          </div>
         </div>
       </div>
 
@@ -708,15 +705,15 @@ const App = () => {
             type="button"
             aria-label="Close navigation"
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="lg:hidden fixed inset-0 top-[73px] bg-gray-900/30 z-30"
+            className="lg:hidden fixed inset-0 top-16 bg-gray-900/30 z-30"
           />
         )}
         <div
           className={`
           bg-white border-r-2 border-gray-200 transition-all duration-300
-          fixed top-[73px] bottom-0 left-0 z-40 overflow-y-auto
-          w-72 transform ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0 lg:sticky lg:top-[73px] lg:bottom-auto
+          fixed top-16 bottom-0 left-0 z-40 overflow-y-auto
+          w-[86vw] max-w-xs transform ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:w-auto lg:max-w-none lg:translate-x-0 lg:sticky lg:top-16 lg:bottom-auto
           ${sidebarCollapsed ? "lg:w-20" : "lg:w-64"}
         `}
         >
@@ -743,7 +740,7 @@ const App = () => {
                   `}
                 >
                   <Icon className="w-5 h-5" />
-                  {!sidebarCollapsed && (
+                  {(!sidebarCollapsed || isMobileSidebarOpen) && (
                     <span className="font-medium text-sm">{item.label}</span>
                   )}
                 </button>
@@ -751,7 +748,7 @@ const App = () => {
             })}
           </nav>
 
-          {!sidebarCollapsed && (
+          {(!sidebarCollapsed || isMobileSidebarOpen) && (
             <div className="p-4 mt-4 border-t-2 border-gray-200">
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all">
                 <Settings className="w-5 h-5" />

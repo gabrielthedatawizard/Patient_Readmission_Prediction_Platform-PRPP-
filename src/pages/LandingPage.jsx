@@ -91,15 +91,15 @@ const LandingPage = ({ onLogin }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
                 <Activity className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">TRIP</span>
+              <span className="text-lg sm:text-xl font-bold text-gray-900">TRIP</span>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
@@ -221,9 +221,9 @@ const LandingPage = ({ onLogin }) => {
 
       <section className="relative pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 right-1/4 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
+          <div className="hidden sm:block absolute -top-40 -right-40 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 -left-40 w-72 sm:w-96 h-72 sm:h-96 bg-blue-400/20 rounded-full blur-3xl" />
+          <div className="hidden sm:block absolute -bottom-40 right-1/4 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -371,7 +371,7 @@ const LandingPage = ({ onLogin }) => {
 
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-blue-500 rounded-3xl transform rotate-3 opacity-10" />
-              <div className="relative bg-white p-8 rounded-3xl shadow-xl">
+              <div className="relative bg-white p-6 sm:p-8 rounded-3xl shadow-xl">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl flex items-center justify-center">
                     <Activity className="w-8 h-8 text-white" />
@@ -475,10 +475,10 @@ const LandingPage = ({ onLogin }) => {
 
       <section className="py-16 sm:py-20 bg-gradient-to-br from-teal-500 to-teal-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-6">
             {t("landingCtaTitle")}
           </h2>
-          <p className="text-xl text-teal-100 mb-10">{t("landingCtaDesc")}</p>
+          <p className="text-lg sm:text-xl text-teal-100 mb-10">{t("landingCtaDesc")}</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onLogin}

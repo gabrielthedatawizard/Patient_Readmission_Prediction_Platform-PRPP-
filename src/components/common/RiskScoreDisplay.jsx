@@ -14,10 +14,10 @@ const RiskScoreDisplay = ({
   showBadge = true
 }) => {
   const sizes = {
-    sm: { container: 'w-16 h-16', text: 'text-lg' },
-    md: { container: 'w-24 h-24', text: 'text-2xl' },
-    lg: { container: 'w-32 h-32', text: 'text-3xl' },
-    xl: { container: 'w-40 h-40', text: 'text-4xl' }
+    sm: { container: 'w-12 h-12', text: 'text-base' },
+    md: { container: 'w-20 h-20', text: 'text-xl' },
+    lg: { container: 'w-24 h-24', text: 'text-2xl' },
+    xl: { container: 'w-32 h-32', text: 'text-3xl' }
   };
   
   const tierColors = {

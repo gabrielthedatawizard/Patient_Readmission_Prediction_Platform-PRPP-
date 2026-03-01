@@ -160,7 +160,7 @@ const Analytics = () => {
           {/* Risk Distribution & Trends */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Risk Distribution */}
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-6">Risk Distribution</h3>
               <div className="space-y-4">
                 <div>
@@ -219,7 +219,7 @@ const Analytics = () => {
             </Card>
 
             {/* Monthly Trend */}
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-6">Readmission Trend</h3>
               <div className="space-y-4">
                 {monthlyTrend.map((data, idx) => (
@@ -255,7 +255,7 @@ const Analytics = () => {
           </div>
 
           {/* Key Insights */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Key Insights</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
@@ -285,8 +285,8 @@ const Analytics = () => {
       )}
 
       {activeTab === 'facilities' && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h3 className="text-lg font-bold text-gray-900">Facility Performance Comparison</h3>
             <Button variant="ghost" icon={<Filter className="w-4 h-4" />}>
               Filter
@@ -294,7 +294,7 @@ const Analytics = () => {
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-b-2 border-gray-200">
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Facility</th>
@@ -357,7 +357,7 @@ const Analytics = () => {
         <div className="space-y-6">
           {/* Model Performance Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">AUC Score</h3>
                 <Activity className="w-5 h-5 text-teal-600" />
@@ -372,7 +372,7 @@ const Analytics = () => {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">Sensitivity</h3>
                 <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -387,7 +387,7 @@ const Analytics = () => {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">Specificity</h3>
                 <CheckCircle className="w-5 h-5 text-blue-600" />
@@ -405,7 +405,7 @@ const Analytics = () => {
 
           {/* Calibration & Drift */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Model Calibration</h3>
               <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                 <CheckCircle className="w-10 h-10 text-emerald-600" />
@@ -431,7 +431,7 @@ const Analytics = () => {
           </div>
 
           {/* Model Info */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Model Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
               <div>

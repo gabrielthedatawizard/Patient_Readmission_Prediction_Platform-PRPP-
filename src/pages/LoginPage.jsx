@@ -76,7 +76,7 @@ const LoginPage = ({ onLogin, onBack }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-teal-50 via-blue-50 to-purple-50 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400/30 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-400/30 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000" />
@@ -85,7 +85,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
       <div className="w-full max-w-5xl relative z-10">
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-          <div className="lg:w-5/12 bg-gradient-to-br from-teal-500 to-teal-700 p-6 sm:p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+          <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-teal-500 to-teal-700 p-6 sm:p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
 
@@ -159,8 +159,26 @@ const LoginPage = ({ onLogin, onBack }) => {
             </div>
           </div>
 
-          <div className="lg:w-7/12 p-5 sm:p-8 lg:p-12">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-8">
+          <div className="w-full lg:w-7/12 p-4 sm:p-8 lg:p-12">
+            <div className="lg:hidden mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">TRIP</h2>
+                  <p className="text-xs text-gray-500">{t("appTagline")}</p>
+                </div>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-teal-600 rounded-full transition-all"
+                  style={{ width: `${currentStep === 1 ? 50 : 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-4 mb-8">
               <div
                 className={`flex items-center gap-2 ${currentStep === 1 ? "text-teal-600" : "text-gray-400"}`}
               >
@@ -203,22 +221,22 @@ const LoginPage = ({ onLogin, onBack }) => {
                 </h2>
                 <p className="text-gray-600 mb-6">{t("loginSelectRoleHelp")}</p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
                   {roles.map((role) => (
                     <button
                       key={role.id}
                       onClick={() => applyDemoRoleHint(role.id)}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-all ${
                         selectedRole === role.id
                           ? "border-teal-500 bg-teal-50"
                           : "border-gray-100 hover:border-teal-200 hover:bg-gray-50"
                       }`}
                     >
                       <role.icon
-                        className={`w-5 h-5 mb-2 ${selectedRole === role.id ? "text-teal-600" : "text-gray-400"}`}
+                        className={`w-4 h-4 sm:w-5 sm:h-5 mb-2 ${selectedRole === role.id ? "text-teal-600" : "text-gray-400"}`}
                       />
                       <p
-                        className={`text-sm font-semibold ${
+                        className={`text-xs sm:text-sm font-semibold ${
                           selectedRole === role.id
                             ? "text-teal-900"
                             : "text-gray-700"

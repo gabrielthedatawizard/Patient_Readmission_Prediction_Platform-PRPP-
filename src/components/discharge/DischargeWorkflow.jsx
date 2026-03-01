@@ -559,7 +559,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </div>
 
       {/* Confirmation */}
-      <label className="flex items-center gap-3 p-4 bg-teal-50 border-2 border-teal-200 rounded-lg cursor-pointer">
+      <label className="flex items-start gap-3 p-4 bg-teal-50 border-2 border-teal-200 rounded-lg cursor-pointer">
         <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
         <span className="text-sm text-teal-900">
           I confirm that all discharge requirements have been completed and the patient/caregiver understands the follow-up plan.
@@ -642,8 +642,8 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </Card>
 
       {/* Step Content */}
-      <Card className="p-4 sm:p-6 min-h-96">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">
+      <Card className="p-4 sm:p-6 sm:min-h-96">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-6">
           {steps[currentStep].label}
         </h2>
         <CurrentStepComponent />
