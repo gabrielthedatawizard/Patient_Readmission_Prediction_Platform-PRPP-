@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   Menu,
+  X,
   Bell,
   Globe,
   ChevronRight,
@@ -618,7 +619,7 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden">
       <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="px-3 sm:px-6">
-          <div className="h-16 flex items-center justify-between gap-3 sm:gap-4">
+          <div className="h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
@@ -635,12 +636,12 @@ const App = () => {
                 <Menu className="w-6 h-6 text-gray-700" />
               </button>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
-                  <Activity className="w-6 h-6 text-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">TRIP</h1>
-                  <p className="text-xs text-gray-500">{t("appTagline")}</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-none">TRIP</h1>
+                  <p className="hidden md:block text-xs text-gray-500">{t("appTagline")}</p>
                 </div>
               </div>
             </div>
@@ -682,7 +683,7 @@ const App = () => {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </button>
 
-              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200">
+              <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold text-gray-900">
                     {currentUser?.fullName || "TRIP User"}
@@ -710,18 +711,33 @@ const App = () => {
             type="button"
             aria-label="Close navigation"
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="lg:hidden fixed inset-0 top-16 bg-gray-900/30 z-30"
+            className="lg:hidden fixed inset-0 top-14 sm:top-16 bg-gray-900/35 z-30"
           />
         )}
         <div
           className={`
-          bg-white border-r-2 border-gray-200 transition-all duration-300
-          fixed top-16 bottom-0 left-0 z-40 overflow-y-auto
-          w-[86vw] max-w-xs transform ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          bg-white border-r-2 border-gray-200 shadow-2xl lg:shadow-none transition-all duration-300
+          fixed top-14 sm:top-16 bottom-0 left-0 z-40 overflow-y-auto
+          w-[82vw] max-w-[320px] transform ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
           lg:w-auto lg:max-w-none lg:translate-x-0 lg:sticky lg:top-16 lg:bottom-auto
           ${sidebarCollapsed ? "lg:w-20" : "lg:w-64"}
         `}
         >
+          <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+            <p className="text-sm font-semibold text-gray-800">Navigation</p>
+            <button
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Menu
+          </div>
           <nav className="p-4 space-y-2">
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
@@ -736,10 +752,10 @@ const App = () => {
                     setIsMobileSidebarOpen(false);
                   }}
                   className={`
-                    w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
+                    w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all
                     ${
                       isActive
-                        ? "bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-lg"
+                        ? "bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-md"
                         : "hover:bg-gray-100 text-gray-700"
                     }
                   `}
@@ -755,7 +771,7 @@ const App = () => {
 
           {(!sidebarCollapsed || isMobileSidebarOpen) && (
             <div className="p-4 mt-4 border-t-2 border-gray-200">
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all">
+              <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all">
                 <Settings className="w-5 h-5" />
                 <span className="font-medium text-sm">{t("settings")}</span>
               </button>
@@ -764,7 +780,7 @@ const App = () => {
                   setIsMobileSidebarOpen(false);
                   handleLogout();
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-red-600 transition-all mt-2"
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 transition-all mt-2"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="font-medium text-sm">{t("logout")}</span>
@@ -856,7 +872,7 @@ const App = () => {
       </div>
 
       {showNotifications && (
-        <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden">
+        <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700">
             <h3 className="font-bold text-white">{t("notifications")}</h3>
           </div>
