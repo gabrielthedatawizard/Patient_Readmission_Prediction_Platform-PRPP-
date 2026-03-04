@@ -17,6 +17,8 @@ import {
 import { useI18n } from "../context/I18nProvider";
 import { login as loginRequest, normalizeRoleForBackend } from "../services/apiClient";
 
+const SUPPORT_EMAIL = "trip-support@moh.go.tz";
+
 const LoginPage = ({ onLogin, onBack }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,6 +47,13 @@ const LoginPage = ({ onLogin, onBack }) => {
     roles.find((role) => role.id === selectedRole)?.labelKey ||
       "facilityManager",
   );
+
+  const openSupportEmail = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.location.href = `mailto:${SUPPORT_EMAIL}`;
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -343,6 +352,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                     </label>
                     <button
                       type="button"
+                      onClick={openSupportEmail}
                       className="text-sm font-semibold text-teal-600 hover:text-teal-700 text-left"
                     >
                       {t("loginForgotPassword")}
@@ -391,6 +401,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                     {t("loginNeedHelp")}{" "}
                     <button
                       type="button"
+                      onClick={openSupportEmail}
                       className="text-teal-600 font-semibold hover:underline"
                     >
                       {t("loginContactSupport")}

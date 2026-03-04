@@ -157,6 +157,28 @@ const App = () => {
     setNotifications((previous) => [record, ...previous].slice(0, 25));
   }, []);
 
+  const normalizeTaskDueDate = useCallback((rawDueDate) => {
+    if (rawDueDate instanceof Date && !Number.isNaN(rawDueDate.getTime())) {
+      return rawDueDate;
+    }
+
+    const parsed = new Date(rawDueDate || Date.now());
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, []);
+
+  const normalizeTaskRecord = useCallback(
+    (task = {}) => ({
+      ...task,
+      dueDate: normalizeTaskDueDate(task.dueDate),
+    }),
+    [normalizeTaskDueDate],
+  );
+
+  const normalizeTaskCollection = useCallback(
+    (taskList = []) => (taskList || []).map((task) => normalizeTaskRecord(task)),
+    [normalizeTaskRecord],
+  );
+
   const resolveRiskTier = (tier) => {
     const normalized = (tier || "").toLowerCase();
 
@@ -203,9 +225,10 @@ const App = () => {
         predictionByPatientId,
       );
       const mappedTasks = mapApiTasksToUiTasks(apiTasks, mappedPatients);
+      const normalizedTasks = normalizeTaskCollection(mappedTasks);
 
       setPatients(mappedPatients);
-      setTasks(mappedTasks);
+      setTasks(normalizedTasks);
       setSelectedPatient((previous) => {
         if (!previous) {
           return null;
@@ -232,7 +255,7 @@ const App = () => {
       try {
         await Promise.all([
           savePatientsOffline(mappedPatients),
-          saveTasksOffline(mappedTasks),
+          saveTasksOffline(normalizedTasks),
         ]);
       } catch (offlineError) {
         // eslint-disable-next-line no-console
@@ -246,8 +269,9 @@ const App = () => {
         ]);
 
         if (offlinePatients.length || offlineTasks.length) {
+          const normalizedOfflineTasks = normalizeTaskCollection(offlineTasks);
           setPatients(offlinePatients);
-          setTasks(offlineTasks);
+          setTasks(normalizedOfflineTasks);
           setSelectedPatient((previous) => {
             if (!previous) {
               return null;
@@ -273,7 +297,7 @@ const App = () => {
     } finally {
       setIsDataLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, normalizeTaskCollection]);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -463,15 +487,15 @@ const App = () => {
         return;
       }
       const taskId = task.id || task.taskId;
-      const mergedTask = {
+      const mergedTask = normalizeTaskRecord({
         id: taskId,
         title: task.title || "New task assigned",
         patientId: task.patientId || null,
         category: task.category || "followup",
         priority: task.priority || "medium",
         status: normalizeRealtimeTaskStatus(task.status),
-        dueDate: task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 24 * 60 * 60 * 1000),
-      };
+        dueDate: task.dueDate || Date.now() + 24 * 60 * 60 * 1000,
+      });
       setTasks((previous) => [mergedTask, ...previous.filter((entry) => entry.id !== taskId)]);
       pushNotification({
         tone: "blue",
@@ -488,15 +512,16 @@ const App = () => {
 
       setTasks((previous) =>
         previous.map((entry) =>
-          entry.id === taskId
-            ? {
-                ...entry,
-                status: normalizeRealtimeTaskStatus(task.status),
-              }
-            : entry,
-        ),
-      );
-    });
+              entry.id === taskId
+                ? {
+                    ...entry,
+                    status: normalizeRealtimeTaskStatus(task.status),
+                    dueDate: task.dueDate ? normalizeTaskDueDate(task.dueDate) : entry.dueDate,
+                  }
+                : entry,
+            ),
+        );
+      });
 
     return () => {
       unsubscribePrediction?.();
@@ -504,7 +529,13 @@ const App = () => {
       unsubscribeTaskUpdated?.();
       wsClient.disconnect();
     };
-  }, [isAuthenticated, currentUser?.id, pushNotification]);
+  }, [
+    isAuthenticated,
+    currentUser?.id,
+    normalizeTaskDueDate,
+    normalizeTaskRecord,
+    pushNotification,
+  ]);
 
   const dashboardStats = useMemo(() => {
     const totalPatients = patients.length;
@@ -549,10 +580,11 @@ const App = () => {
 
   const urgentTasks = useMemo(() => {
     return tasks
+      .map((task) => normalizeTaskRecord(task))
       .filter((task) => task.status !== "completed")
       .sort((first, second) => first.dueDate - second.dueDate)
       .slice(0, 3);
-  }, [tasks]);
+  }, [normalizeTaskRecord, tasks]);
 
   const navigationItems = [
     { id: "dashboard", label: t("dashboard"), icon: BarChart3, roles: ["all"] },
@@ -600,16 +632,27 @@ const App = () => {
 
   const handleLogout = async () => {
     trackEvent("Session", "Logout", currentUser?.role || "unknown");
-    await logoutRequest();
-    setIsAuthenticated(false);
-    setUserRole(null);
-    setCurrentUser(null);
-    setCurrentPage("landing");
-    setCurrentView("dashboard");
+    try {
+      await logoutRequest();
+    } catch (error) {
+      // Continue with local cleanup even when the server is unreachable.
+    } finally {
+      setIsAuthenticated(false);
+      setUserRole(null);
+      setCurrentUser(null);
+      setCurrentPage("landing");
+      setCurrentView("dashboard");
+      setSelectedPatient(null);
+      setPatients([]);
+      setTasks([]);
+      setIsUsingOfflineData(false);
+    }
+  };
+
+  const handleOpenSettings = () => {
     setSelectedPatient(null);
-    setPatients([]);
-    setTasks([]);
-    setIsUsingOfflineData(false);
+    setCurrentView("settings");
+    setIsMobileSidebarOpen(false);
   };
 
   if (isBootstrapping) {
@@ -817,7 +860,11 @@ const App = () => {
             <h2 className="text-xl font-bold text-gray-900">
               {t("todayDischarges")}
             </h2>
-            <Button variant="ghost" icon={<Filter className="w-4 h-4" />}>
+            <Button
+              variant="ghost"
+              icon={<Filter className="w-4 h-4" />}
+              onClick={() => setCurrentView("patients")}
+            >
               {t("filter")}
             </Button>
           </div>
@@ -1104,7 +1151,10 @@ const App = () => {
           footer={
             (!sidebarCollapsed || isMobileSidebarOpen) && (
               <div className="p-4 mt-4 border-t-2 border-gray-200">
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all">
+                <button
+                  onClick={handleOpenSettings}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all"
+                >
                   <Settings className="w-5 h-5" />
                   <span className="font-medium text-sm">{t("settings")}</span>
                 </button>
@@ -1345,6 +1395,28 @@ const App = () => {
                   {t("backToDashboard")}
                 </Button>
               </div>
+            )}
+
+            {currentView === "settings" && (
+              <Card className="max-w-3xl mx-auto p-8">
+                <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mx-auto mb-5">
+                  <Settings className="w-8 h-8 text-gray-500" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">
+                  {t("settings")}
+                </h3>
+                <p className="text-center text-gray-600">
+                  Settings controls are being finalized. Use the dashboard to continue
+                  patient review and task management.
+                </p>
+                <Button
+                  variant="primary"
+                  className="mt-6 mx-auto flex"
+                  onClick={() => setCurrentView("dashboard")}
+                >
+                  {t("backToDashboard")}
+                </Button>
+              </Card>
             )}
           </Suspense>
         </div>

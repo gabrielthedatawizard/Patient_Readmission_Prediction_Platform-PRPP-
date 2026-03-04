@@ -45,12 +45,12 @@ function readLocalOverrides() {
     return {};
   }
 
-  const rawValue = window.localStorage.getItem(STORAGE_KEY);
-  if (!rawValue) {
-    return {};
-  }
-
   try {
+    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+    if (!rawValue) {
+      return {};
+    }
+
     const parsed = JSON.parse(rawValue);
     if (!parsed || typeof parsed !== "object") {
       return {};
@@ -88,4 +88,3 @@ export function getFeatureFlags({ forceRefresh = false } = {}) {
 export function isFeatureEnabled(flagName) {
   return Boolean(getFeatureFlags()[flagName]);
 }
-

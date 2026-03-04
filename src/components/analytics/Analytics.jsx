@@ -553,7 +553,14 @@ const Analytics = () => {
         <Card className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h3 className="text-lg font-bold text-gray-900">Facility Performance Comparison</h3>
-            <Button variant="ghost" icon={<Filter className="w-4 h-4" />}>
+            <Button
+              variant="ghost"
+              icon={<Filter className="w-4 h-4" />}
+              onClick={() => {
+                setDateRange("30d");
+                setSelectedRegion("all");
+              }}
+            >
               Filter
             </Button>
           </div>

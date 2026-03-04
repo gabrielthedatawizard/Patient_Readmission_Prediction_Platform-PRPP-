@@ -17,12 +17,12 @@ function readStorageJson(key) {
     return {};
   }
 
-  const raw = window.sessionStorage.getItem(key);
-  if (!raw) {
-    return {};
-  }
-
   try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) {
+      return {};
+    }
+
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch (error) {
@@ -35,7 +35,11 @@ function writeStorageJson(key, value) {
     return;
   }
 
-  window.sessionStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Storage can be unavailable in hardened browser modes.
+  }
 }
 
 function hashToUnitInterval(input) {
@@ -98,4 +102,3 @@ export function trackExperimentExposure(experimentKey, variant, subjectId = "ano
 
   trackEvent("Experiment", "Exposure", `${experimentKey}:${variant}`);
 }
-

@@ -64,7 +64,11 @@ function getStorageFromRememberMe(rememberMe) {
     return null;
   }
 
-  return rememberMe ? window.localStorage : window.sessionStorage;
+  try {
+    return rememberMe ? window.localStorage : window.sessionStorage;
+  } catch (error) {
+    return null;
+  }
 }
 
 function getAnyStorageValue(key) {
@@ -72,7 +76,11 @@ function getAnyStorageValue(key) {
     return null;
   }
 
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+  try {
+    return window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+  } catch (error) {
+    return null;
+  }
 }
 
 function removeStorageValue(key) {
@@ -80,8 +88,12 @@ function removeStorageValue(key) {
     return;
   }
 
-  window.localStorage.removeItem(key);
-  window.sessionStorage.removeItem(key);
+  try {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  } catch (error) {
+    // Ignore storage cleanup errors when storage is unavailable.
+  }
 }
 
 export function normalizeRoleForBackend(role) {
@@ -123,8 +135,12 @@ function persistSession({ accessToken, user }, rememberMe = true) {
 
   // Keep only one active persistence location.
   clearSession();
-  storage.setItem(TOKEN_KEY, accessToken);
-  storage.setItem(USER_KEY, JSON.stringify(user));
+  try {
+    storage.setItem(TOKEN_KEY, accessToken);
+    storage.setItem(USER_KEY, JSON.stringify(user));
+  } catch (error) {
+    // Storage write failures should not crash authentication flow.
+  }
 }
 
 async function request(path, { method = 'GET', body, token } = {}) {
@@ -198,7 +214,14 @@ export async function fetchCurrentUser() {
     role: normalizeRoleForUi(payload.user?.role)
   };
 
-  const keepLocal = isBrowser() && Boolean(window.localStorage.getItem(TOKEN_KEY));
+  let keepLocal = false;
+  if (isBrowser()) {
+    try {
+      keepLocal = Boolean(window.localStorage.getItem(TOKEN_KEY));
+    } catch (error) {
+      keepLocal = false;
+    }
+  }
   persistSession(
     {
       accessToken: token,

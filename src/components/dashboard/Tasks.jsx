@@ -134,7 +134,11 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
           </p>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
-          <Button variant="secondary" icon={<Filter className="w-4 h-4" />}>
+          <Button
+            variant="secondary"
+            icon={<Filter className="w-4 h-4" />}
+            onClick={() => setFilter((previous) => (previous === "all" ? "pending" : "all"))}
+          >
             Filter
           </Button>
         </div>

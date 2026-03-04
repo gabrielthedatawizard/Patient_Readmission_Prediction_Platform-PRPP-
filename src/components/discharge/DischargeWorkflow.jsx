@@ -655,7 +655,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           {patient && (
             <p className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
               {patient.name} | {patient.id} |
-              <Badge variant={patient.riskTier.toLowerCase()}>
+              <Badge variant={String(patient.riskTier || "").toLowerCase()}>
                 {patient.riskTier} Risk
               </Badge>
             </p>

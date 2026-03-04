@@ -20,8 +20,12 @@ const getStoredLanguage = () => {
     return DEFAULT_LANGUAGE;
   }
 
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return SUPPORTED_LANGUAGES.includes(stored) ? stored : DEFAULT_LANGUAGE;
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return SUPPORTED_LANGUAGES.includes(stored) ? stored : DEFAULT_LANGUAGE;
+  } catch (error) {
+    return DEFAULT_LANGUAGE;
+  }
 };
 
 export const I18nProvider = ({ children }) => {
@@ -29,7 +33,11 @@ export const I18nProvider = ({ children }) => {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, language);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, language);
+      } catch (error) {
+        // Ignore storage errors in restricted browser contexts.
+      }
     }
   }, [language]);
 

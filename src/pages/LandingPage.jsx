@@ -19,9 +19,31 @@ import {
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
 
+const SUPPORT_EMAIL = "trip-support@moh.go.tz";
+
 const LandingPage = ({ onLogin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const { language, setLanguage, t } = useI18n();
+  const scrollToSection = React.useCallback((sectionId) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const section = document.getElementById(sectionId);
+    if (!section) {
+      return;
+    }
+
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMobileMenuOpen(false);
+  }, []);
+
+  const openSupportEmail = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.location.href = `mailto:${SUPPORT_EMAIL}`;
+  }, []);
 
   const features = [
     {
@@ -176,21 +198,31 @@ const LandingPage = ({ onLogin }) => {
           <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
             <a
               href="#features"
+              onClick={() => setMobileMenuOpen(false)}
               className="block py-2 text-gray-600 hover:text-teal-600"
             >
               {t("landingNavFeatures")}
             </a>
             <a
               href="#about"
+              onClick={() => setMobileMenuOpen(false)}
               className="block py-2 text-gray-600 hover:text-teal-600"
             >
               {t("landingNavAbout")}
             </a>
             <a
               href="#testimonials"
+              onClick={() => setMobileMenuOpen(false)}
               className="block py-2 text-gray-600 hover:text-teal-600"
             >
               {t("landingNavTestimonials")}
+            </a>
+            <a
+              href="#contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-gray-600 hover:text-teal-600"
+            >
+              {t("landingNavContact")}
             </a>
             <div className="pt-2">
               <label
@@ -254,7 +286,10 @@ const LandingPage = ({ onLogin }) => {
                 {t("landingStartTrial")}
                 <ArrowRight className="w-5 h-5" />
               </button>
-              <button className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 font-semibold rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all flex items-center justify-center gap-2">
+              <button
+                onClick={() => scrollToSection("testimonials")}
+                className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 font-semibold rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
+              >
                 <Stethoscope className="w-5 h-5" />
                 {t("landingWatchDemo")}
               </button>
@@ -487,7 +522,10 @@ const LandingPage = ({ onLogin }) => {
               {t("landingCtaPrimary")}
               <ArrowRight className="w-5 h-5" />
             </button>
-            <button className="w-full sm:w-auto px-8 py-4 bg-teal-600 text-white font-semibold rounded-xl border-2 border-teal-400 hover:bg-teal-500 transition-colors">
+            <button
+              onClick={() => scrollToSection("contact")}
+              className="w-full sm:w-auto px-8 py-4 bg-teal-600 text-white font-semibold rounded-xl border-2 border-teal-400 hover:bg-teal-500 transition-colors"
+            >
               {t("landingCtaSecondary")}
             </button>
           </div>
@@ -513,24 +551,28 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerProduct")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <a href="#features" className="hover:text-white transition-colors">
                     {t("footerFeatures")}
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerPricing")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <a href="#about" className="hover:text-white transition-colors">
                     {t("footerSecurity")}
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <a href="#about" className="hover:text-white transition-colors">
                     {t("footerIntegrations")}
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -539,24 +581,32 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerCompany")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <a href="#about" className="hover:text-white transition-colors">
                     {t("footerAbout")}
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerBlog")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerCareers")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <a href="#contact" className="hover:text-white transition-colors">
                     {t("footerContact")}
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -565,22 +615,38 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerSupport")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerHelpCenter")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerDocumentation")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerApiReference")}
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="hover:text-white transition-colors"
+                  >
                     {t("footerStatus")}
                   </button>
                 </li>
@@ -594,13 +660,25 @@ const LandingPage = ({ onLogin }) => {
               {t("footerRights")}
             </p>
             <div className="flex items-center gap-6 text-gray-400 text-sm">
-              <button type="button" className="hover:text-white transition-colors">
+              <button
+                type="button"
+                onClick={openSupportEmail}
+                className="hover:text-white transition-colors"
+              >
                 {t("footerPrivacyPolicy")}
               </button>
-              <button type="button" className="hover:text-white transition-colors">
+              <button
+                type="button"
+                onClick={openSupportEmail}
+                className="hover:text-white transition-colors"
+              >
                 {t("footerTermsService")}
               </button>
-              <button type="button" className="hover:text-white transition-colors">
+              <button
+                type="button"
+                onClick={openSupportEmail}
+                className="hover:text-white transition-colors"
+              >
                 {t("footerCookiePolicy")}
               </button>
             </div>
