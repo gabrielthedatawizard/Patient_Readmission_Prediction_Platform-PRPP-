@@ -53,6 +53,7 @@ import {
   mapApiTasksToUiTasks,
 } from "./services/uiMappers";
 import { trackEvent, trackPageView } from "./services/analytics";
+import { isFeatureEnabled } from "./services/featureFlags";
 
 /**
  * TRIP Platform - Main Application
@@ -413,11 +414,14 @@ const App = () => {
       label: t("dataQuality"),
       icon: Database,
       roles: ["hro", "facility-manager", "ml-engineer", "data-steward"],
+      featureFlag: "dataQualityDashboard",
     },
   ];
 
   const filteredNavItems = navigationItems.filter(
-    (item) => item.roles.includes("all") || item.roles.includes(userRole),
+    (item) =>
+      (item.roles.includes("all") || item.roles.includes(userRole)) &&
+      (!item.featureFlag || isFeatureEnabled(item.featureFlag)),
   );
 
   const roleLabel = ROLE_TRANSLATION_KEYS[userRole]

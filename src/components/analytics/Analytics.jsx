@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -9,6 +9,7 @@ import {
   Download,
   FileText,
   Filter,
+  History,
   TrendingDown,
   TrendingUp,
   Users,
@@ -18,6 +19,12 @@ import Badge from "../common/Badge";
 import Button from "../common/Button";
 import KPICard from "../common/KPICard";
 import InteractiveChart from "./InteractiveChart";
+import {
+  exportAnalyticsPdf,
+  exportFacilitiesCsv,
+} from "../../services/exportService";
+import { fetchAuditLogs } from "../../services/apiClient";
+import { isFeatureEnabled } from "../../services/featureFlags";
 
 const facilityData = [
   { id: "FAC-001", name: "Muhimbili National Hospital", region: "Dar es Salaam", readmissionRate: 8.4, highRisk: 7, intervention: 92, trend: "down", beds: 1500 },
@@ -57,11 +64,32 @@ const Analytics = () => {
   const [dateRange, setDateRange] = useState("30d");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
+  const [auditRestricted, setAuditRestricted] = useState(false);
+  const [hasLoadedAudit, setHasLoadedAudit] = useState(false);
+  const auditTrailEnabled = isFeatureEnabled("analyticsAuditTrail");
+  const pdfExportEnabled = isFeatureEnabled("analyticsPdfExport");
 
   const regions = useMemo(
     () => ["all", ...Array.from(new Set(facilityData.map((facility) => facility.region)))],
     [],
   );
+  const tabs = useMemo(() => {
+    const configuredTabs = [
+      { id: "overview", label: "Overview", icon: BarChart3 },
+      { id: "facilities", label: "Facility Comparison", icon: Building2 },
+      { id: "model", label: "Model Monitoring", icon: Activity },
+    ];
+
+    if (auditTrailEnabled) {
+      configuredTabs.push({ id: "audit", label: "Audit Trail", icon: History });
+    }
+
+    return configuredTabs;
+  }, [auditTrailEnabled]);
 
   const filteredFacilities = useMemo(() => {
     if (selectedRegion === "all") {
@@ -104,6 +132,103 @@ const Analytics = () => {
 
   const getTrendText = (trend) => (trend === "down" ? "Improving" : "Needs Attention");
 
+  const handleExportCsv = () => {
+    exportFacilitiesCsv(filteredFacilities);
+  };
+
+  const handleExportPdf = async () => {
+    setIsExportingReport(true);
+    try {
+      await exportAnalyticsPdf({
+        title: "TRIP Analytics and Benchmarking",
+        subtitle:
+          selectedRegion === "all"
+            ? `Coverage: All Regions | Window: ${dateRange}`
+            : `Coverage: ${selectedRegion} | Window: ${dateRange}`,
+        metrics: [
+          { label: "Average Readmission Rate", value: `${aggregates.avgReadmission.toFixed(1)}%` },
+          { label: "Average High-Risk Share", value: `${aggregates.avgHighRisk.toFixed(1)}%` },
+          { label: "Average Intervention Completion", value: `${aggregates.avgIntervention.toFixed(0)}%` },
+          { label: "Estimated Discharges", value: String(aggregates.estimatedDischarges) },
+        ],
+        facilities: filteredFacilities,
+      });
+    } finally {
+      setIsExportingReport(false);
+    }
+  };
+
+  const loadAuditTrail = useCallback(async () => {
+    if (!auditTrailEnabled) {
+      return;
+    }
+
+    setIsAuditLoading(true);
+    setAuditError("");
+    setAuditRestricted(false);
+
+    try {
+      const logs = await fetchAuditLogs({ limit: 50 });
+      setAuditLogs(logs);
+    } catch (error) {
+      if (error?.status === 403) {
+        setAuditRestricted(true);
+        return;
+      }
+
+      setAuditError(error?.message || "Unable to load audit trail.");
+    } finally {
+      setIsAuditLoading(false);
+      setHasLoadedAudit(true);
+    }
+  }, [auditTrailEnabled]);
+
+  useEffect(() => {
+    if (
+      activeTab !== "audit" ||
+      !auditTrailEnabled ||
+      isAuditLoading ||
+      hasLoadedAudit
+    ) {
+      return;
+    }
+
+    loadAuditTrail();
+  }, [activeTab, auditTrailEnabled, hasLoadedAudit, isAuditLoading, loadAuditTrail]);
+
+  const formatAuditDetails = (details) => {
+    if (!details) {
+      return "No additional details";
+    }
+
+    if (typeof details === "string") {
+      return details;
+    }
+
+    if (typeof details === "object") {
+      return Object.entries(details)
+        .slice(0, 3)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(" | ");
+    }
+
+    return String(details);
+  };
+
+  const actionBadgeVariant = (action) => {
+    const normalized = String(action || "").toLowerCase();
+    if (normalized.includes("error") || normalized.includes("failed")) {
+      return "danger";
+    }
+    if (normalized.includes("create") || normalized.includes("generate")) {
+      return "success";
+    }
+    if (normalized.includes("update") || normalized.includes("override")) {
+      return "warning";
+    }
+    return "default";
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -133,9 +258,17 @@ const Analytics = () => {
               </option>
             ))}
           </select>
-          <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
-            Export Report
-          </Button>
+          {pdfExportEnabled && (
+            <Button
+              variant="secondary"
+              icon={<Download className="w-4 h-4" />}
+              onClick={handleExportPdf}
+              loading={isExportingReport}
+              disabled={!filteredFacilities.length}
+            >
+              Export Report
+            </Button>
+          )}
         </div>
       </div>
 
@@ -176,11 +309,7 @@ const Analytics = () => {
 
       <div className="border-b border-gray-200">
         <div className="flex gap-6 overflow-x-auto">
-          {[
-            { id: "overview", label: "Overview", icon: BarChart3 },
-            { id: "facilities", label: "Facility Comparison", icon: Building2 },
-            { id: "model", label: "Model Monitoring", icon: Activity },
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -346,10 +475,23 @@ const Analytics = () => {
           </div>
 
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Button variant="secondary" icon={<FileText className="w-4 h-4" />}>
-              Generate Report
-            </Button>
-            <Button variant="ghost" icon={<Download className="w-4 h-4" />}>
+            {pdfExportEnabled && (
+              <Button
+                variant="secondary"
+                icon={<FileText className="w-4 h-4" />}
+                onClick={handleExportPdf}
+                loading={isExportingReport}
+                disabled={!filteredFacilities.length}
+              >
+                Generate Report
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              icon={<Download className="w-4 h-4" />}
+              onClick={handleExportCsv}
+              disabled={!filteredFacilities.length}
+            >
               Download CSV
             </Button>
           </div>
@@ -412,6 +554,88 @@ const Analytics = () => {
             </div>
           </Card>
         </div>
+      )}
+
+      {activeTab === "audit" && auditTrailEnabled && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Recent Audit Trail</h3>
+              <p className="text-sm text-gray-600">
+                Authentication, prediction, and intervention activity events
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              icon={<Download className="w-4 h-4" />}
+              onClick={loadAuditTrail}
+              loading={isAuditLoading}
+            >
+              Refresh
+            </Button>
+          </div>
+
+          {isAuditLoading && (
+            <div className="space-y-3">
+              {[0, 1, 2, 3].map((index) => (
+                <div key={index} className="h-14 bg-gray-100 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          )}
+
+          {!isAuditLoading && auditRestricted && (
+            <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
+              Your role does not include permission to view audit logs.
+            </div>
+          )}
+
+          {!isAuditLoading && !auditRestricted && auditError && (
+            <div className="p-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+              {auditError}
+            </div>
+          )}
+
+          {!isAuditLoading && !auditRestricted && !auditError && !auditLogs.length && (
+            <div className="p-6 rounded-lg border border-dashed border-gray-300 text-center text-sm text-gray-600">
+              No audit events available in this time window.
+            </div>
+          )}
+
+          {!isAuditLoading && !auditRestricted && !auditError && auditLogs.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px]" role="table" aria-label="Audit trail activity">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Time</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Actor</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Action</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Resource</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Facility</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 py-3 px-4">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString() : "N/A"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">
+                        {log.userId || "System"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant={actionBadgeVariant(log.action)}>{log.action || "Unknown"}</Badge>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-700">{log.resource || "--"}</td>
+                      <td className="py-3 px-4 text-sm text-gray-700">{log.facilityId || "--"}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{formatAuditDetails(log.details)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       )}
     </div>
   );

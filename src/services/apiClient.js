@@ -237,3 +237,22 @@ export async function fetchLatestPrediction(patientId) {
     throw error;
   }
 }
+
+export async function fetchAuditLogs({ limit = 100, offset = 0 } = {}) {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('Missing session token.');
+  }
+
+  const query = new URLSearchParams();
+  if (limit !== undefined && limit !== null) {
+    query.set('limit', String(limit));
+  }
+  if (offset !== undefined && offset !== null) {
+    query.set('offset', String(offset));
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const payload = await request(`/audit${suffix}`, { token });
+  return payload?.logs || [];
+}

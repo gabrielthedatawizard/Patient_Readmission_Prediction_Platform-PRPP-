@@ -12,6 +12,7 @@ import Card from "../common/Card";
 import Badge from "../common/Badge";
 import Button from "../common/Button";
 import RiskScoreDisplay from "../common/RiskScoreDisplay";
+import { exportPatientsCsv } from "../../services/exportService";
 
 /**
  * Patients List Component
@@ -137,6 +138,10 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
     return `${pendingCount} tasks pending`;
   };
 
+  const handleExport = () => {
+    exportPatientsCsv(filteredPatients);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -146,7 +151,12 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
             Manage and monitor patient readmission risk
           </p>
         </div>
-        <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
+        <Button
+          variant="secondary"
+          icon={<Download className="w-4 h-4" />}
+          onClick={handleExport}
+          disabled={!filteredPatients.length}
+        >
           Export List
         </Button>
       </div>
