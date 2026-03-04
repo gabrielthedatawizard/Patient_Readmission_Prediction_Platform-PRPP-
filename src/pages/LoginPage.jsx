@@ -335,12 +335,12 @@ const LoginPage = ({ onLogin, onBack }) => {
                         {t("loginRememberMe")}
                       </span>
                     </label>
-                    <a
-                      href="#"
-                      className="text-sm font-semibold text-teal-600 hover:text-teal-700"
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-teal-600 hover:text-teal-700 text-left"
                     >
                       {t("loginForgotPassword")}
-                    </a>
+                    </button>
                   </div>
                 </div>
 
@@ -383,12 +383,12 @@ const LoginPage = ({ onLogin, onBack }) => {
                 <div className="mt-4 text-center">
                   <p className="text-sm text-gray-500">
                     {t("loginNeedHelp")}{" "}
-                    <a
-                      href="#"
+                    <button
+                      type="button"
                       className="text-teal-600 font-semibold hover:underline"
                     >
                       {t("loginContactSupport")}
-                    </a>
+                    </button>
                   </p>
                 </div>
               </form>

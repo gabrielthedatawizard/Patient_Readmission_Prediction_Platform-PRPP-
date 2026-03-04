@@ -513,24 +513,24 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerProduct")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerFeatures")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerPricing")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerSecurity")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerIntegrations")}
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -539,24 +539,24 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerCompany")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerAbout")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerBlog")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerCareers")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerContact")}
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -565,24 +565,24 @@ const LandingPage = ({ onLogin }) => {
               <h4 className="font-semibold mb-4">{t("footerSupport")}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerHelpCenter")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerDocumentation")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerApiReference")}
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <button type="button" className="hover:text-white transition-colors">
                     {t("footerStatus")}
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -594,15 +594,15 @@ const LandingPage = ({ onLogin }) => {
               {t("footerRights")}
             </p>
             <div className="flex items-center gap-6 text-gray-400 text-sm">
-              <a href="#" className="hover:text-white transition-colors">
+              <button type="button" className="hover:text-white transition-colors">
                 {t("footerPrivacyPolicy")}
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
+              </button>
+              <button type="button" className="hover:text-white transition-colors">
                 {t("footerTermsService")}
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
+              </button>
+              <button type="button" className="hover:text-white transition-colors">
                 {t("footerCookiePolicy")}
-              </a>
+              </button>
             </div>
           </div>
         </div>
