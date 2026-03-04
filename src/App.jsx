@@ -16,6 +16,7 @@ import {
   Filter,
   AlertCircle,
   RefreshCw,
+  WifiOff,
 } from "lucide-react";
 
 // Pages
@@ -52,6 +53,12 @@ import {
   mapApiPatientsToUiPatients,
   mapApiTasksToUiTasks,
 } from "./services/uiMappers";
+import {
+  getOfflinePatients,
+  getOfflineTasks,
+  savePatientsOffline,
+  saveTasksOffline,
+} from "./services/offlineStorage";
 import { trackEvent, trackPageView } from "./services/analytics";
 import { isFeatureEnabled } from "./services/featureFlags";
 
@@ -122,6 +129,7 @@ const App = () => {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
+  const [isUsingOfflineData, setIsUsingOfflineData] = useState(false);
   const { language, setLanguage, t } = useI18n();
 
   const pushNotification = useCallback((notification) => {
@@ -207,10 +215,49 @@ const App = () => {
           region: currentUser.regionCode || previous.region,
         }));
       }
+
+      setIsUsingOfflineData(false);
+      try {
+        await Promise.all([
+          savePatientsOffline(mappedPatients),
+          saveTasksOffline(mappedTasks),
+        ]);
+      } catch (offlineError) {
+        // eslint-disable-next-line no-console
+        console.warn("Failed to persist offline snapshot:", offlineError);
+      }
     } catch (error) {
+      try {
+        const [offlinePatients, offlineTasks] = await Promise.all([
+          getOfflinePatients(),
+          getOfflineTasks(),
+        ]);
+
+        if (offlinePatients.length || offlineTasks.length) {
+          setPatients(offlinePatients);
+          setTasks(offlineTasks);
+          setSelectedPatient((previous) => {
+            if (!previous) {
+              return null;
+            }
+            return (
+              offlinePatients.find((patient) => patient.id === previous.id) || null
+            );
+          });
+          setIsUsingOfflineData(true);
+          setDataError(
+            `Live data unavailable (${error?.message || "request failed"}). Showing the latest offline snapshot.`,
+          );
+          return;
+        }
+      } catch (offlineError) {
+        // Offline cache may not be available in all browser contexts.
+      }
+
       setDataError(error?.message || "Unable to load operational data.");
       setPatients([]);
       setTasks([]);
+      setIsUsingOfflineData(false);
     } finally {
       setIsDataLoading(false);
     }
@@ -448,6 +495,7 @@ const App = () => {
     setSelectedPatient(null);
     setPatients([]);
     setTasks([]);
+    setIsUsingOfflineData(false);
   };
 
   if (isBootstrapping) {
@@ -519,6 +567,23 @@ const App = () => {
             >
               Retry
             </Button>
+          </div>
+        </Card>
+      )}
+
+      {isUsingOfflineData && (
+        <Card className="p-4 border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <WifiOff className="w-5 h-5 text-amber-700 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">
+                Offline snapshot mode
+              </p>
+              <p className="text-xs text-amber-800 mt-1">
+                Updates are paused until connectivity is restored. You can still
+                review cached patients and tasks.
+              </p>
+            </div>
           </div>
         </Card>
       )}

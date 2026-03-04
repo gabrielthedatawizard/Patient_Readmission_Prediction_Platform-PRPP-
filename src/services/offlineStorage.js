@@ -2,8 +2,21 @@ const DB_NAME = "trip-offline";
 const DB_VERSION = 1;
 const STORES = ["patients", "predictions", "tasks"];
 
+const ensureIndexedDb = () => {
+  if (typeof indexedDB === "undefined") {
+    throw new Error("IndexedDB is not available in this environment.");
+  }
+};
+
 const openDatabase = () =>
   new Promise((resolve, reject) => {
+    try {
+      ensureIndexedDb();
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = () => {
@@ -48,3 +61,9 @@ export const saveTaskOffline = async (task) =>
 
 export const getOfflineTasks = async () =>
   runTransaction("tasks", "readonly", (store) => store.getAll());
+
+export const savePatientsOffline = async (patients = []) =>
+  Promise.all((patients || []).map((patient) => savePatientOffline(patient)));
+
+export const saveTasksOffline = async (tasks = []) =>
+  Promise.all((tasks || []).map((task) => saveTaskOffline(task)));
