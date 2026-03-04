@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Users,
@@ -8,7 +8,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   Bell,
   Globe,
   ChevronRight,
@@ -29,11 +28,12 @@ import Badge from "./components/common/Badge";
 import Button from "./components/common/Button";
 import KPICard from "./components/common/KPICard";
 import RiskScoreDisplay from "./components/common/RiskScoreDisplay";
-import PatientDetail from "./components/patient/PatientDetail";
 import PatientsList from "./components/patient/PatientsList";
-import DischargeWorkflow from "./components/discharge/DischargeWorkflow";
-import Analytics from "./components/analytics/Analytics";
 import Tasks from "./components/dashboard/Tasks";
+import Sidebar from "./components/layout/Sidebar";
+import Grid from "./design-system/layout/Grid";
+import { PatientCardSkeleton, Skeleton } from "./design-system/components/Skeleton";
+import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
 
 // Data
 import { SAMPLE_FACILITIES } from "./data/facilities";
@@ -44,12 +44,15 @@ import {
   fetchLatestPrediction,
   fetchPatients,
   fetchTasks,
+  getStoredToken,
   logout as logoutRequest,
 } from "./services/apiClient";
+import wsClient from "./services/websocket";
 import {
   mapApiPatientsToUiPatients,
   mapApiTasksToUiTasks,
 } from "./services/uiMappers";
+import { trackEvent, trackPageView } from "./services/analytics";
 
 /**
  * TRIP Platform - Main Application
@@ -75,6 +78,10 @@ const DEFAULT_FACILITY = SAMPLE_FACILITIES[0] || {
   region: "Unknown",
   district: "Unknown",
 };
+
+const Analytics = lazy(() => import("./components/analytics/Analytics"));
+const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
+const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState("landing");
@@ -217,6 +224,80 @@ const App = () => {
     setIsMobileSidebarOpen(false);
   }, [currentView]);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+    trackPageView(`/${currentView}`);
+  }, [currentView, isAuthenticated]);
+
+  useKeyboardShortcut(
+    "k",
+    () => {
+      if (!isAuthenticated) {
+        return;
+      }
+      setCurrentView("patients");
+    },
+  );
+
+  useKeyboardShortcut(
+    "/",
+    () => {
+      if (!isAuthenticated) {
+        return;
+      }
+      setShowNotifications((previous) => !previous);
+    },
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) {
+      return undefined;
+    }
+
+    const token = getStoredToken();
+    if (!token) {
+      return undefined;
+    }
+
+    wsClient.connect({ userId: currentUser.id, token });
+
+    const unsubscribePrediction = wsClient.subscribe(
+      "PREDICTION_GENERATED",
+      (prediction) => {
+        if (!prediction?.patientId) {
+          return;
+        }
+        setPatients((previous) =>
+          previous.map((patient) =>
+            patient.id === prediction.patientId
+              ? {
+                  ...patient,
+                  riskScore: prediction.score ?? patient.riskScore,
+                  riskTier: prediction.tier ?? patient.riskTier,
+                  riskConfidence: prediction.confidence ?? patient.riskConfidence,
+                }
+              : patient,
+          ),
+        );
+      },
+    );
+
+    const unsubscribeTask = wsClient.subscribe("TASK_ASSIGNED", (task) => {
+      if (!task?.id) {
+        return;
+      }
+      setTasks((previous) => [task, ...previous.filter((entry) => entry.id !== task.id)]);
+    });
+
+    return () => {
+      unsubscribePrediction?.();
+      unsubscribeTask?.();
+      wsClient.disconnect();
+    };
+  }, [isAuthenticated, currentUser?.id]);
+
   const dashboardStats = useMemo(() => {
     const totalPatients = patients.length;
     const highRiskCount = patients.filter(
@@ -298,6 +379,7 @@ const App = () => {
     : (userRole || "").replace("-", " ");
 
   const handleLogin = (session) => {
+    trackEvent("Session", "Login", session?.user?.role || "unknown");
     setCurrentUser(session.user);
     setUserRole(session.user.role);
     setIsAuthenticated(true);
@@ -306,6 +388,7 @@ const App = () => {
   };
 
   const handleLogout = async () => {
+    trackEvent("Session", "Logout", currentUser?.role || "unknown");
     await logoutRequest();
     setIsAuthenticated(false);
     setUserRole(null);
@@ -319,10 +402,14 @@ const App = () => {
 
   if (isBootstrapping) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Activity className="w-8 h-8 mx-auto mb-3 text-teal-600 animate-pulse" />
-          <p className="text-sm text-gray-600">Loading TRIP session...</p>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-3xl mx-auto space-y-6 pt-10">
+          <Skeleton variant="title" className="w-1/3" />
+          <Grid cols={3} gap={4}>
+            <PatientCardSkeleton />
+            <PatientCardSkeleton />
+            <PatientCardSkeleton />
+          </Grid>
         </div>
       </div>
     );
@@ -349,7 +436,7 @@ const App = () => {
             {t("welcome")}, {currentUser?.fullName || "TRIP User"}
           </h1>
           <p className="text-gray-600">
-            {selectedFacility.name} · {selectedFacility.region}
+            {selectedFacility.name} | {selectedFacility.region}
           </p>
         </div>
         <div className="w-full sm:w-auto flex items-center gap-3">
@@ -386,7 +473,7 @@ const App = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Grid cols={4} gap={6}>
         <KPICard
           title={t("readmissionRate")}
           value={`${dashboardStats.readmissionRate}%`}
@@ -419,15 +506,18 @@ const App = () => {
           icon={CheckCircle}
           color="emerald"
         />
-      </div>
+      </Grid>
 
       {isDataLoading && (
         <Card className="p-4">
-          <p className="text-sm text-gray-600">Refreshing patient and task data...</p>
+          <div className="space-y-2">
+            <Skeleton variant="text" className="w-3/5" />
+            <Skeleton variant="text" className="w-2/5" />
+          </div>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Grid cols={3} gap={6}>
         <Card className="lg:col-span-2 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h2 className="text-xl font-bold text-gray-900">
@@ -461,7 +551,7 @@ const App = () => {
                     </div>
                     <p className="text-sm text-gray-600 mb-1">
                       {patient.age}
-                      {t("ageShort")} · {patient.gender} · {patient.ward}
+                      {t("ageShort")} | {patient.gender} | {patient.ward}
                     </p>
                     <p className="text-sm font-medium text-gray-700 break-words">
                       {patient.diagnosis?.primary || "Diagnosis pending"}
@@ -570,13 +660,13 @@ const App = () => {
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </Card>
-      </div>
+      </Grid>
 
       <Card className="p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">
           {t("riskDistribution")}
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Grid cols={3} gap={4}>
           <div className="text-center p-6 bg-emerald-50 rounded-xl border-2 border-emerald-200">
             <p className="text-3xl sm:text-4xl font-bold text-emerald-700 mb-2">
               {dashboardStats.lowRiskCount}
@@ -610,7 +700,7 @@ const App = () => {
               {t("dischargeShareHigh")}
             </p>
           </div>
-        </div>
+        </Grid>
       </Card>
     </div>
   );
@@ -706,35 +796,32 @@ const App = () => {
       </div>
 
       <div className="relative flex">
-        {isMobileSidebarOpen && (
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            className="lg:hidden fixed inset-0 top-14 sm:top-16 bg-gray-900/35 z-30"
-          />
-        )}
-        <div
-          className={`
-          bg-white border-r-2 border-gray-200 shadow-2xl lg:shadow-none transition-all duration-300
-          fixed top-14 sm:top-16 bottom-0 left-0 z-40 overflow-y-auto
-          w-[82vw] max-w-[320px] transform ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:w-auto lg:max-w-none lg:translate-x-0 lg:sticky lg:top-16 lg:bottom-auto
-          ${sidebarCollapsed ? "lg:w-20" : "lg:w-64"}
-        `}
+        <Sidebar
+          isOpen={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          title="Navigation"
+          footer={
+            (!sidebarCollapsed || isMobileSidebarOpen) && (
+              <div className="p-4 mt-4 border-t-2 border-gray-200">
+                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all">
+                  <Settings className="w-5 h-5" />
+                  <span className="font-medium text-sm">{t("settings")}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMobileSidebarOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 transition-all mt-2"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="font-medium text-sm">{t("logout")}</span>
+                </button>
+              </div>
+            )
+          }
         >
-          <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
-            <p className="text-sm font-semibold text-gray-800">Navigation</p>
-            <button
-              type="button"
-              aria-label="Close navigation menu"
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
           <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Menu
           </div>
@@ -751,8 +838,10 @@ const App = () => {
                     setSelectedPatient(null);
                     setIsMobileSidebarOpen(false);
                   }}
+                  aria-current={isActive ? "page" : undefined}
                   className={`
-                    w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all
+                    w-full flex items-center ${sidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "gap-3"}
+                    px-3 py-3 rounded-xl transition-all
                     ${
                       isActive
                         ? "bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-md"
@@ -768,106 +857,89 @@ const App = () => {
               );
             })}
           </nav>
-
-          {(!sidebarCollapsed || isMobileSidebarOpen) && (
-            <div className="p-4 mt-4 border-t-2 border-gray-200">
-              <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all">
-                <Settings className="w-5 h-5" />
-                <span className="font-medium text-sm">{t("settings")}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setIsMobileSidebarOpen(false);
-                  handleLogout();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 transition-all mt-2"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="font-medium text-sm">{t("logout")}</span>
-              </button>
-            </div>
-          )}
-        </div>
+        </Sidebar>
 
         <div className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
-          {currentView === "dashboard" && <Dashboard />}
+          <Suspense fallback={<PatientCardSkeleton />}>
+            {currentView === "dashboard" && <Dashboard />}
 
-          {currentView === "patients" && (
-            <PatientsList
-              patients={patients}
-              onPatientSelect={(patient) => {
-                setSelectedPatient(patient);
-                setCurrentView("patient-detail");
-              }}
-            />
-          )}
-
-          {currentView === "patient-detail" && selectedPatient && (
-            <PatientDetail
-              patient={selectedPatient}
-              onBack={() => {
-                setSelectedPatient(null);
-                setCurrentView("patients");
-              }}
-              onStartDischarge={() => setCurrentView("discharge")}
-            />
-          )}
-
-          {currentView === "discharge" &&
-            (selectedPatient || patients[0] ? (
-              <DischargeWorkflow
-                patient={selectedPatient || patients[0]}
-                onBack={() =>
-                  setCurrentView(selectedPatient ? "patient-detail" : "patients")
-                }
-                onComplete={() => {
-                  alert(t("dischargeWorkflowCompleted"));
-                  setCurrentView("dashboard");
-                  loadOperationalData();
+            {currentView === "patients" && (
+              <PatientsList
+                patients={patients}
+                onPatientSelect={(patient) => {
+                  setSelectedPatient(patient);
+                  setCurrentView("patient-detail");
                 }}
               />
-            ) : (
-              <Card className="p-8 text-center">
-                <p className="text-gray-700 font-semibold">
-                  Select a patient first to start discharge workflow.
-                </p>
-              </Card>
-            ))}
+            )}
 
-          {currentView === "tasks" && (
-            <Tasks
-              tasks={tasks}
-              patients={patients}
-              onPatientSelect={(patient) => {
-                if (!patient) {
-                  return;
-                }
-                setSelectedPatient(patient);
-                setCurrentView("patient-detail");
-              }}
-            />
-          )}
+            {currentView === "patient-detail" && selectedPatient && (
+              <PatientDetail
+                patient={selectedPatient}
+                onBack={() => {
+                  setSelectedPatient(null);
+                  setCurrentView("patients");
+                }}
+                onStartDischarge={() => setCurrentView("discharge")}
+              />
+            )}
 
-          {currentView === "analytics" && <Analytics />}
+            {currentView === "discharge" &&
+              (selectedPatient || patients[0] ? (
+                <DischargeWorkflow
+                  patient={selectedPatient || patients[0]}
+                  onBack={() =>
+                    setCurrentView(selectedPatient ? "patient-detail" : "patients")
+                  }
+                  onComplete={() => {
+                    alert(t("dischargeWorkflowCompleted"));
+                    setCurrentView("dashboard");
+                    loadOperationalData();
+                  }}
+                />
+              ) : (
+                <Card className="p-8 text-center">
+                  <p className="text-gray-700 font-semibold">
+                    Select a patient first to start discharge workflow.
+                  </p>
+                </Card>
+              ))}
 
-          {currentView === "data-quality" && (
-            <div className="flex flex-col items-center justify-center h-96 text-center">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Database className="w-10 h-10 text-gray-400" />
+            {currentView === "tasks" && (
+              <Tasks
+                tasks={tasks}
+                patients={patients}
+                onPatientSelect={(patient) => {
+                  if (!patient) {
+                    return;
+                  }
+                  setSelectedPatient(patient);
+                  setCurrentView("patient-detail");
+                }}
+              />
+            )}
+
+            {currentView === "analytics" && <Analytics />}
+
+            {currentView === "data-quality" && (
+              <div className="flex flex-col items-center justify-center h-96 text-center">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <Database className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  {t("dataQualityDashboard")}
+                </h3>
+                <p className="text-gray-600">{t("dataQualityInProgress")}</p>
+                <Button
+                  variant="primary"
+                  onClick={() => setCurrentView("dashboard")}
+                  className="mt-6"
+                >
+                  {t("backToDashboard")}
+                </Button>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                {t("dataQualityDashboard")}
-              </h3>
-              <p className="text-gray-600">{t("dataQualityInProgress")}</p>
-              <Button
-                variant="primary"
-                onClick={() => setCurrentView("dashboard")}
-                className="mt-6"
-              >
-                {t("backToDashboard")}
-              </Button>
-            </div>
-          )}
+            )}
+          </Suspense>
         </div>
       </div>
 
@@ -907,7 +979,7 @@ const App = () => {
 
       <div className="bg-white border-t-2 border-gray-200 px-4 sm:px-6 py-4 text-center">
         <p className="text-xs text-gray-500">
-          {t("footerPlatform")} ·
+          {t("footerPlatform")} |
           <span className="text-teal-600 font-semibold ml-1">
             {t("footerSecureTagline")}
           </span>
@@ -918,3 +990,4 @@ const App = () => {
 };
 
 export default App;
+

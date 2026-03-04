@@ -9,6 +9,7 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import RiskScoreDisplay from '../common/RiskScoreDisplay';
+import ShapExplanation from '../prediction/ShapExplanation';
 
 /**
  * Patient Detail Component
@@ -75,7 +76,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
                 <Badge variant="default">{patient.id}</Badge>
                 <Badge variant="default">MRN: {patient.mrn}</Badge>
                 <span className="text-sm font-medium text-gray-700">
-                  {patient.age} years · {patient.gender}
+                  {patient.age} years | {patient.gender}
                 </span>
                 <Badge variant="primary">{patient.ward}</Badge>
                 {patient.bed && <Badge variant="secondary">Bed {patient.bed}</Badge>}
@@ -202,6 +203,10 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
                 </div>
               </div>
             )}
+
+            <div>
+              <ShapExplanation factors={sortedRiskFactors.slice(0, 5)} />
+            </div>
           </div>
 
           {/* Data Quality Note */}
@@ -234,7 +239,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
               <Badge variant="default">Social History</Badge>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Model: TRIP-v2.3 · Calibrated: Jan 2025 · AUC: 0.84 · Confidence: {(patient.riskConfidence * 100).toFixed(0)}%
+              Model: TRIP-v2.3 | Calibrated: Jan 2025 | AUC: 0.84 | Confidence: {(patient.riskConfidence * 100).toFixed(0)}%
             </p>
           </div>
         </Card>
@@ -334,7 +339,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
                     <p className="text-sm text-gray-700 mt-1">{event.diagnosis}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(event.date).toLocaleDateString()}
-                      {event.readmittedAfter && ` · Readmitted after ${event.readmittedAfter}`}
+                      {event.readmittedAfter && ` | Readmitted after ${event.readmittedAfter}`}
                     </p>
                   </div>
                   {event.status === 'active' && (
@@ -367,7 +372,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-500">Temperature</p>
-                  <p className="text-lg font-bold text-gray-900">{patient.vitals.temperature}°C</p>
+                  <p className="text-lg font-bold text-gray-900">{patient.vitals.temperature} C</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-500">SpO2</p>
@@ -400,7 +405,7 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
                 {patient.medications.map((med, idx) => (
                   <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium text-gray-700">{med.name}</span>
-                    <span className="text-xs text-gray-500">{med.dose} · {med.frequency}</span>
+                    <span className="text-xs text-gray-500">{med.dose} | {med.frequency}</span>
                   </div>
                 ))}
               </div>
@@ -439,3 +444,4 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
 };
 
 export default PatientDetail;
+

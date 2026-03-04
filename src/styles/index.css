@@ -1,34 +1,61 @@
-/* TRIP Platform - Global Styles */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
-/* Tailwind Directives */
+/* TRIP Platform - Global Styles */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Fallback: If Tailwind fails, provide basic styling */
+:root {
+  --trip-brand-50: #e6f7f7;
+  --trip-brand-100: #b3e8e8;
+  --trip-brand-500: #00a6a6;
+  --trip-brand-600: #008f8f;
+  --trip-brand-700: #007878;
+  --trip-brand-900: #004a4a;
+  --trip-neutral-50: #f9fafb;
+  --trip-neutral-200: #e5e7eb;
+  --trip-neutral-500: #6b7280;
+  --trip-neutral-900: #111827;
+  --trip-risk-low-bg: #ecfdf5;
+  --trip-risk-medium-bg: #fffbeb;
+  --trip-risk-high-bg: #fef2f2;
+  --trip-shadow-soft:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    0 10px 30px rgba(0, 0, 0, 0.08),
+    0 20px 60px rgba(0, 0, 0, 0.03);
+}
+
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  background: #f3f4f6;
-  color: #111827;
+  margin: 0;
+  font-family: "Inter", "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(
+    135deg,
+    var(--trip-neutral-50) 0%,
+    #eff6ff 48%,
+    #f0fdfa 100%
+  );
+  color: var(--trip-neutral-900);
   line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 html,
 body,
 #root {
-  max-width: 100%;
+  width: 100%;
+  min-height: 100%;
   overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 h1 { font-size: 1.875rem; }
@@ -44,6 +71,17 @@ input, textarea, select {
   font-family: inherit;
   outline: none;
 }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--trip-brand-500);
+  outline-offset: 2px;
+}
+
+/* Fallback: If Tailwind fails, provide basic styling */
 
 /* Utility classes as fallback */
 .bg-white { background-color: white; }
@@ -394,6 +432,44 @@ input, textarea, select {
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+.trip-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+
+.trip-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.trip-stagger-list > * {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Screen reader only */

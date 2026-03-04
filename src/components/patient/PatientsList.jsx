@@ -244,12 +244,13 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
         )}
       </div>
 
-      <div className="space-y-3">
-        {filteredPatients.map((patient) => (
+      <div className="space-y-3 trip-stagger-list">
+        {filteredPatients.map((patient, index) => (
           <Card
             key={patient.id}
             className="p-4 hover:border-teal-300 cursor-pointer transition-all"
             onClick={() => onPatientSelect(patient)}
+            style={{ animationDelay: `${index * 45}ms` }}
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <RiskScoreDisplay
@@ -271,7 +272,7 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mb-2">
                   <span className="flex items-center gap-1">
                     <User className="w-4 h-4" />
-                    {patient.age}y · {patient.gender}
+                    {patient.age}y | {patient.gender}
                   </span>
                   <span>{patient.ward || "Ward not assigned"}</span>
                   <span className="flex items-center gap-1">
@@ -288,7 +289,7 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
                   {patient.diagnosis?.primary || "Diagnosis pending"}
                   {patient.diagnosis?.secondary?.length > 0 && (
                     <span className="text-gray-500">
-                      {" · "}
+                      {" | "}
                       {patient.diagnosis.secondary.join(", ")}
                     </span>
                   )}
@@ -320,3 +321,4 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
 };
 
 export default PatientsList;
+

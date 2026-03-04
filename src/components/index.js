@@ -15,5 +15,8 @@ export { default as Tasks } from './dashboard/Tasks';
 // Discharge Components
 export { default as DischargeWorkflow } from './discharge/DischargeWorkflow';
 
+// Layout Components
+export { default as Sidebar } from './layout/Sidebar';
+
 // Analytics Components
 export { default as Analytics } from './analytics/Analytics';
