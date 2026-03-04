@@ -1,4 +1,3 @@
-const axios = require('axios');
 const { predictReadmission } = require('./riskEngine');
 
 const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
@@ -74,6 +73,79 @@ function normalizeExternalPrediction(payload = {}, fallbackFeatures = {}) {
   };
 }
 
+function safeParseJson(rawValue) {
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue);
+  } catch (error) {
+    return null;
+  }
+}
+
+function readRemoteErrorMessage(payload) {
+  if (!payload) {
+    return null;
+  }
+
+  if (typeof payload === 'string') {
+    return payload;
+  }
+
+  if (typeof payload.message === 'string') {
+    return payload.message;
+  }
+
+  if (typeof payload.error === 'string') {
+    return payload.error;
+  }
+
+  if (payload.error && typeof payload.error.message === 'string') {
+    return payload.error.message;
+  }
+
+  if (payload.details && typeof payload.details.message === 'string') {
+    return payload.details.message;
+  }
+
+  return null;
+}
+
+async function postJson(url, body, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    const rawResponse = await response.text();
+    const payload = safeParseJson(rawResponse);
+
+    if (!response.ok) {
+      const message =
+        readRemoteErrorMessage(payload) || `ML service request failed with status ${response.status}`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
+
+    return payload || {};
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 function calculateRuleBasedScore(features = {}) {
   let score = 0;
 
@@ -126,13 +198,13 @@ async function generatePrediction(visitId, rawFeatures = {}) {
   const features = normalizeInputFeatures(rawFeatures);
 
   try {
-    const response = await axios.post(
+    const responsePayload = await postJson(
       `${ML_API_URL}/api/v1/predict`,
       { visitId, features },
-      { timeout: ML_TIMEOUT_MS }
+      ML_TIMEOUT_MS
     );
 
-    return normalizeExternalPrediction(response.data, features);
+    return normalizeExternalPrediction(responsePayload, features);
   } catch (error) {
     if (!ML_FALLBACK_ENABLED) {
       throw new Error('ML service unavailable and fallback is disabled.');
@@ -167,4 +239,3 @@ module.exports = {
   generatePrediction,
   calculateRuleBasedScore
 };
-

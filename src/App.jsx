@@ -57,11 +57,13 @@ import {
 import {
   getOfflinePatients,
   getOfflineTasks,
+  getQueuedSyncOperations,
   savePatientsOffline,
   saveTasksOffline,
 } from "./services/offlineStorage";
 import { trackEvent, trackPageView } from "./services/analytics";
 import { isFeatureEnabled } from "./services/featureFlags";
+import { flushSyncQueue, queueTaskStatusUpdate } from "./services/syncService";
 import {
   getExperimentVariant,
   trackExperimentExposure,
@@ -135,6 +137,7 @@ const App = () => {
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const [isUsingOfflineData, setIsUsingOfflineData] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const { language, setLanguage, t } = useI18n();
   const dashboardKpiVariant = useMemo(
     () => getExperimentVariant("dashboardKpiOrder", currentUser?.id || "anonymous"),
@@ -322,6 +325,57 @@ const App = () => {
     }
     trackPageView(`/${currentView}`);
   }, [currentView, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    let disposed = false;
+
+    const refreshQueueStatus = async () => {
+      try {
+        const queued = await getQueuedSyncOperations();
+        if (!disposed) {
+          setPendingSyncCount(queued.length);
+        }
+      } catch (error) {
+        if (!disposed) {
+          setPendingSyncCount(0);
+        }
+      }
+    };
+
+    const replayQueue = async () => {
+      if (!navigator.onLine) {
+        await refreshQueueStatus();
+        return;
+      }
+
+      try {
+        const result = await flushSyncQueue();
+        if (!disposed) {
+          setPendingSyncCount(result.remaining);
+        }
+        if (result.flushed > 0) {
+          loadOperationalData();
+        }
+      } catch (error) {
+        await refreshQueueStatus();
+      }
+    };
+
+    replayQueue();
+    const onlineHandler = () => {
+      replayQueue();
+    };
+    window.addEventListener("online", onlineHandler);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("online", onlineHandler);
+    };
+  }, [isAuthenticated, loadOperationalData]);
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.id) {
@@ -645,6 +699,15 @@ const App = () => {
               </p>
             </div>
           </div>
+        </Card>
+      )}
+
+      {pendingSyncCount > 0 && (
+        <Card className="p-4 border-blue-200 bg-blue-50">
+          <p className="text-sm text-blue-800">
+            {pendingSyncCount} offline update{pendingSyncCount === 1 ? "" : "s"} queued for sync.
+            Reconnect to upload changes.
+          </p>
         </Card>
       )}
 
@@ -1206,26 +1269,59 @@ const App = () => {
                   setCurrentView("patient-detail");
                 }}
                 onTaskUpdate={async (task, status) => {
-                  const updated = await updateTask(task.id, { status });
-                  if (!updated) {
-                    return;
-                  }
-
                   setTasks((previous) =>
                     previous.map((entry) =>
-                      entry.id === updated.id
+                      entry.id === task.id
                         ? {
                             ...entry,
-                            ...updated,
-                            dueDate: updated.dueDate
-                              ? new Date(updated.dueDate)
-                              : entry.dueDate,
+                            status,
                           }
                         : entry,
                     ),
                   );
+                  try {
+                    if (!navigator.onLine) {
+                      throw new Error("offline");
+                    }
 
-                  trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
+                    const updated = await updateTask(task.id, { status });
+                    if (!updated) {
+                      return;
+                    }
+
+                    setTasks((previous) =>
+                      previous.map((entry) =>
+                        entry.id === updated.id
+                          ? {
+                              ...entry,
+                              ...updated,
+                              dueDate: updated.dueDate
+                                ? new Date(updated.dueDate)
+                                : entry.dueDate,
+                            }
+                          : entry,
+                      ),
+                    );
+
+                    trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
+                  } catch (error) {
+                    const shouldQueue = !error?.status || !navigator.onLine;
+                    if (!shouldQueue) {
+                      throw error;
+                    }
+
+                    await queueTaskStatusUpdate({
+                      taskId: task.id,
+                      status,
+                    });
+                    const queued = await getQueuedSyncOperations();
+                    setPendingSyncCount(queued.length);
+                    pushNotification({
+                      tone: "blue",
+                      title: "Task update queued",
+                      body: `${task.title} will sync when online.`,
+                    });
+                  }
                 }}
               />
             )}

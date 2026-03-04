@@ -12,6 +12,49 @@ const ROLE_TO_UI = {
   ml_engineer: 'ml-engineer'
 };
 
+function parseErrorMessage(input) {
+  if (!input) {
+    return null;
+  }
+
+  if (typeof input === 'string') {
+    return input.trim() || null;
+  }
+
+  if (input instanceof Error && typeof input.message === 'string') {
+    return input.message.trim() || null;
+  }
+
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      const resolved = parseErrorMessage(item);
+      if (resolved) {
+        return resolved;
+      }
+    }
+    return null;
+  }
+
+  if (typeof input === 'object') {
+    const candidates = [
+      input.message,
+      input.error,
+      input.details,
+      input.reason,
+      input.title
+    ];
+
+    for (const candidate of candidates) {
+      const resolved = parseErrorMessage(candidate);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  return null;
+}
+
 function isBrowser() {
   return typeof window !== 'undefined';
 }
@@ -107,10 +150,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
   const payload = text ? safeParseJson(text) : null;
 
   if (!response.ok) {
-    const message =
-      payload?.message ||
-      payload?.error ||
-      `Request failed with status ${response.status}`;
+    const message = parseErrorMessage(payload) || `Request failed with status ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
     error.payload = payload;

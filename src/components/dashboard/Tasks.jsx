@@ -23,6 +23,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
   const [filter, setFilter] = useState("all"); // all, pending, overdue, completed
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   const normalizedTasks = useMemo(() => {
     const patientById = new Map(patients.map((patient) => [patient.id, patient]));
@@ -99,8 +100,11 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
     }
 
     setUpdatingTaskId(task.id);
+    setActionError("");
     try {
       await onTaskUpdate(task, status);
+    } catch (error) {
+      setActionError(error?.message || "Task update failed.");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -186,6 +190,12 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
           <option value="low">Low Priority</option>
         </select>
       </div>
+
+      {actionError && (
+        <Card className="p-3 border-red-200 bg-red-50" hover={false}>
+          <p className="text-sm text-red-700">{actionError}</p>
+        </Card>
+      )}
 
       <div className="space-y-3">
         {filteredTasks.map((task) => (

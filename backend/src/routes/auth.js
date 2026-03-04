@@ -16,8 +16,19 @@ const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
 
+function normalizeLoginEmail(rawEmail) {
+  const email = String(rawEmail || '').trim().toLowerCase();
+
+  // Accept common typo for national admin account used in demo environments.
+  if (email === 'mho@trip.go.tz') {
+    return 'moh@trip.go.tz';
+  }
+
+  return email;
+}
+
 router.post('/login', asyncHandler(async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const email = normalizeLoginEmail(req.body.email);
   const password = String(req.body.password || '');
   const throttleKey = buildLoginThrottleKey({
     email,

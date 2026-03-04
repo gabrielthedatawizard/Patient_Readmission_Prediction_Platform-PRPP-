@@ -62,7 +62,13 @@ const LoginPage = ({ onLogin, onBack }) => {
       onLogin(session);
     } catch (requestError) {
       setIsLoading(false);
-      setError(requestError?.message || "Unable to sign in. Please try again.");
+      const resolvedMessage =
+        typeof requestError?.message === "string" &&
+        requestError.message.trim() &&
+        requestError.message !== "[object Object]"
+          ? requestError.message
+          : "Unable to sign in. Please try again.";
+      setError(resolvedMessage);
     }
   };
 

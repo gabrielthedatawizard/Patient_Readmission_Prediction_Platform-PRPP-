@@ -1,6 +1,6 @@
 const DB_NAME = "trip-offline";
-const DB_VERSION = 1;
-const STORES = ["patients", "predictions", "tasks"];
+const DB_VERSION = 2;
+const STORES = ["patients", "predictions", "tasks", "syncQueue"];
 
 const ensureIndexedDb = () => {
   if (typeof indexedDB === "undefined") {
@@ -67,3 +67,24 @@ export const savePatientsOffline = async (patients = []) =>
 
 export const saveTasksOffline = async (tasks = []) =>
   Promise.all((tasks || []).map((task) => saveTaskOffline(task)));
+
+export const enqueueSyncOperation = async (operation) => {
+  const queueItem = {
+    id:
+      operation?.id ||
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `sync-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+    operation,
+    queuedAt: operation?.queuedAt || new Date().toISOString(),
+  };
+
+  await runTransaction("syncQueue", "readwrite", (store) => store.put(queueItem));
+  return queueItem;
+};
+
+export const getQueuedSyncOperations = async () =>
+  runTransaction("syncQueue", "readonly", (store) => store.getAll());
+
+export const removeQueuedSyncOperation = async (id) =>
+  runTransaction("syncQueue", "readwrite", (store) => store.delete(id));
