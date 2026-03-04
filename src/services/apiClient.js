@@ -220,6 +220,59 @@ export async function fetchTasks(filters = {}) {
   return payload?.tasks || [];
 }
 
+function normalizeTaskStatusForApi(status) {
+  if (!status) {
+    return status;
+  }
+
+  if (status === 'completed') {
+    return 'done';
+  }
+
+  return status;
+}
+
+function normalizeTaskStatusForUi(status) {
+  if (!status) {
+    return status;
+  }
+
+  if (status === 'done') {
+    return 'completed';
+  }
+
+  return status;
+}
+
+export async function updateTask(taskId, patch = {}) {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('Missing session token.');
+  }
+
+  const payload = await request(`/tasks/${taskId}`, {
+    method: 'PATCH',
+    token,
+    body: {
+      ...patch,
+      status:
+        patch.status !== undefined
+          ? normalizeTaskStatusForApi(patch.status)
+          : undefined
+    }
+  });
+
+  const task = payload?.task || null;
+  if (!task) {
+    return null;
+  }
+
+  return {
+    ...task,
+    status: normalizeTaskStatusForUi(task.status)
+  };
+}
+
 export async function fetchLatestPrediction(patientId) {
   const token = getStoredToken();
   if (!token) {

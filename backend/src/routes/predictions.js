@@ -15,7 +15,7 @@ const {
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
 const { logAudit } = require('../services/auditService');
-const { predictReadmission } = require('../services/riskEngine');
+const { generatePrediction } = require('../services/mlService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -93,12 +93,12 @@ function buildInterventionTasks({ patient, prediction, userId }) {
 router.use(requireAuth);
 
 router.post('/predict', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
-  const patientId = String(req.body.patientId || '').trim();
+  const patientId = String(req.body.patientId || req.body.visitId || '').trim();
 
   if (!patientId) {
     return res.status(400).json({
       error: 'ValidationError',
-      message: 'patientId is required.'
+      message: 'patientId or visitId is required.'
     });
   }
 
@@ -116,8 +116,9 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     ...(req.body.features || {})
   };
 
-  const result = predictReadmission(mergedFeatures, {
-    forcePrimaryFailure: Boolean(req.body.forceModelFailure)
+  const result = await generatePrediction(patientId, {
+    ...mergedFeatures,
+    requestUserId: req.user.id
   });
 
   const prediction = await createPrediction({
@@ -135,6 +136,11 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     dataQuality: result.dataQuality,
     createdBy: req.user.id
   });
+  const responsePrediction = {
+    ...prediction,
+    method: result.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+    probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+  };
 
   const tasksToCreate = buildInterventionTasks({
     patient,
@@ -151,7 +157,8 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
       patientId,
       tier: prediction.tier,
       score: prediction.score,
-      fallbackUsed: prediction.fallbackUsed
+      fallbackUsed: prediction.fallbackUsed,
+      method: responsePrediction.method
     }
   });
 
@@ -171,11 +178,22 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     ipAddress: req.ip
   });
 
+  const wss = req.app.get('wss');
+  if (wss) {
+    wss.broadcastToFacility(prediction.facilityId, 'PREDICTION_GENERATED', {
+      predictionId: prediction.id,
+      patientId: prediction.patientId,
+      score: prediction.score,
+      tier: prediction.tier,
+      method: responsePrediction.method
+    });
+  }
+
   return res.status(201).json({
-    prediction,
+    prediction: responsePrediction,
     tasks: generatedTasks,
     escalationRequired:
-      prediction.confidence < 0.5 || prediction.dataQuality.completeness < 0.7
+      prediction.confidence < 0.5 || Number(prediction.dataQuality?.completeness || 1) < 0.7
   });
 }));
 
@@ -200,7 +218,25 @@ router.get('/results/:patientId', requirePermission('predictions:read'), asyncHa
   return res.json({
     patientId: req.params.patientId,
     count: predictions.length,
-    predictions
+    predictions: predictions.map((prediction) => ({
+      ...prediction,
+      method: prediction.fallbackUsed ? 'rules' : 'ml',
+      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+    }))
+  });
+}));
+
+router.get('/history/:patientId', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+  const predictions = await listPredictionsForPatient(req.user, req.params.patientId);
+
+  return res.json({
+    patientId: req.params.patientId,
+    count: predictions.length,
+    predictions: predictions.map((prediction) => ({
+      ...prediction,
+      method: prediction.fallbackUsed ? 'rules' : 'ml',
+      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+    }))
   });
 }));
 

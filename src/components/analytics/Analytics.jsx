@@ -10,6 +10,7 @@ import {
   FileText,
   Filter,
   History,
+  RefreshCw,
   TrendingDown,
   TrendingUp,
   Users,
@@ -25,8 +26,13 @@ import {
 } from "../../services/exportService";
 import { fetchAuditLogs } from "../../services/apiClient";
 import { isFeatureEnabled } from "../../services/featureFlags";
+import {
+  fetchAnomalies,
+  fetchDashboardKPIs,
+  fetchFacilityComparison,
+} from "../../services/analyticsDataService";
 
-const facilityData = [
+const seedFacilityData = [
   { id: "FAC-001", name: "Muhimbili National Hospital", region: "Dar es Salaam", readmissionRate: 8.4, highRisk: 7, intervention: 92, trend: "down", beds: 1500 },
   { id: "FAC-002", name: "Bugando Medical Centre", region: "Mwanza", readmissionRate: 11.2, highRisk: 12, intervention: 78, trend: "up", beds: 900 },
   { id: "FAC-003", name: "KCMC", region: "Kilimanjaro", readmissionRate: 9.8, highRisk: 9, intervention: 85, trend: "down", beds: 630 },
@@ -60,6 +66,13 @@ const modelMetrics = {
   version: "TRIP-v2.3",
 };
 
+const DAYS_LOOKUP = {
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+  "1y": 365,
+};
+
 const Analytics = () => {
   const [dateRange, setDateRange] = useState("30d");
   const [selectedRegion, setSelectedRegion] = useState("all");
@@ -70,12 +83,18 @@ const Analytics = () => {
   const [auditError, setAuditError] = useState("");
   const [auditRestricted, setAuditRestricted] = useState(false);
   const [hasLoadedAudit, setHasLoadedAudit] = useState(false);
+  const [dashboardKPIs, setDashboardKPIs] = useState(null);
+  const [facilityData, setFacilityData] = useState(seedFacilityData);
+  const [liveAnomalies, setLiveAnomalies] = useState([]);
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState("");
+  const [lastRefresh, setLastRefresh] = useState(null);
   const auditTrailEnabled = isFeatureEnabled("analyticsAuditTrail");
   const pdfExportEnabled = isFeatureEnabled("analyticsPdfExport");
 
   const regions = useMemo(
     () => ["all", ...Array.from(new Set(facilityData.map((facility) => facility.region)))],
-    [],
+    [facilityData],
   );
   const tabs = useMemo(() => {
     const configuredTabs = [
@@ -96,9 +115,34 @@ const Analytics = () => {
       return facilityData;
     }
     return facilityData.filter((facility) => facility.region === selectedRegion);
-  }, [selectedRegion]);
+  }, [selectedRegion, facilityData]);
 
   const aggregates = useMemo(() => {
+    if (dashboardKPIs) {
+      const estimatedDischarges = Math.max(Number(dashboardKPIs.totalPatients || 0), 1);
+      const highRiskCount = Number(dashboardKPIs.highRiskCount || 0);
+      const mediumRiskCount = Math.max(
+        Math.round(estimatedDischarges * 0.24),
+        0,
+      );
+      const lowRiskCount = Math.max(
+        estimatedDischarges - highRiskCount - mediumRiskCount,
+        0,
+      );
+
+      return {
+        avgReadmission: Number(dashboardKPIs.readmissionRate || 0),
+        avgHighRisk: estimatedDischarges
+          ? (highRiskCount / estimatedDischarges) * 100
+          : 0,
+        avgIntervention: Number(dashboardKPIs.interventionRate || 0),
+        estimatedDischarges,
+        lowRiskCount,
+        mediumRiskCount,
+        highRiskCount,
+      };
+    }
+
     const totalFacilities = Math.max(filteredFacilities.length, 1);
     const avgReadmission =
       filteredFacilities.reduce((acc, row) => acc + row.readmissionRate, 0) / totalFacilities;
@@ -121,7 +165,7 @@ const Analytics = () => {
       mediumRiskCount,
       highRiskCount,
     };
-  }, [filteredFacilities]);
+  }, [dashboardKPIs, filteredFacilities]);
 
   const getTrendIcon = (trend) =>
     trend === "down" ? (
@@ -157,6 +201,59 @@ const Analytics = () => {
       setIsExportingReport(false);
     }
   };
+
+  const loadLiveAnalytics = useCallback(async () => {
+    setIsAnalyticsLoading(true);
+    setAnalyticsError("");
+
+    try {
+      const days = DAYS_LOOKUP[dateRange] || 30;
+      const [kpis, facilities, anomalies] = await Promise.all([
+        fetchDashboardKPIs({ days }),
+        fetchFacilityComparison({ days }),
+        fetchAnomalies({}),
+      ]);
+
+      setDashboardKPIs(kpis);
+      setLiveAnomalies(anomalies);
+      setLastRefresh(new Date());
+
+      if (facilities.length > 0) {
+        const normalized = facilities.map((facility) => {
+          const highRiskShare = facility.totalPatients
+            ? (facility.highRiskCount / facility.totalPatients) * 100
+            : 0;
+          const trend = facility.readmissionRate <= 10 ? "down" : "up";
+
+          return {
+            id: facility.facilityId,
+            name: facility.facilityName,
+            region: facility.region || "Unknown",
+            readmissionRate: Number(facility.readmissionRate || 0),
+            highRisk: Number(highRiskShare.toFixed(1)),
+            intervention: Number(kpis?.interventionRate || 0),
+            trend,
+            beds: Number(facility.totalPatients || 0),
+            avgRiskScore: Number(facility.avgRiskScore || 0),
+          };
+        });
+        setFacilityData(normalized);
+      } else {
+        setFacilityData(seedFacilityData);
+      }
+    } catch (error) {
+      setAnalyticsError(error?.message || "Failed to load live analytics.");
+      setFacilityData(seedFacilityData);
+    } finally {
+      setIsAnalyticsLoading(false);
+    }
+  }, [dateRange]);
+
+  useEffect(() => {
+    loadLiveAnalytics();
+    const timer = window.setInterval(loadLiveAnalytics, 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [loadLiveAnalytics]);
 
   const loadAuditTrail = useCallback(async () => {
     if (!auditTrailEnabled) {
@@ -272,6 +369,33 @@ const Analytics = () => {
         </div>
       </div>
 
+      {analyticsError && (
+        <Card className="p-4 border-red-200 bg-red-50" hover={false}>
+          <p className="text-sm text-red-700">{analyticsError}</p>
+        </Card>
+      )}
+
+      {liveAnomalies.length > 0 && (
+        <Card className="p-4 border-amber-200 bg-amber-50" hover={false}>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                {liveAnomalies.length} anomaly{liveAnomalies.length === 1 ? "" : "ies"} detected
+              </p>
+              {liveAnomalies.map((anomaly, index) => (
+                <div key={`${anomaly.type}-${index}`} className="text-sm text-amber-800">
+                  <p>{anomaly.message}</p>
+                  <p className="text-xs mt-1">
+                    <strong>Action:</strong> {anomaly.action}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="30-Day Readmission Rate"
@@ -305,6 +429,21 @@ const Analytics = () => {
           icon={Clock}
           color="blue"
         />
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <span>
+          Last updated: {lastRefresh ? lastRefresh.toLocaleTimeString("sw-TZ") : "Not yet refreshed"}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<RefreshCw className={`w-4 h-4 ${isAnalyticsLoading ? "animate-spin" : ""}`} />}
+          onClick={loadLiveAnalytics}
+          loading={isAnalyticsLoading}
+        >
+          Refresh
+        </Button>
       </div>
 
       <div className="border-b border-gray-200">
@@ -425,7 +564,7 @@ const Analytics = () => {
                 <tr className="border-b-2 border-gray-200">
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Facility</th>
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Region</th>
-                  <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Beds</th>
+                  <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Discharges</th>
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Readmission</th>
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">High-Risk</th>
                   <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Intervention</th>

@@ -104,6 +104,17 @@ router.post('/', requirePermission('tasks:write'), asyncHandler(async (req, res)
     ipAddress: req.ip
   });
 
+  const wss = req.app.get('wss');
+  if (wss) {
+    wss.broadcastToFacility(task.facilityId, 'TASK_ASSIGNED', {
+      id: task.id,
+      taskId: task.id,
+      patientId: task.patientId,
+      title: task.title,
+      status: task.status
+    });
+  }
+
   return res.status(201).json({ task });
 }));
 
@@ -160,6 +171,16 @@ router.patch('/:id', requirePermission('tasks:write'), asyncHandler(async (req, 
     actorUserId: req.user.id,
     ipAddress: req.ip
   });
+
+  const wss = req.app.get('wss');
+  if (wss) {
+    wss.broadcastToFacility(task.facilityId, 'TASK_UPDATED', {
+      id: task.id,
+      taskId: task.id,
+      patientId: task.patientId,
+      status: task.status
+    });
+  }
 
   return res.json({ task });
 }));

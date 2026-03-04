@@ -47,6 +47,7 @@ import {
   fetchTasks,
   getStoredToken,
   logout as logoutRequest,
+  updateTask,
 } from "./services/apiClient";
 import wsClient from "./services/websocket";
 import {
@@ -61,6 +62,10 @@ import {
 } from "./services/offlineStorage";
 import { trackEvent, trackPageView } from "./services/analytics";
 import { isFeatureEnabled } from "./services/featureFlags";
+import {
+  getExperimentVariant,
+  trackExperimentExposure,
+} from "./services/experiments";
 
 /**
  * TRIP Platform - Main Application
@@ -131,6 +136,10 @@ const App = () => {
   const [dataError, setDataError] = useState("");
   const [isUsingOfflineData, setIsUsingOfflineData] = useState(false);
   const { language, setLanguage, t } = useI18n();
+  const dashboardKpiVariant = useMemo(
+    () => getExperimentVariant("dashboardKpiOrder", currentUser?.id || "anonymous"),
+    [currentUser?.id],
+  );
 
   const pushNotification = useCallback((notification) => {
     const record = {
@@ -314,6 +323,18 @@ const App = () => {
     trackPageView(`/${currentView}`);
   }, [currentView, isAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) {
+      return;
+    }
+
+    trackExperimentExposure(
+      "dashboardKpiOrder",
+      dashboardKpiVariant,
+      currentUser.id,
+    );
+  }, [dashboardKpiVariant, currentUser?.id, isAuthenticated]);
+
   useKeyboardShortcut(
     "k",
     () => {
@@ -373,11 +394,31 @@ const App = () => {
       },
     );
 
+    const normalizeRealtimeTaskStatus = (status) => {
+      if (status === "done") {
+        return "completed";
+      }
+      if (status === "in-progress") {
+        return "in-progress";
+      }
+      return status || "pending";
+    };
+
     const unsubscribeTask = wsClient.subscribe("TASK_ASSIGNED", (task) => {
-      if (!task?.id) {
+      if (!task?.id && !task?.taskId) {
         return;
       }
-      setTasks((previous) => [task, ...previous.filter((entry) => entry.id !== task.id)]);
+      const taskId = task.id || task.taskId;
+      const mergedTask = {
+        id: taskId,
+        title: task.title || "New task assigned",
+        patientId: task.patientId || null,
+        category: task.category || "followup",
+        priority: task.priority || "medium",
+        status: normalizeRealtimeTaskStatus(task.status),
+        dueDate: task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 24 * 60 * 60 * 1000),
+      };
+      setTasks((previous) => [mergedTask, ...previous.filter((entry) => entry.id !== taskId)]);
       pushNotification({
         tone: "blue",
         title: "Task assigned",
@@ -385,9 +426,28 @@ const App = () => {
       });
     });
 
+    const unsubscribeTaskUpdated = wsClient.subscribe("TASK_UPDATED", (task) => {
+      const taskId = task?.id || task?.taskId;
+      if (!taskId) {
+        return;
+      }
+
+      setTasks((previous) =>
+        previous.map((entry) =>
+          entry.id === taskId
+            ? {
+                ...entry,
+                status: normalizeRealtimeTaskStatus(task.status),
+              }
+            : entry,
+        ),
+      );
+    });
+
     return () => {
       unsubscribePrediction?.();
       unsubscribeTask?.();
+      unsubscribeTaskUpdated?.();
       wsClient.disconnect();
     };
   }, [isAuthenticated, currentUser?.id, pushNotification]);
@@ -589,38 +649,94 @@ const App = () => {
       )}
 
       <Grid cols={4} gap={6}>
-        <KPICard
-          title={t("readmissionRate")}
-          value={`${dashboardStats.readmissionRate}%`}
-          change={t("kpiReadmissionDelta")}
-          trend="up"
-          icon={TrendingUp}
-          color="teal"
-        />
-        <KPICard
-          title={t("highRiskDischarges")}
-          value={String(dashboardStats.highRiskCount)}
-          change={t("kpiHighRiskDelta")}
-          trend="down"
-          icon={Activity}
-          color="red"
-        />
-        <KPICard
-          title={t("avgLengthOfStay")}
-          value={`${dashboardStats.averageLos} days`}
-          change={t("kpiAvgStayDelta")}
-          trend="up"
-          icon={CheckCircle}
-          color="purple"
-        />
-        <KPICard
-          title={t("interventionRate")}
-          value={`${dashboardStats.interventionRate}%`}
-          change={t("kpiInterventionDelta")}
-          trend="up"
-          icon={CheckCircle}
-          color="emerald"
-        />
+        {(dashboardKpiVariant === "prioritizeInterventions"
+          ? [
+              {
+                id: "intervention-rate",
+                title: t("interventionRate"),
+                value: `${dashboardStats.interventionRate}%`,
+                change: t("kpiInterventionDelta"),
+                trend: "up",
+                icon: CheckCircle,
+                color: "emerald",
+              },
+              {
+                id: "high-risk-discharges",
+                title: t("highRiskDischarges"),
+                value: String(dashboardStats.highRiskCount),
+                change: t("kpiHighRiskDelta"),
+                trend: "down",
+                icon: Activity,
+                color: "red",
+              },
+              {
+                id: "readmission-rate",
+                title: t("readmissionRate"),
+                value: `${dashboardStats.readmissionRate}%`,
+                change: t("kpiReadmissionDelta"),
+                trend: "up",
+                icon: TrendingUp,
+                color: "teal",
+              },
+              {
+                id: "avg-los",
+                title: t("avgLengthOfStay"),
+                value: `${dashboardStats.averageLos} days`,
+                change: t("kpiAvgStayDelta"),
+                trend: "up",
+                icon: CheckCircle,
+                color: "purple",
+              },
+            ]
+          : [
+              {
+                id: "readmission-rate",
+                title: t("readmissionRate"),
+                value: `${dashboardStats.readmissionRate}%`,
+                change: t("kpiReadmissionDelta"),
+                trend: "up",
+                icon: TrendingUp,
+                color: "teal",
+              },
+              {
+                id: "high-risk-discharges",
+                title: t("highRiskDischarges"),
+                value: String(dashboardStats.highRiskCount),
+                change: t("kpiHighRiskDelta"),
+                trend: "down",
+                icon: Activity,
+                color: "red",
+              },
+              {
+                id: "avg-los",
+                title: t("avgLengthOfStay"),
+                value: `${dashboardStats.averageLos} days`,
+                change: t("kpiAvgStayDelta"),
+                trend: "up",
+                icon: CheckCircle,
+                color: "purple",
+              },
+              {
+                id: "intervention-rate",
+                title: t("interventionRate"),
+                value: `${dashboardStats.interventionRate}%`,
+                change: t("kpiInterventionDelta"),
+                trend: "up",
+                icon: CheckCircle,
+                color: "emerald",
+              },
+            ]
+        ).map((card) => (
+          <KPICard
+            key={card.id}
+            title={card.title}
+            value={card.value}
+            change={card.change}
+            trend={card.trend}
+            icon={card.icon}
+            color={card.color}
+          />
+        ))}
       </Grid>
 
       {isDataLoading && (
@@ -1088,6 +1204,28 @@ const App = () => {
                   }
                   setSelectedPatient(patient);
                   setCurrentView("patient-detail");
+                }}
+                onTaskUpdate={async (task, status) => {
+                  const updated = await updateTask(task.id, { status });
+                  if (!updated) {
+                    return;
+                  }
+
+                  setTasks((previous) =>
+                    previous.map((entry) =>
+                      entry.id === updated.id
+                        ? {
+                            ...entry,
+                            ...updated,
+                            dueDate: updated.dueDate
+                              ? new Date(updated.dueDate)
+                              : entry.dueDate,
+                          }
+                        : entry,
+                    ),
+                  );
+
+                  trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
                 }}
               />
             )}

@@ -10,6 +10,7 @@ import Badge from '../common/Badge';
 import Button from '../common/Button';
 import RiskScoreDisplay from '../common/RiskScoreDisplay';
 import ShapExplanation from '../prediction/ShapExplanation';
+import PredictionHistory from '../prediction/PredictionHistory';
 
 /**
  * Patient Detail Component
@@ -315,6 +316,10 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
           </Button>
         </Card>
       </div>
+
+      <Card className="p-4 sm:p-6">
+        <PredictionHistory patientId={patient.id} />
+      </Card>
 
       {/* Clinical History & Vitals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

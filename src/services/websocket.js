@@ -10,7 +10,7 @@ class WebSocketClient {
       return;
     }
 
-    const baseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:3001";
+    const baseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
     const url = `${baseUrl}?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`;
     this.ws = new WebSocket(url);
 

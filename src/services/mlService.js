@@ -1,15 +1,6 @@
 import { getStoredToken } from "./apiClient";
 
-const ML_API_URL = (import.meta.env.VITE_ML_API_URL || "http://localhost:5001").replace(/\/$/, "");
-
-const DEFAULT_FEATURE_KEYS = [
-  "age",
-  "gender",
-  "diagnosis",
-  "lengthOfStay",
-  "priorAdmissions6mo",
-  "charlsonIndex",
-];
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
 export async function generatePrediction(visitId, features = {}) {
   const token = getStoredToken();
@@ -17,24 +8,16 @@ export async function generatePrediction(visitId, features = {}) {
     throw new Error("Missing session token.");
   }
 
-  const reducedFeatures = DEFAULT_FEATURE_KEYS.reduce((accumulator, key) => {
-    if (features[key] !== undefined) {
-      accumulator[key] = features[key];
-    }
-    return accumulator;
-  }, {});
-
-  const response = await fetch(`${ML_API_URL}/api/v1/predict`, {
+  const response = await fetch(`${API_BASE}/predictions/predict`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
+      patientId: visitId,
       visitId,
-      features: {
-        ...reducedFeatures,
-      },
+      features,
     }),
   });
 
@@ -43,5 +26,11 @@ export async function generatePrediction(visitId, features = {}) {
     throw new Error(message);
   }
 
-  return response.json();
+  const payload = await response.json();
+  const prediction = payload?.prediction || payload;
+  return {
+    ...prediction,
+    tasks: payload?.tasks || [],
+    escalationRequired: Boolean(payload?.escalationRequired),
+  };
 }

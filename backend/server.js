@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 
@@ -24,6 +25,7 @@ try {
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+app.set('wss', null);
 
 function normalizeOrigin(origin) {
   return String(origin || '')
@@ -187,7 +189,19 @@ app.use((req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+
+  try {
+    // Lazy-load websocket dependency only for runtime server boot.
+    // eslint-disable-next-line global-require
+    const TripWebSocketServer = require('./src/services/websocketServer');
+    const wss = new TripWebSocketServer(server);
+    app.set('wss', wss);
+  } catch (error) {
+    console.warn('WebSocket server disabled:', error.message);
+  }
+
+  server.listen(PORT, () => {
     console.log(`TRIP Backend API running on http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`API docs: http://localhost:${PORT}/api`);

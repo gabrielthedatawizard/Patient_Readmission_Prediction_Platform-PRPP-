@@ -19,9 +19,10 @@ import Button from "../common/Button";
  * Action queue for follow-ups, discharge tasks, and interventions
  */
 
-const Tasks = ({ onPatientSelect, tasks = [], patients = [] }) => {
+const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => {
   const [filter, setFilter] = useState("all"); // all, pending, overdue, completed
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [updatingTaskId, setUpdatingTaskId] = useState(null);
 
   const normalizedTasks = useMemo(() => {
     const patientById = new Map(patients.map((patient) => [patient.id, patient]));
@@ -91,6 +92,19 @@ const Tasks = ({ onPatientSelect, tasks = [], patients = [] }) => {
   };
 
   const isOverdue = (date) => new Date() > date;
+
+  const handleUpdateTaskStatus = async (task, status) => {
+    if (!onTaskUpdate) {
+      return;
+    }
+
+    setUpdatingTaskId(task.id);
+    try {
+      await onTaskUpdate(task, status);
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
 
   const formatDueDate = (date) => {
     const today = new Date();
@@ -262,6 +276,37 @@ const Tasks = ({ onPatientSelect, tasks = [], patients = [] }) => {
                     {task.status}
                   </Badge>
                 </div>
+
+                {task.status !== "completed" && (
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    {task.status === "pending" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleUpdateTaskStatus(task, "in-progress");
+                        }}
+                        loading={updatingTaskId === task.id}
+                        disabled={updatingTaskId === task.id}
+                      >
+                        Start
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleUpdateTaskStatus(task, "completed");
+                      }}
+                      loading={updatingTaskId === task.id}
+                      disabled={updatingTaskId === task.id}
+                    >
+                      Mark Done
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
