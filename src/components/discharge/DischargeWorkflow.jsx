@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { 
   ArrowLeft, Stethoscope, Pill, MessageSquare, Calendar, 
   Home, FileText, Check, ArrowRight, AlertTriangle,
-  User, Phone, MapPin, Clock, CheckCircle, Save
+  User, Phone, MapPin, Clock, CheckCircle, Save, Loader2
 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
+import { generatePrediction } from '../../services/mlService';
 
 /**
  * Discharge Workflow Component
@@ -16,6 +17,9 @@ import Button from '../common/Button';
 const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [predictionResult, setPredictionResult] = useState(null);
+  const [predictionError, setPredictionError] = useState('');
   const [formData, setFormData] = useState({
     // Step 0: Clinical Readiness
     clinicalChecks: {
@@ -60,6 +64,20 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     // Step 5: Summary
     dischargeNotes: ''
   });
+
+  const buildPredictionFeatures = () => {
+    const profile = patient?.clinicalProfile || {};
+    const diagnosis = patient?.diagnosis?.primary || profile.primaryDiagnosis || 'Unknown';
+
+    return {
+      age: Number(patient?.age || profile.age || 0),
+      gender: patient?.gender || profile.gender || 'Unknown',
+      diagnosis,
+      lengthOfStay: Number(patient?.lengthOfStay || profile.lengthOfStayDays || 0),
+      priorAdmissions6mo: Number(patient?.priorAdmissions || profile.priorAdmissions12m || 0),
+      charlsonIndex: Number(profile.charlsonIndex || 0),
+    };
+  };
 
   const steps = [
     { id: 'clinical', label: 'Clinical Readiness', icon: Stethoscope },
@@ -179,7 +197,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </div>
 
       <div className="bg-white rounded-lg border-2 border-gray-200 overflow-x-auto">
-        <table className="w-full min-w-[760px]">
+        <table className="w-full min-w-[760px]" role="table" aria-label="Medication reconciliation">
           <thead className="bg-gray-50">
             <tr>
               <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Medication</th>
@@ -558,6 +576,31 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         />
       </div>
 
+      {predictionResult && (
+        <div className="p-4 bg-teal-50 border-2 border-teal-200 rounded-lg">
+          <p className="text-sm font-semibold text-teal-900">Latest Predicted Risk</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant={String(predictionResult.tier || '').toLowerCase() || 'default'}>
+              {predictionResult.tier || 'Unknown'} Risk
+            </Badge>
+            <span className="text-sm text-teal-800">
+              Score: {predictionResult.score ?? '--'}
+            </span>
+            {predictionResult.confidence !== undefined && (
+              <span className="text-sm text-teal-700">
+                Confidence: {(Number(predictionResult.confidence) * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {predictionError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700">{predictionError}</p>
+        </div>
+      )}
+
       {/* Confirmation */}
       <label className="flex items-start gap-3 p-4 bg-teal-50 border-2 border-teal-200 rounded-lg cursor-pointer">
         <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
@@ -579,6 +622,27 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
 
   const CurrentStepComponent = stepComponents[currentStep];
 
+  const handleCompleteDischarge = async () => {
+    markStepComplete(currentStep);
+    setPredictionError('');
+    setIsCompleting(true);
+
+    let prediction = null;
+    try {
+      prediction = await generatePrediction(patient?.id, buildPredictionFeatures());
+      setPredictionResult(prediction);
+    } catch (error) {
+      setPredictionError(error?.message || 'Prediction generation failed. Discharge can still proceed.');
+    } finally {
+      setIsCompleting(false);
+    }
+
+    onComplete?.({
+      workflow: formData,
+      prediction,
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -590,7 +654,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           <h1 className="text-2xl font-bold text-gray-900">Discharge Workflow</h1>
           {patient && (
             <p className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
-              {patient.name} · {patient.id} · 
+              {patient.name} | {patient.id} |
               <Badge variant={patient.riskTier.toLowerCase()}>
                 {patient.riskTier} Risk
               </Badge>
@@ -680,13 +744,12 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           ) : (
             <Button
               variant="success"
-              onClick={() => {
-                markStepComplete(currentStep);
-                onComplete?.();
-              }}
-              icon={<Check className="w-4 h-4" />}
+              onClick={handleCompleteDischarge}
+              loading={isCompleting}
+              disabled={isCompleting}
+              icon={isCompleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             >
-              Complete Discharge
+              {isCompleting ? 'Finalizing...' : 'Complete Discharge'}
             </Button>
           )}
         </div>

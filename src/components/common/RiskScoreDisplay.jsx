@@ -9,9 +9,11 @@ import Badge from './Badge';
 const RiskScoreDisplay = ({ 
   score, 
   tier, 
+  confidence,
   size = 'md',
   showLabel = true,
-  showBadge = true
+  showBadge = true,
+  showConfidence = false,
 }) => {
   const sizes = {
     sm: { container: 'w-12 h-12', text: 'text-base' },
@@ -38,7 +40,23 @@ const RiskScoreDisplay = ({
     }
   };
   
-  const colors = tierColors[tier] || tierColors.Low;
+  const normalizedTier =
+    String(tier || '')
+      .toLowerCase()
+      .replace(/^\w/, (character) => character.toUpperCase()) || 'Low';
+  const colors = tierColors[normalizedTier] || tierColors.Low;
+  const numericScore = Number(score || 0);
+  const safeScore = Number.isFinite(numericScore) ? numericScore : 0;
+  const hasConfidence = Number.isFinite(Number(confidence));
+  const confidenceRatio = hasConfidence ? Number(confidence) : null;
+
+  const confidenceWindow = hasConfidence
+    ? Math.max(4, Math.round((1 - confidenceRatio) * 20))
+    : null;
+  const lowerBound =
+    confidenceWindow === null ? null : Math.max(1, safeScore - confidenceWindow);
+  const upperBound =
+    confidenceWindow === null ? null : Math.min(99, safeScore + confidenceWindow);
   
   return (
     <div className="flex flex-col items-center gap-2">
@@ -54,15 +72,26 @@ const RiskScoreDisplay = ({
         
         {/* Score */}
         <span className={`${sizes[size].text} font-bold text-white relative z-10`}>
-          {score}
+          {safeScore}
         </span>
       </div>
       
       {/* Risk tier badge */}
       {showBadge && (
-        <Badge variant={tier.toLowerCase()} size={size === 'sm' ? 'sm' : 'default'}>
-          {showLabel ? `${tier} Risk` : tier}
+        <Badge variant={normalizedTier.toLowerCase()} size={size === 'sm' ? 'sm' : 'default'}>
+          {showLabel ? `${normalizedTier} Risk` : normalizedTier}
         </Badge>
+      )}
+
+      {showConfidence && hasConfidence && lowerBound !== null && upperBound !== null && (
+        <div className="text-center">
+          <p className="text-xs font-medium text-gray-600">
+            Confidence: {(confidenceRatio * 100).toFixed(0)}%
+          </p>
+          <p className="text-[11px] text-gray-500">
+            95% interval: {lowerBound}-{upperBound}
+          </p>
+        </div>
       )}
     </div>
   );

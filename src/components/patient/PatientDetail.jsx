@@ -100,6 +100,8 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
           <RiskScoreDisplay 
             score={patient.riskScore} 
             tier={patient.riskTier} 
+            confidence={patient.riskConfidence}
+            showConfidence
             size="md" 
           />
         </div>

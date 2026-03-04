@@ -84,6 +84,27 @@ const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWor
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
 
 const App = () => {
+  const initialNotifications = [
+    {
+      id: "seed-1",
+      tone: "red",
+      titleKey: "notificationHighRiskPatient",
+      bodyKey: "notificationHighRiskPatientBody",
+    },
+    {
+      id: "seed-2",
+      tone: "blue",
+      titleKey: "notificationFollowupDue",
+      bodyKey: "notificationFollowupDueBody",
+    },
+    {
+      id: "seed-3",
+      tone: "emerald",
+      titleKey: "notificationDataQualityImproved",
+      bodyKey: "notificationDataQualityImprovedBody",
+    },
+  ];
+
   const [currentPage, setCurrentPage] = useState("landing");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
@@ -93,6 +114,7 @@ const App = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState(initialNotifications);
   const [selectedFacility, setSelectedFacility] = useState(DEFAULT_FACILITY);
   const [patients, setPatients] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -100,6 +122,19 @@ const App = () => {
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const { language, setLanguage, t } = useI18n();
+
+  const pushNotification = useCallback((notification) => {
+    const record = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tone: notification.tone || "blue",
+      title: notification.title || "",
+      body: notification.body || "",
+      titleKey: notification.titleKey,
+      bodyKey: notification.bodyKey,
+    };
+
+    setNotifications((previous) => [record, ...previous].slice(0, 25));
+  }, []);
 
   const resolveRiskTier = (tier) => {
     const normalized = (tier || "").toLowerCase();
@@ -281,6 +316,12 @@ const App = () => {
               : patient,
           ),
         );
+
+        pushNotification({
+          tone: "red",
+          title: "New prediction generated",
+          body: `Patient ${prediction.patientId} scored ${prediction.score ?? "--"}`,
+        });
       },
     );
 
@@ -289,6 +330,11 @@ const App = () => {
         return;
       }
       setTasks((previous) => [task, ...previous.filter((entry) => entry.id !== task.id)]);
+      pushNotification({
+        tone: "blue",
+        title: "Task assigned",
+        body: task.title || "A new task was assigned.",
+      });
     });
 
     return () => {
@@ -296,7 +342,7 @@ const App = () => {
       unsubscribeTask?.();
       wsClient.disconnect();
     };
-  }, [isAuthenticated, currentUser?.id]);
+  }, [isAuthenticated, currentUser?.id, pushNotification]);
 
   const dashboardStats = useMemo(() => {
     const totalPatients = patients.length;
@@ -582,6 +628,7 @@ const App = () => {
                       <RiskScoreDisplay
                         score={patient.riskScore}
                         tier={patient.riskTier}
+                        confidence={patient.riskConfidence}
                         size="sm"
                         showBadge={false}
                       />
@@ -715,6 +762,8 @@ const App = () => {
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 aria-label="Toggle navigation menu"
+                aria-expanded={isMobileSidebarOpen}
+                aria-controls="app-sidebar-nav"
               >
                 <Menu className="w-6 h-6 text-gray-700" />
               </button>
@@ -768,9 +817,12 @@ const App = () => {
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label={`Open notifications (${notifications.length})`}
               >
                 <Bell className="w-5 h-5 text-gray-700" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                  {notifications.length}
+                </span>
               </button>
 
               <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200">
@@ -825,7 +877,7 @@ const App = () => {
           <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Menu
           </div>
-          <nav className="p-4 space-y-2">
+          <nav id="app-sidebar-nav" aria-label="Primary navigation" className="p-4 space-y-2">
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
@@ -891,8 +943,60 @@ const App = () => {
                   onBack={() =>
                     setCurrentView(selectedPatient ? "patient-detail" : "patients")
                   }
-                  onComplete={() => {
-                    alert(t("dischargeWorkflowCompleted"));
+                  onComplete={(result) => {
+                    const prediction = result?.prediction || null;
+                    if (prediction && (selectedPatient || patients[0])) {
+                      const patientId = (selectedPatient || patients[0]).id;
+                      setPatients((previous) =>
+                        previous.map((patient) =>
+                          patient.id === patientId
+                            ? {
+                                ...patient,
+                                riskScore: prediction.score ?? patient.riskScore,
+                                riskTier: prediction.tier ?? patient.riskTier,
+                                riskConfidence:
+                                  prediction.confidence ?? patient.riskConfidence,
+                                riskFactors:
+                                  prediction.factors?.length
+                                    ? prediction.factors.map((factor) => ({
+                                        factor: factor.factor || factor.label || "Unknown factor",
+                                        weight: Number(factor.weight || factor.value || 0),
+                                        category: factor.category || "clinical",
+                                      }))
+                                    : patient.riskFactors,
+                              }
+                            : patient,
+                        ),
+                      );
+                      setSelectedPatient((previous) =>
+                        previous && previous.id === patientId
+                          ? {
+                              ...previous,
+                              riskScore: prediction.score ?? previous.riskScore,
+                              riskTier: prediction.tier ?? previous.riskTier,
+                              riskConfidence:
+                                prediction.confidence ?? previous.riskConfidence,
+                              riskFactors:
+                                prediction.factors?.length
+                                  ? prediction.factors.map((factor) => ({
+                                      factor: factor.factor || factor.label || "Unknown factor",
+                                      weight: Number(factor.weight || factor.value || 0),
+                                      category: factor.category || "clinical",
+                                    }))
+                                  : previous.riskFactors,
+                            }
+                          : previous,
+                      );
+                    }
+
+                    pushNotification({
+                      tone: prediction ? "emerald" : "blue",
+                      title: "Discharge workflow completed",
+                      body: prediction
+                        ? `Updated score: ${prediction.score ?? "--"} (${prediction.tier || "Unknown"})`
+                        : "Discharge summary saved successfully.",
+                    });
+                    trackEvent("Discharge", "Complete", (selectedPatient || patients[0])?.id || "unknown");
                     setCurrentView("dashboard");
                     loadOperationalData();
                   }}
@@ -949,30 +1053,43 @@ const App = () => {
             <h3 className="font-bold text-white">{t("notifications")}</h3>
           </div>
           <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-sm font-semibold text-red-900">
-                {t("notificationHighRiskPatient")}
-              </p>
-              <p className="text-xs text-red-700 mt-1">
-                {t("notificationHighRiskPatientBody")}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-semibold text-blue-900">
-                {t("notificationFollowupDue")}
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                {t("notificationFollowupDueBody")}
-              </p>
-            </div>
-            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <p className="text-sm font-semibold text-emerald-900">
-                {t("notificationDataQualityImproved")}
-              </p>
-              <p className="text-xs text-emerald-700 mt-1">
-                {t("notificationDataQualityImprovedBody")}
-              </p>
-            </div>
+            {notifications.map((notification) => {
+              const tones = {
+                red: {
+                  card: "bg-red-50 border-red-200",
+                  title: "text-red-900",
+                  body: "text-red-700",
+                },
+                blue: {
+                  card: "bg-blue-50 border-blue-200",
+                  title: "text-blue-900",
+                  body: "text-blue-700",
+                },
+                emerald: {
+                  card: "bg-emerald-50 border-emerald-200",
+                  title: "text-emerald-900",
+                  body: "text-emerald-700",
+                },
+              };
+
+              const tone = tones[notification.tone] || tones.blue;
+
+              return (
+                <div key={notification.id} className={`p-3 rounded-lg border ${tone.card}`}>
+                  <p className={`text-sm font-semibold ${tone.title}`}>
+                    {notification.titleKey ? t(notification.titleKey) : notification.title}
+                  </p>
+                  <p className={`text-xs mt-1 ${tone.body}`}>
+                    {notification.bodyKey ? t(notification.bodyKey) : notification.body}
+                  </p>
+                </div>
+              );
+            })}
+            {!notifications.length && (
+              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                <p className="text-sm text-gray-700">No notifications yet.</p>
+              </div>
+            )}
           </div>
         </div>
       )}
