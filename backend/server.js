@@ -23,6 +23,7 @@ try {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 function normalizeOrigin(origin) {
   return String(origin || '')
@@ -66,7 +67,30 @@ const vercelOrigins = [
 
 vercelOrigins.forEach((origin) => allowedOrigins.add(origin));
 
-app.use(helmet());
+app.disable('x-powered-by');
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'"],
+        connectSrc: ["'self'", 'https:', 'wss:']
+      }
+    },
+    hsts: IS_PRODUCTION
+      ? {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true
+        }
+      : false,
+    crossOriginEmbedderPolicy: false
+  })
+);
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -85,6 +109,10 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

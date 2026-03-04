@@ -7,6 +7,11 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
 const { signAccessToken, requireAuth } = require('../middleware/auth');
+const {
+  buildLoginThrottleKey,
+  consumeLoginAttempt,
+  clearLoginAttempts
+} = require('../services/loginThrottle');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -14,6 +19,19 @@ const router = express.Router();
 router.post('/login', asyncHandler(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
+  const throttleKey = buildLoginThrottleKey({
+    email,
+    ipAddress: req.ip
+  });
+  const throttleResult = consumeLoginAttempt(throttleKey);
+
+  if (!throttleResult.allowed) {
+    res.set('Retry-After', String(throttleResult.retryAfterSeconds || 60));
+    return res.status(429).json({
+      error: 'TooManyRequests',
+      message: 'Too many failed login attempts. Please try again later.'
+    });
+  }
 
   if (!email || !password) {
     return res.status(400).json({
@@ -33,6 +51,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   const publicUser = toPublicUser(user);
   const accessToken = signAccessToken(publicUser);
+  clearLoginAttempts(throttleKey);
 
   await createAuditLog({
     userId: publicUser.id,
