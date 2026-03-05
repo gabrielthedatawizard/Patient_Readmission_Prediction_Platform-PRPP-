@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import {
   CartesianGrid,
   Legend,
@@ -16,7 +17,11 @@ const defaultSeries = [
 
 const InteractiveChart = ({ data = [], title, xKey = "month", series = defaultSeries, height = 300 }) => {
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="bg-white p-6 rounded-xl border border-neutral-200"
+    >
       <h3 className="text-lg font-semibold mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
         <LineChart data={data}>
@@ -46,7 +51,7 @@ const InteractiveChart = ({ data = [], title, xKey = "month", series = defaultSe
           ))}
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </motion.div>
   );
 };
 
