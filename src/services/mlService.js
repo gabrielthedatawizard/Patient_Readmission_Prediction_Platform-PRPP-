@@ -2,7 +2,7 @@ import { getStoredToken } from "./apiClient";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
-export async function generatePrediction(visitId, features = {}) {
+export async function generatePrediction(patientId, features = {}, options = {}) {
   const token = getStoredToken();
   if (!token) {
     throw new Error("Missing session token.");
@@ -15,8 +15,8 @@ export async function generatePrediction(visitId, features = {}) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      patientId: visitId,
-      visitId,
+      patientId,
+      visitId: options.visitId || undefined,
       features,
     }),
   });

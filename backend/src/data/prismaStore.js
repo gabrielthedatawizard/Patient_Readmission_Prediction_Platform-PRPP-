@@ -72,6 +72,7 @@ function mapPrediction(prediction) {
   return {
     id: prediction.id,
     patientId: prediction.patientId,
+    visitId: prediction.visitId || null,
     facilityId: prediction.facilityId,
     score: prediction.score,
     tier: prediction.tier,
@@ -98,6 +99,25 @@ function mapPrediction(prediction) {
             overriddenAt: toDateIso(prediction.overriddenAt)
           }
         : null
+  };
+}
+
+function mapVisit(visit) {
+  if (!visit) {
+    return null;
+  }
+
+  return {
+    id: visit.id,
+    patientId: visit.patientId,
+    facilityId: visit.facilityId,
+    admissionDate: toDateIso(visit.admissionDate),
+    dischargeDate: toDateIso(visit.dischargeDate),
+    diagnosis: visit.diagnosis,
+    ward: visit.ward,
+    lengthOfStay: visit.lengthOfStay,
+    createdAt: toDateIso(visit.createdAt),
+    updatedAt: toDateIso(visit.updatedAt)
   };
 }
 
@@ -326,6 +346,34 @@ async function getPatientForUser(user, patientId) {
   return patient;
 }
 
+async function getVisitById(visitId) {
+  if (!visitId) {
+    return null;
+  }
+
+  const visit = await prisma.visit.findUnique({
+    where: {
+      id: visitId
+    }
+  });
+
+  return mapVisit(visit);
+}
+
+async function getVisitForUser(user, visitId) {
+  const visit = await getVisitById(visitId);
+
+  if (!visit) {
+    return null;
+  }
+
+  if (!(await canAccessFacility(user, visit.facilityId))) {
+    return null;
+  }
+
+  return visit;
+}
+
 async function createPatientForUser(user, payload) {
   const facilityId = payload.facilityId || user.facilityId;
 
@@ -396,6 +444,7 @@ async function createPrediction(entry) {
   const prediction = await prisma.prediction.create({
     data: {
       patientId: entry.patientId,
+      visitId: entry.visitId || null,
       facilityId: entry.facilityId,
       score: entry.score,
       tier: entry.tier,
@@ -857,6 +906,8 @@ module.exports = {
   listPatientsForUser,
   getPatientById,
   getPatientForUser,
+  getVisitById,
+  getVisitForUser,
   createPatientForUser,
   updatePatientForUser,
   createPrediction,

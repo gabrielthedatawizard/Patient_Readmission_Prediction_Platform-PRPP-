@@ -9,6 +9,7 @@ const {
   createPrediction,
   createTasks,
   getPatientForUser,
+  getVisitForUser,
   listPredictionsForPatient,
   updatePredictionOverrideForUser
 } = require('../data');
@@ -27,102 +28,100 @@ function getDueDate(days) {
 }
 
 function buildInterventionTasks({ patient, prediction, userId }) {
-  const baseTasks = [];
-
-  if (prediction.tier === 'High') {
-    baseTasks.push(
-      {
-        patientId: patient.id,
-        predictionId: prediction.id,
-        facilityId: patient.facilityId,
-        title: 'Complete medication reconciliation within 24 hours',
-        category: 'medication',
-        priority: 'high',
-        dueDate: getDueDate(1),
-        createdBy: userId
-      },
-      {
-        patientId: patient.id,
-        predictionId: prediction.id,
-        facilityId: patient.facilityId,
-        title: 'Schedule 48-hour follow-up call',
-        category: 'followup',
-        priority: 'high',
-        dueDate: getDueDate(2),
-        createdBy: userId
-      },
-      {
-        patientId: patient.id,
-        predictionId: prediction.id,
-        facilityId: patient.facilityId,
-        title: 'Discharge education reinforcement (Swahili)',
-        category: 'education',
-        priority: 'high',
-        dueDate: getDueDate(1),
-        createdBy: userId
-      }
-    );
-  } else if (prediction.tier === 'Medium') {
-    baseTasks.push(
-      {
-        patientId: patient.id,
-        predictionId: prediction.id,
-        facilityId: patient.facilityId,
-        title: 'Schedule 7-day follow-up appointment',
-        category: 'followup',
-        priority: 'medium',
-        dueDate: getDueDate(7),
-        createdBy: userId
-      },
-      {
-        patientId: patient.id,
-        predictionId: prediction.id,
-        facilityId: patient.facilityId,
-        title: 'Confirm medication pick-up plan',
-        category: 'medication',
-        priority: 'medium',
-        dueDate: getDueDate(3),
-        createdBy: userId
-      }
-    );
+  if (prediction.tier !== 'High') {
+    return [];
   }
 
-  return baseTasks;
+  return [
+    {
+      patientId: patient.id,
+      predictionId: prediction.id,
+      facilityId: patient.facilityId,
+      title: 'Complete Medication Reconciliation',
+      category: 'medication',
+      priority: 'high',
+      dueDate: getDueDate(1),
+      createdBy: userId
+    },
+    {
+      patientId: patient.id,
+      predictionId: prediction.id,
+      facilityId: patient.facilityId,
+      title: 'Schedule 7-Day Follow-Up Call',
+      category: 'followup',
+      priority: 'high',
+      dueDate: getDueDate(7),
+      createdBy: userId
+    },
+    {
+      patientId: patient.id,
+      predictionId: prediction.id,
+      facilityId: patient.facilityId,
+      title: 'Patient Education - Warning Signs',
+      category: 'education',
+      priority: 'medium',
+      dueDate: getDueDate(1),
+      createdBy: userId
+    }
+  ];
 }
 
 router.use(requireAuth);
 
 router.post('/predict', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
-  const patientId = String(req.body.patientId || req.body.visitId || '').trim();
+  const patientIdInput = String(req.body.patientId || '').trim();
+  const visitIdInput = String(req.body.visitId || '').trim();
 
-  if (!patientId) {
+  if (!patientIdInput && !visitIdInput) {
     return res.status(400).json({
       error: 'ValidationError',
       message: 'patientId or visitId is required.'
     });
   }
 
-  const patient = await getPatientForUser(req.user, patientId);
+  const visit = visitIdInput ? await getVisitForUser(req.user, visitIdInput) : null;
+  let patient = patientIdInput ? await getPatientForUser(req.user, patientIdInput) : null;
+
+  if (!patient && visit) {
+    patient = await getPatientForUser(req.user, visit.patientId);
+  }
 
   if (!patient) {
     return res.status(404).json({
       error: 'NotFound',
-      message: 'Patient not found or not accessible.'
+      message: visitIdInput
+        ? 'Patient or visit not found, or not accessible.'
+        : 'Patient not found or not accessible.'
+    });
+  }
+
+  if (visit && patientIdInput && visit.patientId !== patient.id) {
+    return res.status(400).json({
+      error: 'ValidationError',
+      message: 'visitId does not belong to the specified patientId.'
     });
   }
 
   const mergedFeatures = {
     ...(patient.clinicalProfile || {}),
+    ...(visit
+      ? {
+          diagnosis: visit.diagnosis,
+          lengthOfStay: visit.lengthOfStay,
+          lengthOfStayDays: visit.lengthOfStay
+        }
+      : {}),
     ...(req.body.features || {})
   };
 
-  const result = await generatePrediction(patientId, {
+  const result = await generatePrediction(visit?.id || patient.id, {
     ...mergedFeatures,
     requestUserId: req.user.id
   });
 
   const prediction = await createPrediction({
     patientId: patient.id,
+    visitId: visit?.id || null,
     facilityId: patient.facilityId,
     score: result.score,
     tier: result.tier,
@@ -154,7 +153,8 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     action: 'prediction_generated',
     resource: `prediction:${prediction.id}`,
     details: {
-      patientId,
+      patientId: patient.id,
+      visitId: visit?.id || null,
       tier: prediction.tier,
       score: prediction.score,
       fallbackUsed: prediction.fallbackUsed,

@@ -134,6 +134,45 @@ const patients = [
   }
 ];
 
+const visits = [
+  {
+    id: 'VIS-TRIP-DEMO-0001',
+    patientId: 'PT-2026-0001',
+    facilityId: 'FAC-MNH-001',
+    admissionDate: '2026-02-10T08:00:00.000Z',
+    dischargeDate: null,
+    diagnosis: 'I50.9',
+    ward: 'Medical Ward B',
+    lengthOfStay: 9,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'VIS-TRIP-DEMO-0002',
+    patientId: 'PT-2026-0002',
+    facilityId: 'FAC-ARH-001',
+    admissionDate: '2026-02-22T09:30:00.000Z',
+    dischargeDate: null,
+    diagnosis: 'E11.9',
+    ward: 'Medical Ward A',
+    lengthOfStay: 4,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'VIS-TRIP-DEMO-0003',
+    patientId: 'PT-2026-0003',
+    facilityId: 'FAC-DOD-001',
+    admissionDate: '2026-02-18T11:00:00.000Z',
+    dischargeDate: null,
+    diagnosis: 'I10',
+    ward: 'Internal Medicine',
+    lengthOfStay: 11,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 const predictions = [];
 const tasks = [];
 const auditLogs = [];
@@ -242,6 +281,20 @@ function getPatientForUser(user, patientId) {
   return patient;
 }
 
+function getVisitById(visitId) {
+  return visits.find((visit) => visit.id === visitId) || null;
+}
+
+function getVisitForUser(user, visitId) {
+  const visit = getVisitById(visitId);
+
+  if (!visit || !canAccessFacility(user, visit.facilityId)) {
+    return null;
+  }
+
+  return visit;
+}
+
 function createPatientForUser(user, payload) {
   const facilityId = payload.facilityId || user.facilityId;
 
@@ -328,6 +381,7 @@ function createPrediction(entry) {
   const prediction = {
     id: entry.id || randomUUID(),
     patientId: entry.patientId,
+    visitId: entry.visitId || null,
     facilityId: entry.facilityId,
     score: entry.score,
     tier: entry.tier,
@@ -648,6 +702,8 @@ module.exports = {
   listPatientsForUser,
   getPatientById,
   getPatientForUser,
+  getVisitById,
+  getVisitForUser,
   createPatientForUser,
   updatePatientForUser,
   createPrediction,
