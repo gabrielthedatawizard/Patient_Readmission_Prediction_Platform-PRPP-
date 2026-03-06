@@ -2,52 +2,78 @@
 # TRIP Platform - Development Server Starter
 # Starts both frontend and backend servers concurrently
 
-echo "═══════════════════════════════════════════════════════════"
+set -e
+
+print_divider() {
+    echo "==========================================================="
+}
+
+cleanup() {
+    local exit_code=$?
+    trap - INT TERM EXIT
+
+    if [ -n "${FRONTEND_PID:-}" ]; then
+        kill "$FRONTEND_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "${BACKEND_PID:-}" ]; then
+        kill "$BACKEND_PID" 2>/dev/null || true
+    fi
+
+    exit "$exit_code"
+}
+
+trap cleanup INT TERM EXIT
+
+print_divider
 echo "   TRIP - Tanzania Readmission Intelligence Platform"
-echo "═══════════════════════════════════════════════════════════"
+print_divider
 echo ""
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js first."
+    echo "ERROR: Node.js is not installed. Please install Node.js first."
     exit 1
 fi
 
-echo "✓ Node.js detected: $(node -v)"
+echo "OK: Node.js detected: $(node -v)"
 echo ""
 
 NODE_VERSION_RAW=$(node -v | sed 's/^v//')
 NODE_MAJOR=$(printf '%s' "$NODE_VERSION_RAW" | cut -d. -f1)
 NODE_MINOR=$(printf '%s' "$NODE_VERSION_RAW" | cut -d. -f2)
 
-if [ "$NODE_MAJOR" -ne 20 ] || [ "$NODE_MINOR" -lt 19 ]; then
-    echo "❌ Node.js $NODE_VERSION_RAW is unsupported."
-    echo "   TRIP currently requires Node.js 20.19.x to match the frontend toolchain."
+if [ "$NODE_MAJOR" -lt 20 ] || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 19 ]; }; then
+    echo "ERROR: Node.js $NODE_VERSION_RAW is unsupported."
+    echo "       TRIP requires Node.js 20.19.0 or newer."
     exit 1
 fi
 
-# Install dependencies if node_modules doesn't exist
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing frontend dependencies..."
+# Install dependencies if node_modules is missing or incomplete
+if [ ! -x "node_modules/.bin/vite" ]; then
+    echo "Installing frontend dependencies..."
     npm install
     echo ""
 fi
 
 if [ ! -d "backend/node_modules" ]; then
-    echo "📦 Installing backend dependencies..."
-    cd backend && npm install && cd ..
+    echo "Installing backend dependencies..."
+    (
+        cd backend
+        npm install
+    )
     echo ""
 fi
 
 # Check if backend .env exists, if not create it from example
 if [ ! -f "backend/.env" ]; then
-    echo "⚙️  Creating backend .env file from template..."
+    echo "Creating backend .env file from template..."
     cp backend/.env.example backend/.env
 fi
 
-echo "═══════════════════════════════════════════════════════════"
+print_divider
 echo "Starting TRIP Platform (Frontend & Backend)..."
-echo "═══════════════════════════════════════════════════════════"
+print_divider
 echo ""
 echo "Frontend: http://localhost:3000"
 echo "Backend:  http://localhost:5000"
@@ -59,7 +85,10 @@ echo ""
 npm start &
 FRONTEND_PID=$!
 
-cd backend && npm start &
+(
+    cd backend
+    npm start
+) &
 BACKEND_PID=$!
 
 # Wait for both processes

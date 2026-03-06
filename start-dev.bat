@@ -19,8 +19,17 @@ if errorlevel 1 (
 echo OK: Node.js detected
 echo.
 
+for /f %%i in ('node -p "process.versions.node"') do set NODE_VERSION_RAW=%%i
+node -e "const [major, minor] = process.versions.node.split('.').map(Number); process.exit(major > 20 || (major === 20 && minor >= 19) ? 0 : 1)"
+if errorlevel 1 (
+    echo Error: Node.js %NODE_VERSION_RAW% is unsupported.
+    echo TRIP requires Node.js 20.19.0 or newer.
+    pause
+    exit /b 1
+)
+
 REM Install frontend dependencies if needed
-if not exist "node_modules" (
+if not exist "node_modules\.bin\vite.cmd" (
     echo Installing frontend dependencies...
     call npm install
     echo.
