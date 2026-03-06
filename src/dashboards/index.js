@@ -1,0 +1,10 @@
+export { MoHNationalDashboard } from "./MoHNationalDashboard";
+export { RHMTDashboard } from "./RHMTDashboard";
+export { CHMTDashboard } from "./CHMTDashboard";
+export { FacilityManagerDashboard } from "./FacilityManagerDashboard";
+export { ClinicianDashboard } from "./ClinicianDashboard";
+export { NurseDashboard } from "./NurseDashboard";
+export { CHWDashboard } from "./CHWDashboard";
+export { PharmacistDashboard } from "./PharmacistDashboard";
+export { HRODashboard } from "./HRODashboard";
+export { MLEngineerDashboard } from "./MLEngineerDashboard";

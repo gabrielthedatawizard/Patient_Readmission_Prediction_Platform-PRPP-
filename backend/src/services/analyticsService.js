@@ -198,6 +198,7 @@ async function getFacilityComparison(user, options = {}) {
         facilityId: bucket.facilityId,
         facilityName: facility?.name || bucket.facilityId,
         region: facility?.regionCode || null,
+        district: facility?.district || null,
         totalPatients: bucket.totalPatients,
         highRiskCount: bucket.highRiskCount,
         readmissionRate,

@@ -10,6 +10,8 @@ const {
   getPatientForUser,
   getFacilityById,
   listPatientsForUser,
+  listPredictionsForPatient,
+  listTasksForUser,
   updatePatientForUser
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
@@ -95,20 +97,65 @@ function validatePatientPayload(payload, { partial = false } = {}) {
   return errors;
 }
 
+function parseCsv(value) {
+  if (!value) {
+    return [];
+  }
+  return String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 router.use(requireAuth);
 
 router.get('/', requirePermission('patients:read'), asyncHandler(async (req, res) => {
-  const patients = await listPatientsForUser(req.user, {
+  const include = new Set(parseCsv(req.query.include));
+  const assignedTo = String(req.query.assignedTo || '').trim();
+  const allPatients = await listPatientsForUser(req.user, {
     search: req.query.search,
     status: req.query.status,
     facilityId: req.query.facilityId
   });
 
+  let patients = allPatients;
+
+  if (assignedTo) {
+    const assigneeId = assignedTo === 'self' ? req.user.id : assignedTo;
+    const assignedTasks = await listTasksForUser(req.user, {
+      assignee: assigneeId
+    });
+    if (assignedTasks.length > 0) {
+      const assignedPatientIds = new Set(assignedTasks.map((task) => task.patientId));
+      patients = patients.filter((patient) => assignedPatientIds.has(patient.id));
+    }
+  }
+
   const withFacility = await Promise.all(
-    patients.map(async (patient) => ({
-      ...patient,
-      facility: await getFacilityById(patient.facilityId)
-    }))
+    patients.map(async (patient) => {
+      const [facility, predictions, tasks] = await Promise.all([
+        getFacilityById(patient.facilityId),
+        include.has('predictions') ? listPredictionsForPatient(req.user, patient.id) : Promise.resolve([]),
+        include.has('tasks') ? listTasksForUser(req.user, { patientId: patient.id }) : Promise.resolve([])
+      ]);
+
+      return {
+        ...patient,
+        facility,
+        ...(include.has('predictions')
+          ? {
+              predictions,
+              latestPrediction: predictions[0] || null
+            }
+          : {}),
+        ...(include.has('tasks')
+          ? {
+              tasks,
+              pendingTasks: tasks.filter((task) => task.status !== 'done').length
+            }
+          : {})
+      };
+    })
   );
 
   await logAudit(req, {

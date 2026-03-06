@@ -492,6 +492,10 @@ function listTasksForUser(user, filters = {}) {
       return false;
     }
 
+    if (filters.assignee && task.assignee !== filters.assignee) {
+      return false;
+    }
+
     return true;
   });
 }

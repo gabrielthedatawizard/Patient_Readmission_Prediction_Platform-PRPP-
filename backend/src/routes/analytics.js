@@ -24,6 +24,63 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+function toNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function groupFacilitiesByRegion(facilities = []) {
+  const grouped = new Map();
+
+  facilities.forEach((facility) => {
+    const key = facility.region || 'Unknown';
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        region: key,
+        regionCode: key,
+        facilityCount: 0,
+        readmissionTotal: 0,
+        highRiskTotal: 0,
+        patientTotal: 0
+      });
+    }
+
+    const bucket = grouped.get(key);
+    bucket.facilityCount += 1;
+    bucket.readmissionTotal += toNumber(facility.readmissionRate);
+    bucket.highRiskTotal += toNumber(facility.highRiskCount);
+    bucket.patientTotal += toNumber(facility.totalPatients);
+  });
+
+  return Array.from(grouped.values()).map((bucket) => ({
+    region: bucket.region,
+    regionCode: bucket.regionCode,
+    facilityCount: bucket.facilityCount,
+    readmissionRate: bucket.facilityCount
+      ? Number((bucket.readmissionTotal / bucket.facilityCount).toFixed(1))
+      : 0,
+    highRiskCount: bucket.highRiskTotal,
+    totalPatients: bucket.patientTotal
+  }));
+}
+
+function applyLocationFilters(facilities = [], query = {}) {
+  const region = String(query.region || '').trim().toLowerCase();
+  const district = String(query.district || '').trim().toLowerCase();
+
+  return facilities.filter((facility) => {
+    if (region && String(facility.region || '').toLowerCase() !== region) {
+      return false;
+    }
+
+    if (district && String(facility.district || '').toLowerCase() !== district) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 router.get('/dashboard', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
   const dashboard = await getDashboardKPIs(req.user, {
     facilityId: req.query.facilityId,
@@ -42,6 +99,102 @@ router.get('/dashboard', requirePermission('analytics:read'), asyncHandler(async
   });
 
   return res.json(dashboard);
+}));
+
+router.get('/national/kpis', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const dashboard = await getDashboardKPIs(req.user, {
+    facilityId: req.query.facilityId,
+    days: req.query.days,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  });
+
+  const facilities = await getFacilityComparison(req.user, {
+    days: req.query.days,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  });
+  const scopedFacilities = applyLocationFilters(facilities, req.query);
+
+  return res.json({
+    ...dashboard,
+    totalFacilities: scopedFacilities.length,
+    activeFacilities: scopedFacilities.filter((item) => Number(item.totalPatients || 0) > 0).length,
+    livesSaved: Math.max(Math.round(toNumber(dashboard.highRiskCount) * 0.18), 0)
+  });
+}));
+
+router.get('/regional-performance', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const facilities = await getFacilityComparison(req.user, {
+    days: req.query.days,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  });
+  const scopedFacilities = applyLocationFilters(facilities, req.query);
+
+  return res.json({
+    count: scopedFacilities.length,
+    regions: groupFacilitiesByRegion(scopedFacilities)
+  });
+}));
+
+router.get('/facility-rankings', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const facilities = await getFacilityComparison(req.user, {
+    days: req.query.days,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  });
+  const scopedFacilities = applyLocationFilters(facilities, req.query);
+
+  const sorted = [...scopedFacilities].sort(
+    (left, right) => toNumber(left.readmissionRate) - toNumber(right.readmissionRate)
+  );
+
+  const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 20);
+  const top = sorted.slice(0, limit);
+  const bottom = sorted.slice(Math.max(sorted.length - limit, 0)).reverse();
+
+  return res.json({
+    count: scopedFacilities.length,
+    top,
+    bottom,
+    all: sorted
+  });
+}));
+
+router.get('/policy-recommendations', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const [dashboard, anomalies] = await Promise.all([
+    getDashboardKPIs(req.user, {
+      facilityId: req.query.facilityId,
+      days: req.query.days,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate
+    }),
+    detectAnomalies(req.user, {
+      facilityId: req.query.facilityId
+    })
+  ]);
+
+  const recommendations = anomalies.map((item) => ({
+    title: item.type || 'Operational signal',
+    message: item.message,
+    action: item.action,
+    priority: item.severity === 'high' ? 'high' : 'medium'
+  }));
+
+  if (!recommendations.length) {
+    recommendations.push({
+      title: 'Sustain intervention coverage',
+      message: `Intervention completion is ${toNumber(dashboard.interventionRate).toFixed(1)}%.`,
+      action: 'Maintain discharge task compliance and weekly review cadence.',
+      priority: 'low'
+    });
+  }
+
+  return res.json({
+    count: recommendations.length,
+    recommendations
+  });
 }));
 
 router.get('/facilities', requirePermission('analytics:read'), asyncHandler(async (req, res) => {

@@ -23,24 +23,62 @@ const ALLOWED_PRIORITY = new Set(['low', 'medium', 'high']);
 
 router.use(requireAuth);
 
+function parseCsv(value) {
+  if (!value) {
+    return [];
+  }
+  return String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) => {
+  const statusFilters = parseCsv(req.query.status);
   const tasks = await listTasksForUser(req.user, {
     patientId: req.query.patientId,
-    status: req.query.status,
+    status: statusFilters.length === 1 ? statusFilters[0] : undefined,
     priority: req.query.priority
   });
+
+  const assigneeFilter = String(req.query.assignedTo || '').trim();
+  const includePatient = parseCsv(req.query.include).includes('patient');
+
+  const scoped = tasks.filter((task) => {
+    if (statusFilters.length > 1 && !statusFilters.includes(task.status)) {
+      return false;
+    }
+
+    if (assigneeFilter) {
+      if (assigneeFilter === 'self') {
+        return String(task.assignee || '').trim() === String(req.user.id || '').trim();
+      }
+      return String(task.assignee || '').trim() === assigneeFilter;
+    }
+
+    return true;
+  });
+
+  const withPatient = includePatient
+    ? await Promise.all(
+        scoped.map(async (task) => ({
+          ...task,
+          patient: await getPatientForUser(req.user, task.patientId)
+        }))
+      )
+    : scoped;
 
   await logAudit(req, {
     action: 'tasks_list_viewed',
     resource: 'tasks:list',
     details: {
-      count: tasks.length
+      count: withPatient.length
     }
   });
 
   return res.json({
-    count: tasks.length,
-    tasks
+    count: withPatient.length,
+    tasks: withPatient
   });
 }));
 

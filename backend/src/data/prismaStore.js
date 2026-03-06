@@ -617,6 +617,10 @@ async function listTasksForUser(user, filters = {}) {
     where.status = mapStatusToDb(filters.status);
   }
 
+  if (filters.assignee) {
+    where.assignee = filters.assignee;
+  }
+
   const tasks = await prisma.task.findMany({
     where,
     orderBy: {

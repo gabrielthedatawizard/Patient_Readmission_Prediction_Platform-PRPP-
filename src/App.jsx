@@ -100,6 +100,16 @@ const DEFAULT_FACILITY = SAMPLE_FACILITIES[0] || {
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
+const MoHNationalDashboard = lazy(() => import("./dashboards/MoHNationalDashboard"));
+const RHMTDashboard = lazy(() => import("./dashboards/RHMTDashboard"));
+const CHMTDashboard = lazy(() => import("./dashboards/CHMTDashboard"));
+const FacilityManagerDashboard = lazy(() => import("./dashboards/FacilityManagerDashboard"));
+const ClinicianDashboard = lazy(() => import("./dashboards/ClinicianDashboard"));
+const NurseDashboard = lazy(() => import("./dashboards/NurseDashboard"));
+const CHWDashboard = lazy(() => import("./dashboards/CHWDashboard"));
+const PharmacistDashboard = lazy(() => import("./dashboards/PharmacistDashboard"));
+const HRODashboard = lazy(() => import("./dashboards/HRODashboard"));
+const MLEngineerDashboard = lazy(() => import("./dashboards/MLEngineerDashboard"));
 
 const App = () => {
   const initialNotifications = [
@@ -1225,6 +1235,52 @@ const App = () => {
     </div>
   );
 
+  const RoleDashboard = () => {
+    switch (userRole) {
+      case "moh":
+        return <MoHNationalDashboard />;
+      case "rhmt":
+        return <RHMTDashboard region={currentUser?.regionCode || selectedFacility.region} />;
+      case "chmt":
+        return <CHMTDashboard district={selectedFacility.district} />;
+      case "facility-manager":
+        return <FacilityManagerDashboard facilityId={currentUser?.facilityId} />;
+      case "clinician":
+        return (
+          <ClinicianDashboard
+            clinicianId={currentUser?.id}
+            onOpenPatient={(patient) => {
+              if (!patient) {
+                return;
+              }
+              setSelectedPatient(patient);
+              setCurrentView("patient-detail");
+            }}
+            onStartDischarge={(patient) => {
+              if (!patient) {
+                return;
+              }
+              setSelectedPatient(patient);
+              setCurrentView("discharge");
+            }}
+          />
+        );
+      case "nurse":
+        return <NurseDashboard nurseId={currentUser?.id} />;
+      case "chw":
+        return <CHWDashboard chwId={currentUser?.id} />;
+      case "pharmacist":
+        return <PharmacistDashboard pharmacistId={currentUser?.id} />;
+      case "hro":
+        return <HRODashboard facilityId={currentUser?.facilityId} />;
+      case "ml-engineer":
+      case "data-steward":
+        return <MLEngineerDashboard />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden">
       <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -1389,7 +1445,7 @@ const App = () => {
 
         <div className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
           <Suspense fallback={<PatientCardSkeleton />}>
-            {currentView === "dashboard" && <Dashboard />}
+            {currentView === "dashboard" && <RoleDashboard />}
 
             {currentView === "patients" && (
               <PatientsList

@@ -9,6 +9,7 @@ const {
   createPrediction,
   createTasks,
   getPatientForUser,
+  listPatientsForUser,
   getVisitForUser,
   listPredictionsForPatient,
   updatePredictionOverrideForUser
@@ -265,6 +266,43 @@ router.get('/history/:patientId', requirePermission('predictions:read'), asyncHa
       method: prediction.fallbackUsed ? 'rules' : 'ml',
       probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
+  });
+}));
+
+router.get('/recent', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const assignedTo = String(req.query.clinicianId || '').trim();
+
+  let patients = await listPatientsForUser(req.user, {});
+
+  if (assignedTo) {
+    const assignedKey = assignedTo === 'self' ? req.user.id : assignedTo;
+    patients = patients.filter((patient) => {
+      const assignedClinicianId = String(patient.clinicalProfile?.assignedClinicianId || '').trim();
+      return !assignedClinicianId || assignedClinicianId === assignedKey;
+    });
+  }
+
+  const predictionRows = await Promise.all(
+    patients.map(async (patient) => {
+      const predictions = await listPredictionsForPatient(req.user, patient.id);
+      return predictions;
+    })
+  );
+
+  const predictions = predictionRows
+    .flat()
+    .sort((left, right) => new Date(right.generatedAt).getTime() - new Date(left.generatedAt).getTime())
+    .slice(0, limit)
+    .map((prediction) => ({
+      ...prediction,
+      method: prediction.fallbackUsed ? 'rules' : 'ml',
+      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+    }));
+
+  return res.json({
+    count: predictions.length,
+    predictions
   });
 }));
 

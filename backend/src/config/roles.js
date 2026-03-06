@@ -6,7 +6,7 @@ const ROLE_PERMISSIONS = {
   clinician: ['patients:read', 'patients:write', 'predictions:read', 'predictions:generate', 'predictions:override', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   nurse: ['patients:read', 'predictions:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   pharmacist: ['patients:read', 'predictions:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
-  hro: ['patients:read', 'patients:write', 'tasks:read', 'sync:pull', 'sync:push'],
+  hro: ['patients:read', 'patients:write', 'tasks:read', 'analytics:read', 'sync:pull', 'sync:push'],
   chw: ['patients:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   ml_engineer: ['patients:read', 'predictions:read', 'predictions:generate', 'analytics:read', 'audit:read', 'sync:pull']
 };
