@@ -144,6 +144,33 @@ function mapTask(task) {
   };
 }
 
+function mapAlert(alert) {
+  if (!alert) {
+    return null;
+  }
+
+  return {
+    id: alert.id,
+    patientId: alert.patientId,
+    predictionId: alert.predictionId || null,
+    facilityId: alert.facilityId,
+    score: alert.score,
+    tier: alert.tier,
+    threshold: alert.threshold,
+    severity: alert.severity,
+    message: alert.message || null,
+    channels: alert.channels || [],
+    status: alert.status,
+    acknowledgedAt: toDateIso(alert.acknowledgedAt),
+    acknowledgedById: alert.acknowledgedById || null,
+    resolvedAt: toDateIso(alert.resolvedAt),
+    resolvedById: alert.resolvedById || null,
+    resolutionNote: alert.resolutionNote || null,
+    createdAt: toDateIso(alert.createdAt),
+    updatedAt: toDateIso(alert.updatedAt)
+  };
+}
+
 function mapPatient(patient) {
   if (!patient) {
     return null;
@@ -669,6 +696,153 @@ async function updateTaskForUser(user, taskId, patch) {
   return mapTask(task);
 }
 
+async function createRiskAlert(entry) {
+  if (entry.predictionId) {
+    const existing = await prisma.alert.findUnique({
+      where: {
+        predictionId: entry.predictionId
+      }
+    });
+
+    if (existing) {
+      return mapAlert(existing);
+    }
+  }
+
+  const created = await prisma.alert.create({
+    data: {
+      patientId: entry.patientId,
+      predictionId: entry.predictionId || null,
+      facilityId: entry.facilityId,
+      score: Number(entry.score || 0),
+      tier: entry.tier || 'High',
+      threshold: Number(entry.threshold || 80),
+      severity: entry.severity || 'high',
+      message: entry.message || null,
+      channels: Array.isArray(entry.channels) ? entry.channels : [],
+      status: entry.status || 'open'
+    }
+  });
+
+  return mapAlert(created);
+}
+
+async function listAlertsForUser(user, filters = {}) {
+  const accessibleFacilityIds = await resolveAccessibleFacilityIds(user);
+  if (!accessibleFacilityIds.length) {
+    return [];
+  }
+
+  const where = {
+    facilityId: {
+      in: accessibleFacilityIds
+    }
+  };
+
+  if (filters.patientId) {
+    where.patientId = String(filters.patientId);
+  }
+
+  if (filters.status) {
+    where.status = String(filters.status);
+  }
+
+  if (filters.facilityId) {
+    const requestedFacilityId = String(filters.facilityId);
+    if (!accessibleFacilityIds.includes(requestedFacilityId)) {
+      return [];
+    }
+    where.facilityId = requestedFacilityId;
+  }
+
+  const take = Math.min(Math.max(Number(filters.limit) || 100, 1), 500);
+  const skip = Math.max(Number(filters.offset) || 0, 0);
+
+  const alerts = await prisma.alert.findMany({
+    where,
+    orderBy: {
+      createdAt: 'desc'
+    },
+    skip,
+    take
+  });
+
+  return alerts.map(mapAlert);
+}
+
+async function getAlertForUser(user, alertId) {
+  if (!alertId) {
+    return null;
+  }
+
+  const alert = await prisma.alert.findUnique({
+    where: {
+      id: alertId
+    }
+  });
+
+  if (!alert) {
+    return null;
+  }
+
+  if (!(await canAccessFacility(user, alert.facilityId))) {
+    return null;
+  }
+
+  return mapAlert(alert);
+}
+
+async function updateAlertForUser(user, alertId, patch = {}) {
+  const current = await prisma.alert.findUnique({
+    where: {
+      id: alertId
+    }
+  });
+
+  if (!current) {
+    return null;
+  }
+
+  if (!(await canAccessFacility(user, current.facilityId))) {
+    return null;
+  }
+
+  const data = {};
+
+  if (patch.status !== undefined) {
+    data.status = patch.status;
+  }
+
+  if (patch.acknowledgedAt !== undefined) {
+    data.acknowledgedAt = patch.acknowledgedAt ? new Date(patch.acknowledgedAt) : null;
+  }
+
+  if (patch.acknowledgedById !== undefined) {
+    data.acknowledgedById = patch.acknowledgedById || null;
+  }
+
+  if (patch.resolvedAt !== undefined) {
+    data.resolvedAt = patch.resolvedAt ? new Date(patch.resolvedAt) : null;
+  }
+
+  if (patch.resolvedById !== undefined) {
+    data.resolvedById = patch.resolvedById || null;
+  }
+
+  if (patch.resolutionNote !== undefined) {
+    data.resolutionNote = patch.resolutionNote || null;
+  }
+
+  const updated = await prisma.alert.update({
+    where: {
+      id: alertId
+    },
+    data
+  });
+
+  return mapAlert(updated);
+}
+
 async function createAuditLog(entry) {
   const created = await prisma.auditLog.create({
     data: {
@@ -918,6 +1092,10 @@ module.exports = {
   listTasksForUser,
   getTaskForUser,
   updateTaskForUser,
+  createRiskAlert,
+  listAlertsForUser,
+  getAlertForUser,
+  updateAlertForUser,
   createAuditLog,
   listAuditLogsForUser,
   appendSyncEvent,

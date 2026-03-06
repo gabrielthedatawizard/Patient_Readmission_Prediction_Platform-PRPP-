@@ -372,3 +372,53 @@ export async function fetchAuditLogs({ limit = 100, offset = 0 } = {}) {
   const payload = await request(`/audit${suffix}`, { token });
   return payload?.logs || [];
 }
+
+export async function fetchAlerts(filters = {}) {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('Missing session token.');
+  }
+
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const payload = await request(`/alerts${suffix}`, { token });
+  return payload?.alerts || [];
+}
+
+export async function acknowledgeAlert(alertId) {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('Missing session token.');
+  }
+
+  const payload = await request(`/alerts/${alertId}/acknowledge`, {
+    method: 'PATCH',
+    token,
+    body: {}
+  });
+
+  return payload?.alert || null;
+}
+
+export async function resolveAlert(alertId, resolutionNote = '') {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('Missing session token.');
+  }
+
+  const payload = await request(`/alerts/${alertId}/resolve`, {
+    method: 'PATCH',
+    token,
+    body: {
+      resolutionNote: resolutionNote || undefined
+    }
+  });
+
+  return payload?.alert || null;
+}

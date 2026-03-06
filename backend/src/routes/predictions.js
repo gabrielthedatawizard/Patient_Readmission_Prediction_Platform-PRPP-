@@ -186,6 +186,25 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     ipAddress: req.ip
   });
 
+  if (automation?.triggered && automation?.alert?.id) {
+    await appendSyncEvent({
+      facilityId: prediction.facilityId,
+      eventType: 'mutation',
+      operation: 'alert_created',
+      entityType: 'alert',
+      entityId: automation.alert.id,
+      payload: {
+        alertId: automation.alert.id,
+        patientId: prediction.patientId,
+        predictionId: prediction.id,
+        score: prediction.score,
+        status: automation.alert.status || 'open'
+      },
+      actorUserId: req.user.id,
+      ipAddress: req.ip
+    });
+  }
+
   const wss = req.app.get('wss');
   if (wss) {
     wss.broadcastToFacility(prediction.facilityId, 'PREDICTION_GENERATED', {

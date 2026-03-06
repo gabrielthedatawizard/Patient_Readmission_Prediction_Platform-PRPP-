@@ -1,4 +1,4 @@
-const { createAuditLog } = require('../data');
+const { createAuditLog, createRiskAlert } = require('../data');
 
 const ALERT_THRESHOLD = Number(process.env.RISK_ALERT_THRESHOLD || 80);
 const EMAIL_ALERTS_ENABLED = process.env.ALERT_EMAIL_ENABLED !== 'false';
@@ -50,16 +50,25 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
   }
 
   const channels = buildAlertChannels(patient);
-  const alertPayload = {
-    id: `alert-${prediction.id}`,
+  const severity = score >= 90 ? 'critical' : 'high';
+  const message = `Patient ${patient.id} scored ${score} (threshold ${ALERT_THRESHOLD}).`;
+
+  const persistedAlert = await createRiskAlert({
     patientId: patient.id,
     facilityId: patient.facilityId,
     predictionId: prediction.id,
     score,
-    tier: prediction.tier,
+    tier: prediction.tier || 'High',
     threshold: ALERT_THRESHOLD,
+    severity,
+    message,
+    channels
+  });
+
+  const alertPayload = {
+    ...persistedAlert,
     channels,
-    generatedAt: nowIso()
+    generatedAt: persistedAlert.createdAt || nowIso()
   };
 
   await createAuditLog({
@@ -69,12 +78,15 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
     regionCode: req.user?.regionCode || null,
     ipAddress: req.ip,
     action: 'risk_alert_dispatched',
-    resource: `prediction:${prediction.id}`,
+    resource: `alert:${persistedAlert.id}`,
     details: {
+      alertId: persistedAlert.id,
       patientId: patient.id,
+      predictionId: prediction.id,
       score,
       tier: prediction.tier,
       threshold: ALERT_THRESHOLD,
+      severity,
       channels: channels.map((channel) => ({
         type: channel.type,
         status: channel.status
@@ -90,7 +102,8 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
   return {
     triggered: true,
     threshold: ALERT_THRESHOLD,
-    channels
+    channels,
+    alert: persistedAlert
   };
 }
 
@@ -98,4 +111,3 @@ module.exports = {
   ALERT_THRESHOLD,
   dispatchRiskAlert
 };
-

@@ -12,6 +12,7 @@ const authRoutes = require('./src/routes/auth');
 const patientsRoutes = require('./src/routes/patients');
 const predictionsRoutes = require('./src/routes/predictions');
 const tasksRoutes = require('./src/routes/tasks');
+const alertsRoutes = require('./src/routes/alerts');
 const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
@@ -129,6 +130,7 @@ app.get('/api/health', (req, res) => {
       patients: 'up',
       predictions: 'up',
       tasks: 'up',
+      alerts: 'up',
       analytics: 'up',
       audit: 'up',
       sync: 'up'
@@ -151,6 +153,7 @@ app.get('/api', (req, res) => {
       patients: '/api/patients',
       predictions: '/api/predictions',
       tasks: '/api/tasks',
+      alerts: '/api/alerts',
       analytics: '/api/analytics',
       audit: '/api/audit',
       sync: '/api/sync'
@@ -162,6 +165,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientsRoutes);
 app.use('/api/predictions', predictionsRoutes);
 app.use('/api/tasks', tasksRoutes);
+app.use('/api/alerts', alertsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/sync', syncRoutes);

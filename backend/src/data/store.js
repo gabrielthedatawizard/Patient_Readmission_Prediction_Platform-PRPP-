@@ -175,6 +175,7 @@ const visits = [
 
 const predictions = [];
 const tasks = [];
+const alerts = [];
 const auditLogs = [];
 const syncEvents = [];
 let syncCursor = 0;
@@ -532,6 +533,117 @@ function updateTaskForUser(user, taskId, patch) {
   return task;
 }
 
+function createRiskAlert(entry) {
+  const existing = entry.predictionId
+    ? alerts.find((alert) => alert.predictionId === entry.predictionId) || null
+    : null;
+
+  if (existing) {
+    return existing;
+  }
+
+  const alert = {
+    id: entry.id || randomUUID(),
+    patientId: entry.patientId,
+    predictionId: entry.predictionId || null,
+    facilityId: entry.facilityId,
+    score: Number(entry.score || 0),
+    tier: entry.tier || 'High',
+    threshold: Number(entry.threshold || 80),
+    severity: entry.severity || 'high',
+    message: entry.message || null,
+    channels: Array.isArray(entry.channels) ? entry.channels : [],
+    status: entry.status || 'open',
+    acknowledgedAt: null,
+    acknowledgedById: null,
+    resolvedAt: null,
+    resolvedById: null,
+    resolutionNote: null,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+
+  alerts.unshift(alert);
+  if (alerts.length > 10000) {
+    alerts.length = 10000;
+  }
+
+  return alert;
+}
+
+function listAlertsForUser(user, filters = {}) {
+  const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 500);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const scoped = alerts.filter((alert) => {
+    if (!canAccessFacility(user, alert.facilityId)) {
+      return false;
+    }
+
+    if (filters.patientId && String(alert.patientId) !== String(filters.patientId)) {
+      return false;
+    }
+
+    if (filters.status && String(alert.status) !== String(filters.status)) {
+      return false;
+    }
+
+    if (filters.facilityId && String(alert.facilityId) !== String(filters.facilityId)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return scoped
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(offset, offset + limit);
+}
+
+function getAlertForUser(user, alertId) {
+  const alert = alerts.find((item) => item.id === alertId) || null;
+
+  if (!alert || !canAccessFacility(user, alert.facilityId)) {
+    return null;
+  }
+
+  return alert;
+}
+
+function updateAlertForUser(user, alertId, patch = {}) {
+  const alert = alerts.find((item) => item.id === alertId) || null;
+  if (!alert || !canAccessFacility(user, alert.facilityId)) {
+    return null;
+  }
+
+  if (patch.status !== undefined) {
+    alert.status = patch.status;
+  }
+
+  if (patch.acknowledgedAt !== undefined) {
+    alert.acknowledgedAt = patch.acknowledgedAt;
+  }
+
+  if (patch.acknowledgedById !== undefined) {
+    alert.acknowledgedById = patch.acknowledgedById;
+  }
+
+  if (patch.resolvedAt !== undefined) {
+    alert.resolvedAt = patch.resolvedAt;
+  }
+
+  if (patch.resolvedById !== undefined) {
+    alert.resolvedById = patch.resolvedById;
+  }
+
+  if (patch.resolutionNote !== undefined) {
+    alert.resolutionNote = patch.resolutionNote;
+  }
+
+  alert.updatedAt = nowIso();
+  return alert;
+}
+
 function createAuditLog(entry) {
   const log = {
     id: randomUUID(),
@@ -714,6 +826,10 @@ module.exports = {
   listTasksForUser,
   getTaskForUser,
   updateTaskForUser,
+  createRiskAlert,
+  listAlertsForUser,
+  getAlertForUser,
+  updateAlertForUser,
   createAuditLog,
   listAuditLogsForUser,
   appendSyncEvent,

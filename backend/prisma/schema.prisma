@@ -25,6 +25,12 @@ enum RiskTier {
   High
 }
 
+enum AlertStatus {
+  open
+  acknowledged
+  resolved
+}
+
 model Region {
   id         String     @id @default(uuid())
   code       String     @unique
@@ -47,6 +53,7 @@ model Facility {
   visits       Visit[]
   predictions  Prediction[]
   tasks        Task[]
+  alerts       Alert[]
   auditLogs    AuditLog[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -104,6 +111,7 @@ model Patient {
   visits      Visit[]
   tasks       Task[]
   predictions Prediction[]
+  alerts      Alert[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -156,12 +164,40 @@ model Prediction {
   overrideTier     RiskTier?
   overrideReason   String?
   overriddenAt     DateTime?
+  alert            Alert?
   tasks            Task[]
   generatedAt      DateTime   @default(now())
 
   @@index([patientId, generatedAt])
   @@index([facilityId, generatedAt])
   @@index([score, tier])
+}
+
+model Alert {
+  id               String      @id @default(uuid())
+  patient          Patient     @relation(fields: [patientId], references: [id])
+  patientId        String
+  prediction       Prediction? @relation(fields: [predictionId], references: [id])
+  predictionId     String?     @unique
+  facility         Facility    @relation(fields: [facilityId], references: [id])
+  facilityId       String
+  score            Int
+  tier             RiskTier
+  threshold        Int
+  severity         String      @default("high")
+  message          String?
+  channels         Json?
+  status           AlertStatus @default(open)
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  resolutionNote   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([facilityId, status, createdAt])
+  @@index([patientId, status])
 }
 
 model Task {

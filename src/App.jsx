@@ -40,13 +40,16 @@ import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
 import { SAMPLE_FACILITIES } from "./data/facilities";
 import { useI18n } from "./context/I18nProvider";
 import {
+  acknowledgeAlert,
   clearSession,
+  fetchAlerts,
   fetchCurrentUser,
   fetchLatestPrediction,
   fetchPatients,
   fetchTasks,
   getStoredToken,
   logout as logoutRequest,
+  resolveAlert,
   updateTask,
 } from "./services/apiClient";
 import wsClient from "./services/websocket";
@@ -130,6 +133,10 @@ const App = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState(initialNotifications);
+  const [riskAlerts, setRiskAlerts] = useState([]);
+  const [isAlertsLoading, setIsAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState("");
+  const [alertActionId, setAlertActionId] = useState(null);
   const [selectedFacility, setSelectedFacility] = useState(DEFAULT_FACILITY);
   const [patients, setPatients] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -177,6 +184,122 @@ const App = () => {
   const normalizeTaskCollection = useCallback(
     (taskList = []) => (taskList || []).map((task) => normalizeTaskRecord(task)),
     [normalizeTaskRecord],
+  );
+
+  const normalizeAlertRecord = useCallback((alert = {}) => {
+    const createdAt = alert.createdAt || alert.generatedAt || new Date().toISOString();
+
+    return {
+      ...alert,
+      id: alert.id || `alert-${alert.predictionId || Date.now()}`,
+      patientId: alert.patientId || "Unknown",
+      score: Number(alert.score || 0),
+      threshold: Number(alert.threshold || 80),
+      tier: alert.tier || "High",
+      status: alert.status || "open",
+      createdAt,
+      channels: Array.isArray(alert.channels) ? alert.channels : [],
+    };
+  }, []);
+
+  const upsertRiskAlert = useCallback(
+    (incomingAlert) => {
+      const normalizedAlert = normalizeAlertRecord(incomingAlert);
+      if (normalizedAlert.status === "resolved") {
+        setRiskAlerts((previous) =>
+          previous.filter((alert) => alert.id !== normalizedAlert.id),
+        );
+        return;
+      }
+
+      setRiskAlerts((previous) => {
+        const merged = [
+          normalizedAlert,
+          ...previous.filter((alert) => alert.id !== normalizedAlert.id),
+        ];
+        return merged
+          .sort(
+            (left, right) =>
+              new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+          )
+          .slice(0, 50);
+      });
+    },
+    [normalizeAlertRecord],
+  );
+
+  const loadRiskAlerts = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    setIsAlertsLoading(true);
+    setAlertsError("");
+    try {
+      const alerts = await fetchAlerts({ limit: 30 });
+      setRiskAlerts(
+        (alerts || [])
+          .map((alert) => normalizeAlertRecord(alert))
+          .filter((alert) => alert.status !== "resolved"),
+      );
+    } catch (error) {
+      if (error?.status === 403) {
+        setRiskAlerts([]);
+        setAlertsError("");
+        return;
+      }
+      setAlertsError(error?.message || "Unable to load risk alerts.");
+    } finally {
+      setIsAlertsLoading(false);
+    }
+  }, [isAuthenticated, normalizeAlertRecord]);
+
+  const handleAcknowledgeAlert = useCallback(
+    async (alertId) => {
+      setAlertActionId(`ack:${alertId}`);
+      setAlertsError("");
+      try {
+        const updated = await acknowledgeAlert(alertId);
+        if (updated) {
+          upsertRiskAlert(updated);
+        }
+        pushNotification({
+          tone: "blue",
+          title: "Risk alert acknowledged",
+          body: `Alert ${alertId} marked as acknowledged.`,
+        });
+      } catch (error) {
+        setAlertsError(error?.message || "Unable to acknowledge alert.");
+      } finally {
+        setAlertActionId(null);
+      }
+    },
+    [pushNotification, upsertRiskAlert],
+  );
+
+  const handleResolveAlert = useCallback(
+    async (alertId) => {
+      setAlertActionId(`resolve:${alertId}`);
+      setAlertsError("");
+      try {
+        const updated = await resolveAlert(alertId);
+        if (updated?.id) {
+          setRiskAlerts((previous) =>
+            previous.filter((alert) => alert.id !== updated.id),
+          );
+        }
+        pushNotification({
+          tone: "emerald",
+          title: "Risk alert resolved",
+          body: `Alert ${alertId} has been resolved.`,
+        });
+      } catch (error) {
+        setAlertsError(error?.message || "Unable to resolve alert.");
+      } finally {
+        setAlertActionId(null);
+      }
+    },
+    [pushNotification],
   );
 
   const resolveRiskTier = (tier) => {
@@ -325,6 +448,23 @@ const App = () => {
 
     loadOperationalData();
   }, [isAuthenticated, loadOperationalData]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setRiskAlerts([]);
+      return;
+    }
+
+    loadRiskAlerts();
+  }, [isAuthenticated, loadRiskAlerts]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !showNotifications) {
+      return;
+    }
+
+    loadRiskAlerts();
+  }, [isAuthenticated, showNotifications, loadRiskAlerts]);
 
   useEffect(() => {
     if (!isMobileSidebarOpen) {
@@ -528,6 +668,12 @@ const App = () => {
         return;
       }
 
+      upsertRiskAlert({
+        ...alert,
+        status: alert.status || "open",
+        createdAt: alert.createdAt || alert.generatedAt || new Date().toISOString(),
+      });
+
       pushNotification({
         tone: "red",
         title: "High-risk alert dispatched",
@@ -535,11 +681,27 @@ const App = () => {
       });
     });
 
+    const unsubscribeRiskAlertUpdated = wsClient.subscribe("RISK_ALERT_UPDATED", (alert) => {
+      if (!alert?.id) {
+        return;
+      }
+
+      if (alert.status === "resolved") {
+        setRiskAlerts((previous) =>
+          previous.filter((entry) => entry.id !== alert.id),
+        );
+        return;
+      }
+
+      upsertRiskAlert(alert);
+    });
+
     return () => {
       unsubscribePrediction?.();
       unsubscribeTask?.();
       unsubscribeTaskUpdated?.();
       unsubscribeRiskAlert?.();
+      unsubscribeRiskAlertUpdated?.();
       wsClient.disconnect();
     };
   }, [
@@ -548,6 +710,7 @@ const App = () => {
     normalizeTaskDueDate,
     normalizeTaskRecord,
     pushNotification,
+    upsertRiskAlert,
   ]);
 
   const dashboardStats = useMemo(() => {
@@ -658,6 +821,8 @@ const App = () => {
       setSelectedPatient(null);
       setPatients([]);
       setTasks([]);
+      setRiskAlerts([]);
+      setAlertsError("");
       setIsUsingOfflineData(false);
     }
   };
@@ -1125,11 +1290,11 @@ const App = () => {
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label={`Open notifications (${notifications.length})`}
+                aria-label={`Open notifications (${notifications.length + riskAlerts.length})`}
               >
                 <Bell className="w-5 h-5 text-gray-700" />
                 <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                  {notifications.length}
+                  {notifications.length + riskAlerts.length}
                 </span>
               </button>
 
@@ -1437,47 +1602,150 @@ const App = () => {
 
       {showNotifications && (
         <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden">
-          <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700">
+          <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700 flex items-center justify-between gap-3">
             <h3 className="font-bold text-white">{t("notifications")}</h3>
+            <button
+              onClick={loadRiskAlerts}
+              className="inline-flex items-center gap-1 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 text-xs text-white"
+              type="button"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isAlertsLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
           </div>
-          <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-            {notifications.map((notification) => {
-              const tones = {
-                red: {
-                  card: "bg-red-50 border-red-200",
-                  title: "text-red-900",
-                  body: "text-red-700",
-                },
-                blue: {
-                  card: "bg-blue-50 border-blue-200",
-                  title: "text-blue-900",
-                  body: "text-blue-700",
-                },
-                emerald: {
-                  card: "bg-emerald-50 border-emerald-200",
-                  title: "text-emerald-900",
-                  body: "text-emerald-700",
-                },
-              };
 
-              const tone = tones[notification.tone] || tones.blue;
+          <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                  Active Risk Alerts
+                </p>
+                <Badge
+                  variant={riskAlerts.length > 0 ? "danger" : "default"}
+                  size="sm"
+                >
+                  {riskAlerts.length}
+                </Badge>
+              </div>
 
-              return (
-                <div key={notification.id} className={`p-3 rounded-lg border ${tone.card}`}>
-                  <p className={`text-sm font-semibold ${tone.title}`}>
-                    {notification.titleKey ? t(notification.titleKey) : notification.title}
-                  </p>
-                  <p className={`text-xs mt-1 ${tone.body}`}>
-                    {notification.bodyKey ? t(notification.bodyKey) : notification.body}
+              {isAlertsLoading && (
+                <div className="space-y-2">
+                  {[0, 1].map((index) => (
+                    <div
+                      key={index}
+                      className="h-16 rounded-lg border border-gray-200 bg-gray-100 animate-pulse"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!isAlertsLoading && alertsError && (
+                <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700">
+                  {alertsError}
+                </div>
+              )}
+
+              {!isAlertsLoading && !alertsError && riskAlerts.length === 0 && (
+                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50">
+                  <p className="text-xs text-emerald-700 font-medium">
+                    No open high-risk alerts.
                   </p>
                 </div>
-              );
-            })}
-            {!notifications.length && (
-              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                <p className="text-sm text-gray-700">No notifications yet.</p>
+              )}
+
+              {!isAlertsLoading && !alertsError && riskAlerts.length > 0 && (
+                <div className="space-y-2">
+                  {riskAlerts.map((alert) => (
+                    <div key={alert.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-red-900">
+                          Patient {alert.patientId}
+                        </p>
+                        <Badge variant="danger" size="sm">
+                          {alert.tier || "High"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-red-700 mt-1">
+                        Score {alert.score} (threshold {alert.threshold})
+                      </p>
+                      <p className="text-[11px] text-red-700 mt-1">
+                        Status: {String(alert.status || "open").replace("-", " ")}
+                      </p>
+                      <p className="text-[11px] text-red-600 mt-1">
+                        {new Date(alert.createdAt).toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="!py-1 !px-2 text-xs"
+                          onClick={() => handleAcknowledgeAlert(alert.id)}
+                          loading={alertActionId === `ack:${alert.id}`}
+                          disabled={alert.status !== "open" || Boolean(alertActionId)}
+                        >
+                          Acknowledge
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="!py-1 !px-2 text-xs"
+                          onClick={() => handleResolveAlert(alert.id)}
+                          loading={alertActionId === `resolve:${alert.id}`}
+                          disabled={Boolean(alertActionId)}
+                        >
+                          Resolve
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-200">
+              <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
+                Activity Notifications
+              </p>
+              <div className="space-y-3">
+                {notifications.map((notification) => {
+                  const tones = {
+                    red: {
+                      card: "bg-red-50 border-red-200",
+                      title: "text-red-900",
+                      body: "text-red-700",
+                    },
+                    blue: {
+                      card: "bg-blue-50 border-blue-200",
+                      title: "text-blue-900",
+                      body: "text-blue-700",
+                    },
+                    emerald: {
+                      card: "bg-emerald-50 border-emerald-200",
+                      title: "text-emerald-900",
+                      body: "text-emerald-700",
+                    },
+                  };
+
+                  const tone = tones[notification.tone] || tones.blue;
+
+                  return (
+                    <div key={notification.id} className={`p-3 rounded-lg border ${tone.card}`}>
+                      <p className={`text-sm font-semibold ${tone.title}`}>
+                        {notification.titleKey ? t(notification.titleKey) : notification.title}
+                      </p>
+                      <p className={`text-xs mt-1 ${tone.body}`}>
+                        {notification.bodyKey ? t(notification.bodyKey) : notification.body}
+                      </p>
+                    </div>
+                  );
+                })}
+                {!notifications.length && (
+                  <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <p className="text-sm text-gray-700">No notifications yet.</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
