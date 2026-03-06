@@ -1,40 +1,47 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useI18n } from "../../context/I18nProvider";
 
-function formatTimeAgo(timestamp) {
+function formatTimeAgo(timestamp, t) {
   const inputDate = new Date(timestamp || Date.now());
   if (Number.isNaN(inputDate.getTime())) {
-    return "Moments ago";
+    return t("momentsAgo");
   }
 
   const seconds = Math.max(0, Math.round((Date.now() - inputDate.getTime()) / 1000));
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
-  return `${Math.floor(seconds / 86400)} day${seconds >= 172800 ? "s" : ""} ago`;
+  if (seconds < 60) return t("justNow");
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} ${t("minAgo")}`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ${t("hrAgo")}`;
+
+  const days = Math.floor(seconds / 86400);
+  return `${days} ${days > 1 ? t("daysAgo") : t("dayAgo")}`;
 }
 
 const RecentActivity = ({ activities = [] }) => {
+  const { language, t } = useI18n();
+
   return (
     <section className="rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75 sm:p-6">
       <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 dark:text-sky-300">
-            Live workflow feed
+            {language === "sw" ? "Mtiririko wa kazi mubashara" : "Live workflow feed"}
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-slate-100">
-            Recent activity
+            {language === "sw" ? "Shughuli za karibuni" : "Recent activity"}
           </h2>
         </div>
         <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-white/5 dark:text-slate-300">
-          {activities.length} items
+          {activities.length} {language === "sw" ? "vipengele" : "items"}
         </span>
       </div>
 
       <div className="space-y-3">
         {activities.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            No recent activity has been captured yet.
+            {language === "sw"
+              ? "Hakuna shughuli za karibuni zilizorekodiwa bado."
+              : "No recent activity has been captured yet."}
           </div>
         )}
 
@@ -67,7 +74,7 @@ const RecentActivity = ({ activities = [] }) => {
                     </p>
                   </div>
                   <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                    {formatTimeAgo(activity.timestamp)}
+                    {formatTimeAgo(activity.timestamp, t)}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">

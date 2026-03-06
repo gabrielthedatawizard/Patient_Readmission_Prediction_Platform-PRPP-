@@ -2,17 +2,21 @@ import React from "react";
 import { Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/I18nProvider";
 
 const ThemeToggle = ({ className = "" }) => {
   const { theme, toggleTheme } = useTheme();
+  const { t } = useI18n();
+  const nextThemeLabel =
+    theme === "dark" ? t("switchToLightTheme") : t("switchToDarkTheme");
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       aria-pressed={theme === "dark"}
-      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-      title={theme === "dark" ? "Use light theme" : "Use dark theme"}
+      aria-label={nextThemeLabel}
+      title={nextThemeLabel}
       className={[
         "relative inline-flex h-9 w-16 items-center rounded-full border border-white/30",
         "bg-slate-200/80 p-1 shadow-inner transition-colors duration-300",

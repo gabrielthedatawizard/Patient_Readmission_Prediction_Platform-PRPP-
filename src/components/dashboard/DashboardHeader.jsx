@@ -1,14 +1,22 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Bell, Clock3, MapPin, Search, Settings2 } from "lucide-react";
-import ThemeToggle from "../ThemeToggle";
 
 const MOTIVATION_BY_ROLE = {
-  clinician: "Risk insights are ready before discharge decisions are made.",
-  nurse: "Every completed checklist step reduces avoidable harm.",
-  pharmacist: "Medication clarity protects patients after they leave the ward.",
-  chw: "Follow-up coordination keeps care active beyond the facility.",
-  moh: "National visibility turns data into policy decisions.",
+  en: {
+    clinician: "Risk insights are ready before discharge decisions are made.",
+    nurse: "Every completed checklist step reduces avoidable harm.",
+    pharmacist: "Medication clarity protects patients after they leave the ward.",
+    chw: "Follow-up coordination keeps care active beyond the facility.",
+    moh: "National visibility turns data into policy decisions.",
+  },
+  sw: {
+    clinician: "Taarifa za hatari ziko tayari kabla ya maamuzi ya kuondoka kufanyika.",
+    nurse: "Kila hatua ya checklist inayokamilika hupunguza madhara yanayoweza kuzuilika.",
+    pharmacist: "Uwazi wa dawa hulinda wagonjwa baada ya kuondoka wodini.",
+    chw: "Uratibu wa ufuatiliaji huendeleza huduma nje ya kituo.",
+    moh: "Mwonekano wa kitaifa hubadilisha data kuwa maamuzi ya sera.",
+  },
 };
 
 function getGreetingPrefix(language, hour) {
@@ -46,10 +54,13 @@ const DashboardHeader = ({
 }) => {
   const hour = new Date().getHours();
   const greetingPrefix = getGreetingPrefix(language, hour);
-  const firstName = String(user?.fullName || "TRIP User").split(" ")[0];
+  const defaultUserLabel = language === "sw" ? "Mtumiaji wa TRIP" : "TRIP User";
+  const firstName = String(user?.fullName || defaultUserLabel).split(" ")[0];
   const motivation =
-    MOTIVATION_BY_ROLE[user?.role] ||
-    "Tanzania's care teams are making safer discharge decisions with every patient reviewed.";
+    MOTIVATION_BY_ROLE[language]?.[user?.role] ||
+    (language === "sw"
+      ? "Timu za huduma Tanzania zinafanya maamuzi salama zaidi ya kuondoka kwa kila mgonjwa anayepitiwa."
+      : "Tanzania's care teams are making safer discharge decisions with every patient reviewed.");
 
   const todayLabel = useMemo(
     () =>
@@ -99,11 +110,11 @@ const DashboardHeader = ({
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/5 px-3 py-1.5 dark:bg-white/5">
                 <MapPin className="h-3.5 w-3.5 text-teal-600 dark:text-teal-300" />
-                {facility?.name || "TRIP Facility"}
+                {facility?.name || (language === "sw" ? "Kituo cha TRIP" : "TRIP Facility")}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/5 px-3 py-1.5 dark:bg-white/5">
                 <Clock3 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300" />
-                {facility?.region || "National view"}
+                {facility?.region || (language === "sw" ? "Mwonekano wa kitaifa" : "National view")}
               </span>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -147,7 +158,6 @@ const DashboardHeader = ({
               <Search className="h-4 w-4 text-teal-600 dark:text-teal-300" />
               {language === "sw" ? "Tafuta mgonjwa" : "Find patient"}
             </button>
-            <ThemeToggle className="self-start sm:self-auto" />
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -158,7 +168,7 @@ const DashboardHeader = ({
             >
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Notifications
+                  {language === "sw" ? "Arifa" : "Notifications"}
                 </p>
                 <p className="mt-1 text-lg font-bold text-slate-950 dark:text-slate-100">
                   {notificationCount}
@@ -182,10 +192,10 @@ const DashboardHeader = ({
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Workspace
+                  {language === "sw" ? "Mipangilio" : "Settings"}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">
-                  Preferences and alerts
+                  {language === "sw" ? "Wasifu, mwonekano na arifa" : "Profile, appearance and alerts"}
                 </p>
               </div>
             </button>

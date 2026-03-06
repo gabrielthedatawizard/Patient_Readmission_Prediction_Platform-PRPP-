@@ -1,20 +1,23 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useI18n } from "../../context/I18nProvider";
 
 const QuickActions = ({ actions = [] }) => {
+  const { language } = useI18n();
+
   return (
     <section className="rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75 sm:p-6">
       <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
-            Workflow shortcuts
+            {language === "sw" ? "Njia za haraka za kazi" : "Workflow shortcuts"}
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-slate-100">
-            Quick actions
+            {language === "sw" ? "Hatua za haraka" : "Quick actions"}
           </h2>
         </div>
         <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
-          {actions.length} actions
+          {actions.length} {language === "sw" ? "hatua" : "actions"}
         </span>
       </div>
 
@@ -33,7 +36,7 @@ const QuickActions = ({ actions = [] }) => {
             >
               <div className={`absolute inset-x-0 top-0 h-1 ${action.accentClass || "bg-teal-500"}`} />
               <div className="absolute right-4 top-4 rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
-                {action.tag || "Action"}
+                {action.tag || (language === "sw" ? "Hatua" : "Action")}
               </div>
               <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-slate-100/70 blur-2xl transition-transform duration-500 group-hover:scale-125 dark:bg-slate-800/70" />
               <div className={`relative inline-flex rounded-2xl p-3 text-white shadow-md ${action.colorClass || "bg-gradient-to-br from-teal-500 to-cyan-500"}`}>

@@ -44,6 +44,7 @@ import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
 // Data
 import { SAMPLE_FACILITIES } from "./data/facilities";
 import { useI18n } from "./context/I18nProvider";
+import { useTheme } from "./context/ThemeContext";
 import {
   acknowledgeAlert,
   clearSession,
@@ -160,9 +161,40 @@ const App = () => {
   const [isUsingOfflineData, setIsUsingOfflineData] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const { language, setLanguage, t } = useI18n();
+  const { theme } = useTheme();
   const dashboardKpiVariant = useMemo(
     () => getExperimentVariant("dashboardKpiOrder", currentUser?.id || "anonymous"),
     [currentUser?.id],
+  );
+  const fillTemplate = useCallback((template, values = {}) => {
+    return Object.entries(values).reduce(
+      (result, [key, value]) => result.split(`{${key}}`).join(String(value ?? "")),
+      template,
+    );
+  }, []);
+  const translateTemplate = useCallback(
+    (key, values = {}, fallback = key) => fillTemplate(t(key, fallback), values),
+    [fillTemplate, t],
+  );
+  const formatStatusLabel = useCallback(
+    (status) => {
+      const normalized = String(status || "").toLowerCase();
+
+      if (normalized === "pending") return t("pending");
+      if (normalized === "completed") return t("completed");
+      if (normalized === "in-progress") return t("inProgress");
+      if (normalized === "overdue") return t("overdue");
+      if (normalized === "open") return t("openStatus");
+      if (normalized === "acknowledged") {
+        return language === "sw" ? "Imethibitishwa" : "Acknowledged";
+      }
+      if (normalized === "resolved") {
+        return language === "sw" ? "Imetatuliwa" : "Resolved";
+      }
+
+      return String(status || "").replace(/-/g, " ");
+    },
+    [language, t],
   );
 
   const pushNotification = useCallback((notification) => {
@@ -263,11 +295,11 @@ const App = () => {
         setAlertsError("");
         return;
       }
-      setAlertsError(error?.message || "Unable to load risk alerts.");
+      setAlertsError(error?.message || t("unableToLoadRiskAlerts"));
     } finally {
       setIsAlertsLoading(false);
     }
-  }, [isAuthenticated, normalizeAlertRecord]);
+  }, [isAuthenticated, normalizeAlertRecord, t]);
 
   const handleAcknowledgeAlert = useCallback(
     async (alertId) => {
@@ -280,16 +312,16 @@ const App = () => {
         }
         pushNotification({
           tone: "blue",
-          title: "Risk alert acknowledged",
-          body: `Alert ${alertId} marked as acknowledged.`,
+          title: t("riskAlertAcknowledged"),
+          body: translateTemplate("alertAcknowledgedBody", { id: alertId }),
         });
       } catch (error) {
-        setAlertsError(error?.message || "Unable to acknowledge alert.");
+        setAlertsError(error?.message || t("unableToAcknowledgeAlert"));
       } finally {
         setAlertActionId(null);
       }
     },
-    [pushNotification, upsertRiskAlert],
+    [pushNotification, t, translateTemplate, upsertRiskAlert],
   );
 
   const handleResolveAlert = useCallback(
@@ -305,16 +337,16 @@ const App = () => {
         }
         pushNotification({
           tone: "emerald",
-          title: "Risk alert resolved",
-          body: `Alert ${alertId} has been resolved.`,
+          title: t("riskAlertResolved"),
+          body: translateTemplate("alertResolvedBody", { id: alertId }),
         });
       } catch (error) {
-        setAlertsError(error?.message || "Unable to resolve alert.");
+        setAlertsError(error?.message || t("unableToResolveAlert"));
       } finally {
         setAlertActionId(null);
       }
     },
-    [pushNotification],
+    [pushNotification, t, translateTemplate],
   );
 
   const resolveRiskTier = (tier) => {
@@ -616,8 +648,11 @@ const App = () => {
 
         pushNotification({
           tone: "red",
-          title: "New prediction generated",
-          body: `Patient ${prediction.patientId} scored ${prediction.score ?? "--"}`,
+          title: t("newPredictionGenerated"),
+          body: translateTemplate("predictionGeneratedBody", {
+            id: prediction.patientId,
+            score: prediction.score ?? "--",
+          }),
         });
       },
     );
@@ -639,7 +674,7 @@ const App = () => {
       const taskId = task.id || task.taskId;
       const mergedTask = normalizeTaskRecord({
         id: taskId,
-        title: task.title || "New task assigned",
+        title: task.title || t("taskAssigned"),
         patientId: task.patientId || null,
         category: task.category || "followup",
         priority: task.priority || "medium",
@@ -649,8 +684,8 @@ const App = () => {
       setTasks((previous) => [mergedTask, ...previous.filter((entry) => entry.id !== taskId)]);
       pushNotification({
         tone: "blue",
-        title: "Task assigned",
-        body: task.title || "A new task was assigned.",
+        title: t("taskAssigned"),
+        body: task.title || t("taskAssignedBody"),
       });
     });
 
@@ -686,8 +721,12 @@ const App = () => {
 
       pushNotification({
         tone: "red",
-        title: "High-risk alert dispatched",
-        body: `Patient ${alert.patientId} scored ${alert.score ?? "--"} (threshold ${alert.threshold ?? "--"}).`,
+        title: t("highRiskAlertDispatched"),
+        body: translateTemplate("highRiskAlertDispatchedBody", {
+          id: alert.patientId,
+          score: alert.score ?? "--",
+          threshold: alert.threshold ?? "--",
+        }),
       });
     });
 
@@ -720,6 +759,8 @@ const App = () => {
     normalizeTaskDueDate,
     normalizeTaskRecord,
     pushNotification,
+    t,
+    translateTemplate,
     upsertRiskAlert,
   ]);
 
@@ -769,8 +810,14 @@ const App = () => {
       type: "alert",
       icon: AlertCircle,
       tagLabel: language === "sw" ? "Tahadhari" : "Alert",
-      title: `High-risk alert for ${alert.patientId}`,
-      description: `Score ${alert.score} crossed the ${alert.threshold} threshold.`,
+      title:
+        language === "sw"
+          ? `Tahadhari ya hatari kubwa kwa ${alert.patientId}`
+          : `High-risk alert for ${alert.patientId}`,
+      description:
+        language === "sw"
+          ? `Alama ${alert.score} imevuka kizingiti cha ${alert.threshold}.`
+          : `Score ${alert.score} crossed the ${alert.threshold} threshold.`,
       timestamp: alert.createdAt,
       surfaceClass: "bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300",
     }));
@@ -779,8 +826,12 @@ const App = () => {
       type: "notification",
       icon: Bell,
       tagLabel: language === "sw" ? "Arifa" : "Notice",
-      title: notification.title || "Operational update",
-      description: notification.body || "A new platform update is available for review.",
+      title: notification.titleKey
+        ? t(notification.titleKey, notification.title || t("operationalUpdate"))
+        : notification.title || t("operationalUpdate"),
+      description: notification.bodyKey
+        ? t(notification.bodyKey, notification.body || t("operationalUpdateBody"))
+        : notification.body || t("operationalUpdateBody"),
       timestamp: notification.createdAt || new Date().toISOString(),
       surfaceClass: "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-300",
     }));
@@ -796,8 +847,8 @@ const App = () => {
         type: "task",
         icon: CheckCircle,
         tagLabel: language === "sw" ? "Kazi" : "Task",
-        title: task.title || "Task queued",
-        description: `Status: ${String(task.status || "pending").replace(/-/g, " ")}`,
+        title: task.title || t("taskQueued"),
+        description: `${t("statusLabel")}: ${formatStatusLabel(task.status || "pending")}`,
         timestamp: task.updatedAt || task.createdAt || task.dueDate || new Date().toISOString(),
         surfaceClass: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300",
       }));
@@ -809,7 +860,7 @@ const App = () => {
           new Date(left.timestamp || Date.now()).getTime(),
       )
       .slice(0, 6);
-  }, [language, notifications, riskAlerts, tasks]);
+  }, [formatStatusLabel, language, notifications, riskAlerts, t, tasks]);
 
   const urgentTasks = useMemo(() => {
     return tasks
@@ -1102,7 +1153,7 @@ const App = () => {
               {
                 id: "avg-los",
                 title: t("avgLengthOfStay"),
-                value: `${dashboardStats.averageLos} days`,
+                value: `${dashboardStats.averageLos} ${t("daysUnit")}`,
                 change: t("kpiAvgStayDelta"),
                 trend: "up",
                 icon: CheckCircle,
@@ -1131,7 +1182,7 @@ const App = () => {
               {
                 id: "avg-los",
                 title: t("avgLengthOfStay"),
-                value: `${dashboardStats.averageLos} days`,
+                value: `${dashboardStats.averageLos} ${t("daysUnit")}`,
                 change: t("kpiAvgStayDelta"),
                 trend: "up",
                 icon: CheckCircle,
@@ -1470,12 +1521,10 @@ const App = () => {
                 </select>
               </div>
 
-              {currentView !== "dashboard" && <ThemeToggle />}
-
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                aria-label={`Open notifications (${notifications.length + riskAlerts.length})`}
+                aria-label={`${t("notifications")} (${notifications.length + riskAlerts.length})`}
               >
                 <Bell className="w-5 h-5 text-gray-700 dark:text-slate-100" />
                 <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
@@ -1486,7 +1535,7 @@ const App = () => {
               <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200 dark:border-slate-800">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">
-                    {currentUser?.fullName || "TRIP User"}
+                    {currentUser?.fullName || t("userFallback")}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-slate-400">{roleLabel}</p>
                 </div>
@@ -1510,7 +1559,7 @@ const App = () => {
           isOpen={isMobileSidebarOpen}
           onClose={() => setIsMobileSidebarOpen(false)}
           collapsed={sidebarCollapsed}
-          title="Navigation"
+          title={t("navigation")}
           footer={
             (!sidebarCollapsed || isMobileSidebarOpen) && (
               <div className="p-4 mt-4 border-t-2 border-gray-200 dark:border-slate-800">
@@ -1536,7 +1585,7 @@ const App = () => {
           }
         >
           <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-500">
-            Menu
+            {t("menu")}
           </div>
           <nav id="app-sidebar-nav" aria-label="Primary navigation" className="p-4 space-y-2">
             {filteredNavItems.map((item) => {
@@ -1678,10 +1727,13 @@ const App = () => {
 
                         pushNotification({
                           tone: prediction ? "emerald" : "blue",
-                          title: "Discharge workflow completed",
+                          title: t("dischargeWorkflowCompleted"),
                           body: prediction
-                            ? `Updated score: ${prediction.score ?? "--"} (${prediction.tier || "Unknown"})`
-                            : "Discharge summary saved successfully.",
+                            ? translateTemplate("dischargeUpdatedScoreBody", {
+                                score: prediction.score ?? "--",
+                                tier: prediction.tier || "Unknown",
+                              })
+                            : t("dischargeSummarySaved"),
                         });
                         trackEvent("Discharge", "Complete", (selectedPatient || patients[0])?.id || "unknown");
                         setCurrentView("dashboard");
@@ -1691,7 +1743,7 @@ const App = () => {
                   ) : (
                     <Card className="p-8 text-center">
                       <p className="text-gray-700 dark:text-slate-200 font-semibold">
-                        Select a patient first to start discharge workflow.
+                        {t("selectPatientFirst")}
                       </p>
                     </Card>
                   ))}
@@ -1757,8 +1809,10 @@ const App = () => {
                         setPendingSyncCount(queued.length);
                         pushNotification({
                           tone: "blue",
-                          title: "Task update queued",
-                          body: `${task.title} will sync when online.`,
+                          title: t("taskUpdateQueued"),
+                          body: translateTemplate("taskUpdateQueuedBody", {
+                            title: task.title,
+                          }),
                         });
                       }
                     }}
@@ -1787,20 +1841,132 @@ const App = () => {
                 )}
 
                 {currentView === "settings" && (
-                  <Card className="max-w-3xl mx-auto p-8">
-                    <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-slate-800 mx-auto mb-5">
-                      <Settings className="w-8 h-8 text-gray-500 dark:text-slate-300" />
+                  <Card className="max-w-5xl mx-auto p-6 sm:p-8">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
+                          {t("settings")}
+                        </p>
+                        <h3 className="mt-2 text-2xl font-bold text-gray-900 dark:text-slate-100 sm:text-3xl">
+                          {t("profile")} & {t("appearance")}
+                        </h3>
+                        <p className="mt-2 max-w-2xl text-gray-600 dark:text-slate-300">
+                          {t("settingsIntro")}
+                        </p>
+                      </div>
+                      <div className="hidden h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 dark:bg-slate-800 sm:flex">
+                        <Settings className="h-7 w-7 text-gray-500 dark:text-slate-300" />
+                      </div>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-100 text-center mb-2">
-                      {t("settings")}
-                    </h3>
-                    <p className="text-center text-gray-600 dark:text-slate-300">
-                      Settings controls are being finalized. Use the dashboard to continue
-                      patient review and task management.
-                    </p>
+
+                    <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                      <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                          {t("profile")}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                          {t("settingsProfileDesc")}
+                        </p>
+
+                        <div className="mt-6 flex items-center gap-4">
+                          {currentUser?.profilePicture ? (
+                            <img
+                              src={currentUser.profilePicture}
+                              alt={currentUser.fullName || t("userFallback")}
+                              className="h-16 w-16 rounded-2xl object-cover ring-2 ring-teal-500/70"
+                            />
+                          ) : (
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-lg font-bold text-white">
+                              {(currentUser?.fullName || t("userFallback"))
+                                .split(" ")
+                                .map((part) => part[0])
+                                .slice(0, 2)
+                                .join("")}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-lg font-bold text-slate-950 dark:text-slate-100">
+                              {currentUser?.fullName || t("userFallback")}
+                            </p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">{roleLabel}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/80">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                              {t("facility")}
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-100">
+                              {selectedFacility?.name || t("facilityFallback")}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {selectedFacility?.region || t("nationalView")}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/80">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                              {t("languageLabel")}
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-100">
+                              {language === "sw" ? t("languageSwahili") : t("languageEnglish")}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {t("settingsLanguageDesc")}
+                            </p>
+                          </div>
+                        </div>
+                      </section>
+
+                      <div className="space-y-6">
+                        <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                {t("appearance")}
+                              </p>
+                              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                                {t("settingsAppearanceDesc")}
+                              </p>
+                            </div>
+                            <ThemeToggle className="self-start sm:self-auto" />
+                          </div>
+                          <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800/80">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                              {t("currentTheme")}
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-100">
+                              {theme === "dark" ? t("themeDark") : t("themeLight")}
+                            </p>
+                          </div>
+                        </section>
+
+                        <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            {t("languageLabel")}
+                          </p>
+                          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                            {t("settingsLanguageDesc")}
+                          </p>
+                          <div className="mt-4 inline-flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800/80">
+                            <Globe className="h-4 w-4 text-slate-500 dark:text-slate-300" />
+                            <select
+                              id="settings-language"
+                              value={language}
+                              onChange={(event) => setLanguage(event.target.value)}
+                              className="bg-transparent text-sm font-semibold text-slate-900 outline-none dark:text-slate-100"
+                            >
+                              <option value="sw">{t("languageSwahili")}</option>
+                              <option value="en">{t("languageEnglish")}</option>
+                            </select>
+                          </div>
+                        </section>
+                      </div>
+                    </div>
+
                     <Button
                       variant="primary"
-                      className="mt-6 mx-auto flex"
+                      className="mt-8 ml-auto flex"
                       onClick={() => setCurrentView("dashboard")}
                     >
                       {t("backToDashboard")}
@@ -1823,7 +1989,7 @@ const App = () => {
               type="button"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isAlertsLoading ? "animate-spin" : ""}`} />
-              Refresh
+              {t("refresh")}
             </button>
           </div>
 
@@ -1831,7 +1997,7 @@ const App = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
-                  Active Risk Alerts
+                  {t("activeRiskAlerts")}
                 </p>
                 <Badge
                   variant={riskAlerts.length > 0 ? "danger" : "default"}
@@ -1861,7 +2027,7 @@ const App = () => {
               {!isAlertsLoading && !alertsError && riskAlerts.length === 0 && (
                 <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50">
                   <p className="text-xs text-emerald-700 font-medium">
-                    No open high-risk alerts.
+                    {t("noOpenHighRiskAlerts")}
                   </p>
                 </div>
               )}
@@ -1872,20 +2038,20 @@ const App = () => {
                     <div key={alert.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold text-red-900">
-                          Patient {alert.patientId}
+                          {t("patientLabel")} {alert.patientId}
                         </p>
                         <Badge variant="danger" size="sm">
-                          {alert.tier || "High"}
+                          {resolveRiskTier(alert.tier || "High")}
                         </Badge>
                       </div>
                       <p className="text-xs text-red-700 mt-1">
-                        Score {alert.score} (threshold {alert.threshold})
+                        {t("scoreLabel")} {alert.score} ({t("thresholdLabel").toLowerCase()} {alert.threshold})
                       </p>
                       <p className="text-[11px] text-red-700 mt-1">
-                        Status: {String(alert.status || "open").replace("-", " ")}
+                        {t("statusLabel")}: {formatStatusLabel(alert.status || "open")}
                       </p>
                       <p className="text-[11px] text-red-600 mt-1">
-                        {new Date(alert.createdAt).toLocaleString()}
+                        {new Date(alert.createdAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")}
                       </p>
                       <div className="flex items-center gap-2 mt-3">
                         <Button
@@ -1896,7 +2062,7 @@ const App = () => {
                           loading={alertActionId === `ack:${alert.id}`}
                           disabled={alert.status !== "open" || Boolean(alertActionId)}
                         >
-                          Acknowledge
+                          {t("acknowledge")}
                         </Button>
                         <Button
                           size="sm"
@@ -1906,7 +2072,7 @@ const App = () => {
                           loading={alertActionId === `resolve:${alert.id}`}
                           disabled={Boolean(alertActionId)}
                         >
-                          Resolve
+                          {t("resolve")}
                         </Button>
                       </div>
                     </div>
@@ -1917,7 +2083,7 @@ const App = () => {
 
             <div className="pt-2 border-t border-gray-200">
               <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
-                Activity Notifications
+                {t("activityNotifications")}
               </p>
               <div className="space-y-3">
                 {notifications.map((notification) => {
@@ -1954,7 +2120,7 @@ const App = () => {
                 })}
                 {!notifications.length && (
                   <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <p className="text-sm text-gray-700">No notifications yet.</p>
+                    <p className="text-sm text-gray-700">{t("noNotificationsYet")}</p>
                   </div>
                 )}
               </div>
