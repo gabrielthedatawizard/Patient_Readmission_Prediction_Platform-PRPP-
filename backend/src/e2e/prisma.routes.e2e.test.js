@@ -41,7 +41,8 @@ async function apiRequest(method, path, { token, body, headers } = {}) {
 
   return {
     status: response.status,
-    body: parsedBody
+    body: parsedBody,
+    headers: response.headers
   };
 }
 
@@ -55,6 +56,8 @@ async function login(email, password = 'Trip@2026') {
 
   expect(response.status).toBe(200);
   expect(response.body.accessToken).toBeTruthy();
+  expect(response.headers.get('set-cookie')).toContain('trip_access_token=');
+  expect(response.headers.get('set-cookie')).toContain('HttpOnly');
 
   return response.body.accessToken;
 }

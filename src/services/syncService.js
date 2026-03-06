@@ -1,4 +1,3 @@
-import { getStoredToken } from "./apiClient";
 import {
   enqueueSyncOperation,
   getQueuedSyncOperations,
@@ -35,11 +34,6 @@ export async function queueTaskStatusUpdate({ taskId, status, assignee, dueDate 
 }
 
 export async function flushSyncQueue() {
-  const token = getStoredToken();
-  if (!token) {
-    return { flushed: 0, remaining: 0 };
-  }
-
   const queued = (await getQueuedSyncOperations()).sort((left, right) =>
     String(left.queuedAt).localeCompare(String(right.queuedAt)),
   );
@@ -58,9 +52,9 @@ export async function flushSyncQueue() {
     try {
       const response = await fetch(`${API_BASE}/sync/push`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
           "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
@@ -95,4 +89,3 @@ export async function flushSyncQueue() {
   const remaining = (await getQueuedSyncOperations()).length;
   return { flushed, remaining };
 }
-

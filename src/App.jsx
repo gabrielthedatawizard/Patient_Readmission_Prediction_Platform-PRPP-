@@ -47,7 +47,6 @@ import {
   fetchLatestPrediction,
   fetchPatients,
   fetchTasks,
-  getStoredToken,
   logout as logoutRequest,
   resolveAlert,
   updateTask,
@@ -588,12 +587,7 @@ const App = () => {
       return undefined;
     }
 
-    const token = getStoredToken();
-    if (!token) {
-      return undefined;
-    }
-
-    wsClient.connect({ userId: currentUser.id, token });
+    wsClient.connect({ userId: currentUser.id });
 
     const unsubscribePrediction = wsClient.subscribe(
       "PREDICTION_GENERATED",

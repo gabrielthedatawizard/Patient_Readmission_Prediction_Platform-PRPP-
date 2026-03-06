@@ -1,17 +1,8 @@
-import { getStoredToken } from "./apiClient";
-
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
 async function request(path) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error("Missing session token.");
-  }
-
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { getStoredToken } from "../services/apiClient";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
@@ -29,11 +28,10 @@ export function useDashboardData(endpoint, refreshInterval = 300000) {
     setLoading(true);
 
     try {
-      const token = getStoredToken();
       const response = await fetch(buildUrl(endpoint), {
+        credentials: "include",
         headers: {
           Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 

@@ -1,18 +1,11 @@
-import { getStoredToken } from "./apiClient";
-
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
 export async function generatePrediction(patientId, features = {}, options = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error("Missing session token.");
-  }
-
   const response = await fetch(`${API_BASE}/predictions/predict`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       patientId,
@@ -37,16 +30,11 @@ export async function generatePrediction(patientId, features = {}, options = {})
 }
 
 export async function extractDischargeSummary(patientId, notes, options = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error("Missing session token.");
-  }
-
   const response = await fetch(`${API_BASE}/predictions/discharge-summary/extract`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       patientId,

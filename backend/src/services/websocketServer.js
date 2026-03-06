@@ -1,7 +1,8 @@
 const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'trip-dev-secret-change-in-production';
+const {
+  resolveAccessTokenFromHeaders,
+  verifyAccessToken
+} = require('../middleware/auth');
 
 class TripWebSocketServer {
   constructor(server) {
@@ -16,7 +17,9 @@ class TripWebSocketServer {
 
   handleConnection(socket, request) {
     const requestUrl = new URL(request.url, 'ws://localhost');
-    const token = requestUrl.searchParams.get('token');
+    const token =
+      requestUrl.searchParams.get('token') ||
+      resolveAccessTokenFromHeaders(request.headers);
 
     if (!token) {
       socket.close(1008, 'Missing token');
@@ -25,7 +28,7 @@ class TripWebSocketServer {
 
     let payload;
     try {
-      payload = jwt.verify(token, JWT_SECRET, { issuer: 'trip-backend' });
+      payload = verifyAccessToken(token);
     } catch (error) {
       socket.close(1008, 'Unauthorized');
       return;
@@ -136,4 +139,3 @@ class TripWebSocketServer {
 }
 
 module.exports = TripWebSocketServer;
-

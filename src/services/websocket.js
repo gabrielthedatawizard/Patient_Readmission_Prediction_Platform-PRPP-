@@ -6,12 +6,18 @@ class WebSocketClient {
   }
 
   connect({ userId, token }) {
-    if (!userId || !token) {
+    if (!userId) {
       return;
     }
 
     const baseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
-    const url = `${baseUrl}?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`;
+    const params = new URLSearchParams();
+    params.set("userId", userId);
+    if (token) {
+      params.set("token", token);
+    }
+
+    const url = `${baseUrl}?${params.toString()}`;
     this.ws = new WebSocket(url);
 
     this.ws.onmessage = (event) => {

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, Clock } from "lucide-react";
 import Badge from "../common/Badge";
-import { getStoredToken } from "../../services/apiClient";
 
 const PredictionHistory = ({ patientId }) => {
   const [predictions, setPredictions] = useState([]);
@@ -15,20 +14,12 @@ const PredictionHistory = ({ patientId }) => {
         return;
       }
 
-      const token = getStoredToken();
-      if (!token) {
-        setError("Missing session token.");
-        return;
-      }
-
       setLoading(true);
       setError("");
 
       try {
         const response = await fetch(`/api/predictions/history/${patientId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include",
         });
 
         if (!response.ok) {
@@ -114,4 +105,3 @@ const PredictionHistory = ({ patientId }) => {
 };
 
 export default PredictionHistory;
-

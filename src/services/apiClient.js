@@ -105,7 +105,7 @@ export function normalizeRoleForUi(role) {
 }
 
 export function getStoredToken() {
-  return getAnyStorageValue(TOKEN_KEY);
+  return null;
 }
 
 export function getStoredUser() {
@@ -126,7 +126,7 @@ export function clearSession() {
   removeStorageValue(USER_KEY);
 }
 
-function persistSession({ accessToken, user }, rememberMe = true) {
+function persistSession({ user }, rememberMe = true) {
   const storage = getStorageFromRememberMe(rememberMe);
 
   if (!storage) {
@@ -136,16 +136,37 @@ function persistSession({ accessToken, user }, rememberMe = true) {
   // Keep only one active persistence location.
   clearSession();
   try {
-    storage.setItem(TOKEN_KEY, accessToken);
+    removeStorageValue(TOKEN_KEY);
     storage.setItem(USER_KEY, JSON.stringify(user));
   } catch (error) {
     // Storage write failures should not crash authentication flow.
   }
 }
 
-async function request(path, { method = 'GET', body, token } = {}) {
+function detectRememberMePreference() {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  try {
+    if (window.localStorage.getItem(USER_KEY)) {
+      return true;
+    }
+
+    if (window.sessionStorage.getItem(USER_KEY)) {
+      return false;
+    }
+  } catch (error) {
+    return null;
+  }
+
+  return null;
+}
+
+async function request(path, { method = 'GET', body, token, headers: extraHeaders } = {}) {
   const headers = {
-    Accept: 'application/json'
+    Accept: 'application/json',
+    ...(extraHeaders || {})
   };
 
   if (body !== undefined) {
@@ -159,6 +180,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
@@ -187,7 +209,7 @@ function safeParseJson(value) {
 export async function login({ email, password, rememberMe = true }) {
   const payload = await request('/auth/login', {
     method: 'POST',
-    body: { email, password }
+    body: { email, password, rememberMe }
   });
 
   const session = {
@@ -203,56 +225,38 @@ export async function login({ email, password, rememberMe = true }) {
 }
 
 export async function fetchCurrentUser() {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('No active session token found.');
-  }
-
-  const payload = await request('/auth/me', { token });
+  const payload = await request('/auth/me');
   const sessionUser = {
     ...payload.user,
     role: normalizeRoleForUi(payload.user?.role)
   };
 
-  let keepLocal = false;
-  if (isBrowser()) {
-    try {
-      keepLocal = Boolean(window.localStorage.getItem(TOKEN_KEY));
-    } catch (error) {
-      keepLocal = false;
-    }
+  const rememberMe = detectRememberMePreference();
+  if (rememberMe !== null) {
+    persistSession(
+      {
+        user: sessionUser
+      },
+      rememberMe
+    );
+  } else {
+    removeStorageValue(TOKEN_KEY);
   }
-  persistSession(
-    {
-      accessToken: token,
-      user: sessionUser
-    },
-    keepLocal
-  );
 
   return sessionUser;
 }
 
 export async function logout() {
-  const token = getStoredToken();
-
-  if (token) {
-    try {
-      await request('/auth/logout', { method: 'POST', token });
-    } catch (error) {
-      // Logout endpoint failure should not block local session cleanup.
-    }
+  try {
+    await request('/auth/logout', { method: 'POST' });
+  } catch (error) {
+    // Logout endpoint failure should not block local session cleanup.
   }
 
   clearSession();
 }
 
 export async function fetchPatients(filters = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -261,16 +265,11 @@ export async function fetchPatients(filters = {}) {
   });
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const payload = await request(`/patients${suffix}`, { token });
+  const payload = await request(`/patients${suffix}`);
   return payload?.patients || [];
 }
 
 export async function fetchTasks(filters = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -279,7 +278,7 @@ export async function fetchTasks(filters = {}) {
   });
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const payload = await request(`/tasks${suffix}`, { token });
+  const payload = await request(`/tasks${suffix}`);
   return payload?.tasks || [];
 }
 
@@ -308,14 +307,8 @@ function normalizeTaskStatusForUi(status) {
 }
 
 export async function updateTask(taskId, patch = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const payload = await request(`/tasks/${taskId}`, {
     method: 'PATCH',
-    token,
     body: {
       ...patch,
       status:
@@ -337,13 +330,8 @@ export async function updateTask(taskId, patch = {}) {
 }
 
 export async function fetchLatestPrediction(patientId) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   try {
-    const payload = await request(`/predictions/results/${patientId}`, { token });
+    const payload = await request(`/predictions/results/${patientId}`);
     const predictions = payload?.predictions || [];
     return predictions.length ? predictions[0] : null;
   } catch (error) {
@@ -355,11 +343,6 @@ export async function fetchLatestPrediction(patientId) {
 }
 
 export async function fetchAuditLogs({ limit = 100, offset = 0 } = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const query = new URLSearchParams();
   if (limit !== undefined && limit !== null) {
     query.set('limit', String(limit));
@@ -369,16 +352,11 @@ export async function fetchAuditLogs({ limit = 100, offset = 0 } = {}) {
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const payload = await request(`/audit${suffix}`, { token });
+  const payload = await request(`/audit${suffix}`);
   return payload?.logs || [];
 }
 
 export async function fetchAlerts(filters = {}) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -387,19 +365,13 @@ export async function fetchAlerts(filters = {}) {
   });
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  const payload = await request(`/alerts${suffix}`, { token });
+  const payload = await request(`/alerts${suffix}`);
   return payload?.alerts || [];
 }
 
 export async function acknowledgeAlert(alertId) {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const payload = await request(`/alerts/${alertId}/acknowledge`, {
     method: 'PATCH',
-    token,
     body: {}
   });
 
@@ -407,14 +379,8 @@ export async function acknowledgeAlert(alertId) {
 }
 
 export async function resolveAlert(alertId, resolutionNote = '') {
-  const token = getStoredToken();
-  if (!token) {
-    throw new Error('Missing session token.');
-  }
-
   const payload = await request(`/alerts/${alertId}/resolve`, {
     method: 'PATCH',
-    token,
     body: {
       resolutionNote: resolutionNote || undefined
     }

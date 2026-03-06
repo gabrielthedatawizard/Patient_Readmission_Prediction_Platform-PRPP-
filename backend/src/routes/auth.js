@@ -6,7 +6,13 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
-const { signAccessToken, requireAuth } = require('../middleware/auth');
+const {
+  ACCESS_TOKEN_COOKIE_NAME,
+  clearAccessTokenCookie,
+  getAccessTokenCookieOptions,
+  signAccessToken,
+  requireAuth
+} = require('../middleware/auth');
 const {
   buildLoginThrottleKey,
   consumeLoginAttempt,
@@ -30,6 +36,7 @@ function normalizeLoginEmail(rawEmail) {
 router.post('/login', asyncHandler(async (req, res) => {
   const email = normalizeLoginEmail(req.body.email);
   const password = String(req.body.password || '');
+  const rememberMe = Boolean(req.body.rememberMe);
   const throttleKey = buildLoginThrottleKey({
     email,
     ipAddress: req.ip
@@ -63,6 +70,11 @@ router.post('/login', asyncHandler(async (req, res) => {
   const publicUser = toPublicUser(user);
   const accessToken = signAccessToken(publicUser);
   clearLoginAttempts(throttleKey);
+  res.cookie(
+    ACCESS_TOKEN_COOKIE_NAME,
+    accessToken,
+    getAccessTokenCookieOptions({ rememberMe })
+  );
 
   await createAuditLog({
     userId: publicUser.id,
@@ -78,6 +90,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     accessToken,
     tokenType: 'Bearer',
     expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+    sessionMode: rememberMe ? 'persistent' : 'session',
     user: publicUser
   });
 }));
@@ -87,6 +100,8 @@ router.get('/me', requireAuth, (req, res) => {
 });
 
 router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
+  clearAccessTokenCookie(res);
+
   await createAuditLog({
     userId: req.user.id,
     userRole: req.user.role,
@@ -98,7 +113,8 @@ router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
   });
 
   return res.json({
-    message: 'Logout recorded. Discard token client-side.'
+    message: 'Logout recorded.',
+    sessionCleared: true
   });
 }));
 
