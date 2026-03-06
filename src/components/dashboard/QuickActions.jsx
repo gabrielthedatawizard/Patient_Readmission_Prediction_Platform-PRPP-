@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 
 const QuickActions = ({ actions = [] }) => {
   return (
-    <section className="rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <section className="rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75 sm:p-6">
+      <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
             Workflow shortcuts
@@ -18,7 +18,7 @@ const QuickActions = ({ actions = [] }) => {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {actions.map((action, index) => {
           const Icon = action.icon;
           return (

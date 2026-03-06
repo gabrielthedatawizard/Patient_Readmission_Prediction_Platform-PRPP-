@@ -1394,8 +1394,8 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
       <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm dark:bg-slate-950/90 dark:border-slate-800 backdrop-blur-xl">
         <div className="px-3 sm:px-6">
-          <div className="h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-4">
+          <div className="h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
@@ -1412,12 +1412,12 @@ const App = () => {
               >
                 <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
                   <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
                   <p className="hidden md:block text-xs text-gray-500 dark:text-slate-400">{t("appTagline")}</p>
                 </div>
               </div>
@@ -1435,8 +1435,8 @@ const App = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg text-xs sm:text-sm font-medium text-gray-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <div className="max-w-[4.75rem] px-2 py-1.5 bg-gray-100 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg text-xs sm:text-sm font-medium text-gray-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 sm:max-w-none sm:gap-2">
                 <Globe className="w-4 h-4" />
                 <label htmlFor="app-language" className="sr-only">
                   {t("languageLabel")}
@@ -1445,10 +1445,10 @@ const App = () => {
                   id="app-language"
                   value={language}
                   onChange={(event) => setLanguage(event.target.value)}
-                  className="bg-transparent outline-none text-xs sm:text-sm"
+                  className="w-[2.5rem] bg-transparent outline-none text-xs sm:w-auto sm:text-sm"
                 >
-                  <option value="sw">{t("languageSwahili")}</option>
-                  <option value="en">{t("languageEnglish")}</option>
+                  <option value="sw">SW</option>
+                  <option value="en">EN</option>
                 </select>
               </div>
 
@@ -1567,7 +1567,7 @@ const App = () => {
                   onOpenPatients={() => setCurrentView("patients")}
                   onOpenSettings={handleOpenSettings}
                 />
-                <Grid cols={3} gap={6}>
+                <Grid cols={1} gap={6} className="lg:grid-cols-3">
                   <div className="lg:col-span-1">
                     <QuickActions actions={quickActions} />
                   </div>

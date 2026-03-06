@@ -64,11 +64,11 @@ const DashboardHeader = ({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75"
+      className="relative overflow-hidden rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75 sm:p-6"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(13,148,136,0.16),_transparent_36%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.14),_transparent_34%)]" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
           <div className="relative">
             {user?.profilePicture ? (
               <img
@@ -85,10 +85,10 @@ const DashboardHeader = ({
           </div>
 
           <div className="min-w-0">
-            <p className="text-sm font-medium uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300 sm:text-sm sm:tracking-[0.22em]">
               {todayLabel}
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-3xl">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-3xl">
               {greetingPrefix}, {firstName}
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300 sm:text-base">
@@ -107,20 +107,20 @@ const DashboardHeader = ({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:items-end">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:justify-end">
             <button
               type="button"
               onClick={onOpenPatients}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 sm:w-auto"
             >
               <Search className="h-4 w-4 text-teal-600 dark:text-teal-300" />
               {language === "sw" ? "Tafuta mgonjwa" : "Find patient"}
             </button>
-            <ThemeToggle />
+            <ThemeToggle className="self-start sm:self-auto" />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <button
               type="button"
               onClick={onOpenNotifications}

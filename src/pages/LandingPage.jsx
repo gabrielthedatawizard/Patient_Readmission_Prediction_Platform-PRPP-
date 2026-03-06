@@ -259,14 +259,14 @@ const LandingPage = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f3f7fb_0%,#eefdfc_44%,#ffffff_100%)] text-slate-950 transition-colors duration-300 dark:bg-[linear-gradient(180deg,#020617_0%,#061420_35%,#0f172a_100%)] dark:text-slate-100">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/15 bg-slate-950/45 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <button type="button" onClick={() => scrollToSection("top")} className="flex items-center gap-3 text-left">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <button type="button" onClick={() => scrollToSection("top")} className="flex min-w-0 items-center gap-3 text-left">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-lg shadow-cyan-950/20">
               <Activity className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-base font-bold tracking-tight text-white">TRIP</p>
-              <p className="text-xs font-medium text-teal-100/80">Tanzania Readmission Intelligence Platform</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold tracking-tight text-white sm:text-base">TRIP</p>
+              <p className="hidden text-xs font-medium text-teal-100/80 sm:block">Tanzania Readmission Intelligence Platform</p>
             </div>
           </button>
 
@@ -337,19 +337,19 @@ const LandingPage = ({ onLogin }) => {
                 </button>
               ))}
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <ThemeToggle />
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <ThemeToggle className="self-start" />
               <select
                 value={language}
                 onChange={(event) => setLanguage(event.target.value)}
-                className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                className="w-full rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none sm:w-auto"
                 aria-label="Select language"
               >
                 <option value="en" className="text-slate-900">English</option>
                 <option value="sw" className="text-slate-900">Kiswahili</option>
               </select>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button type="button" onClick={onLogin} className="rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-white/90">
                 {copy.nav.signIn}
               </button>
@@ -362,28 +362,28 @@ const LandingPage = ({ onLogin }) => {
       </header>
 
       <main id="top">
-        <section className="relative isolate overflow-hidden px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8 lg:pb-28 lg:pt-36">
+        <section className="relative isolate overflow-hidden px-4 pb-16 pt-24 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8 lg:pb-28 lg:pt-36">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(103,232,249,0.25),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(15,118,110,0.18),_transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.22),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.18),_transparent_28%)]" />
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <motion.div initial={{ opacity: 0, x: -28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}>
-              <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-4 py-2 text-sm font-semibold text-teal-900 dark:border-teal-400/20 dark:bg-teal-400/10 dark:text-teal-100">
+              <div className="inline-flex max-w-xl flex-wrap items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-4 py-2 text-xs font-semibold text-teal-900 dark:border-teal-400/20 dark:bg-teal-400/10 dark:text-teal-100 sm:text-sm">
                 <HeartPulse className="h-4 w-4" />
                 {copy.badge}
               </div>
-              <h1 className="mt-6 max-w-4xl text-5xl font-bold leading-[0.95] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
+              <h1 className="mt-6 max-w-4xl text-4xl font-bold leading-[0.95] tracking-tight text-slate-950 dark:text-white sm:text-5xl lg:text-7xl">
                 {copy.title}
                 <span className="mt-2 block bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 bg-clip-text text-transparent">
                   {copy.highlight}
                 </span>
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300 sm:text-xl">
+              <p className="mt-6 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-lg sm:leading-8 lg:text-xl">
                 {copy.description}
               </p>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <button
                   type="button"
                   onClick={onLogin}
-                  className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-4 text-base font-semibold text-white shadow-xl shadow-slate-900/15 transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
+                  className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-base font-semibold text-white shadow-xl shadow-slate-900/15 transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950 sm:w-auto sm:px-6"
                 >
                   {copy.primaryCta}
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -391,7 +391,7 @@ const LandingPage = ({ onLogin }) => {
                 <button
                   type="button"
                   onClick={() => scrollToSection("about")}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-6 py-4 text-base font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-5 py-4 text-base font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100 sm:w-auto sm:px-6"
                 >
                   <PlayCircle className="h-5 w-5 text-teal-500" />
                   {copy.secondaryCta}
@@ -401,11 +401,30 @@ const LandingPage = ({ onLogin }) => {
                 {copy.trust.map((item) => (
                   <span
                     key={item}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200 sm:w-auto sm:justify-start"
                   >
                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     {item}
                   </span>
+                ))}
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:hidden">
+                {copy.floatingCards.map((card) => (
+                  <div
+                    key={card.title}
+                    className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      {card.title}
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-950 dark:text-slate-100">
+                      {card.value}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      {card.meta}
+                    </p>
+                  </div>
                 ))}
               </div>
             </motion.div>
@@ -494,14 +513,14 @@ const LandingPage = ({ onLogin }) => {
           </motion.button>
         </section>
 
-        <section id="features" className="px-4 py-20 sm:px-6 lg:px-8">
+        <section id="features" className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="mx-auto max-w-3xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-700 dark:text-teal-300">Impact in practice</p>
-              <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+              <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl lg:text-5xl">
                 {copy.impactTitle}
               </h2>
-              <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">{copy.impactDescription}</p>
+              <p className="mt-4 text-base text-slate-600 dark:text-slate-300 sm:text-lg">{copy.impactDescription}</p>
             </motion.div>
 
             <div className="mt-14 grid gap-8 lg:grid-cols-3">
@@ -539,14 +558,14 @@ const LandingPage = ({ onLogin }) => {
           </div>
         </section>
 
-        <section id="about" className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl rounded-[36px] border border-slate-200 bg-white/75 p-8 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/70 lg:p-10">
+        <section id="about" className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[36px] border border-slate-200 bg-white/75 p-6 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/70 sm:p-8 lg:p-10">
             <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="max-w-3xl">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">Operational design</p>
-              <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+              <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl lg:text-5xl">
                 {copy.capabilityTitle}
               </h2>
-              <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">{copy.capabilityDescription}</p>
+              <p className="mt-4 text-base text-slate-600 dark:text-slate-300 sm:text-lg">{copy.capabilityDescription}</p>
             </motion.div>
 
             <div className="mt-12 grid gap-5 lg:grid-cols-2">
@@ -574,12 +593,12 @@ const LandingPage = ({ onLogin }) => {
           </div>
         </section>
 
-        <section id="testimonials" className="px-4 py-20 sm:px-6 lg:px-8">
+        <section id="testimonials" className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-300">Care team perspective</p>
-                <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+                <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl lg:text-5xl">
                   {copy.quoteTitle}
                 </h2>
               </div>
@@ -620,18 +639,18 @@ const LandingPage = ({ onLogin }) => {
           </div>
         </section>
 
-        <section id="contact" className="px-4 pb-24 pt-12 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl rounded-[36px] bg-slate-950 px-8 py-12 text-white shadow-[0_30px_90px_rgba(8,47,73,0.32)] lg:px-12 lg:py-14">
+        <section id="contact" className="px-4 pb-20 pt-10 sm:px-6 sm:pb-24 sm:pt-12 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[36px] bg-slate-950 px-5 py-10 text-white shadow-[0_30px_90px_rgba(8,47,73,0.32)] sm:px-8 sm:py-12 lg:px-12 lg:py-14">
             <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-200">TRIP rollout</p>
-                <h2 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">{copy.finalTitle}</h2>
-                <p className="mt-4 max-w-2xl text-lg text-slate-300">{copy.finalDescription}</p>
+                <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">{copy.finalTitle}</h2>
+                <p className="mt-4 max-w-2xl text-base text-slate-300 sm:text-lg">{copy.finalDescription}</p>
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                   <button
                     type="button"
                     onClick={onLogin}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-base font-semibold text-slate-950 transition-transform hover:-translate-y-0.5"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-base font-semibold text-slate-950 transition-transform hover:-translate-y-0.5 sm:w-auto"
                   >
                     {copy.primaryCta}
                     <ArrowRight className="h-5 w-5" />
@@ -639,7 +658,7 @@ const LandingPage = ({ onLogin }) => {
                   <button
                     type="button"
                     onClick={openSupportEmail}
-                    className="inline-flex items-center justify-center rounded-2xl border border-white/20 px-6 py-4 text-base font-semibold text-white/90 transition-colors hover:bg-white/10"
+                    className="inline-flex w-full items-center justify-center rounded-2xl border border-white/20 px-6 py-4 text-base font-semibold text-white/90 transition-colors hover:bg-white/10 sm:w-auto"
                   >
                     {copy.contactTitle}
                   </button>

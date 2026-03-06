@@ -16,8 +16,8 @@ function formatTimeAgo(timestamp) {
 
 const RecentActivity = ({ activities = [] }) => {
   return (
-    <section className="rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <section className="rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/75 sm:p-6">
+      <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 dark:text-sky-300">
             Live workflow feed
