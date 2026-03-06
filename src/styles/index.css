@@ -16,6 +16,14 @@
   --trip-neutral-200: #e5e7eb;
   --trip-neutral-500: #6b7280;
   --trip-neutral-900: #111827;
+  --trip-dark-bg-primary: #020617;
+  --trip-dark-bg-secondary: #0f172a;
+  --trip-dark-bg-card: #111827;
+  --trip-dark-bg-tertiary: #1e293b;
+  --trip-dark-border: #334155;
+  --trip-dark-text-primary: #f8fafc;
+  --trip-dark-text-secondary: #cbd5e1;
+  --trip-dark-text-tertiary: #94a3b8;
   --trip-risk-low-bg: #ecfdf5;
   --trip-risk-medium-bg: #fffbeb;
   --trip-risk-high-bg: #fef2f2;
@@ -42,6 +50,9 @@ body {
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  transition:
+    background 240ms ease,
+    color 240ms ease;
 }
 
 html,
@@ -79,6 +90,67 @@ textarea:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--trip-brand-500);
   outline-offset: 2px;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.14), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.14), transparent 28%),
+    linear-gradient(145deg, #020617 0%, #081120 42%, #0f172a 100%);
+  color: var(--trip-dark-text-primary);
+}
+
+.dark .bg-white {
+  background-color: var(--trip-dark-bg-card);
+}
+
+.dark .bg-gray-50 {
+  background-color: var(--trip-dark-bg-secondary);
+}
+
+.dark .bg-gray-100 {
+  background-color: var(--trip-dark-bg-tertiary);
+}
+
+.dark .bg-teal-50 {
+  background-color: rgba(13, 148, 136, 0.14);
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(37, 99, 235, 0.14);
+}
+
+.dark .bg-purple-50 {
+  background-color: rgba(139, 92, 246, 0.14);
+}
+
+.dark .text-gray-500 {
+  color: var(--trip-dark-text-tertiary);
+}
+
+.dark .text-gray-600,
+.dark .text-gray-700 {
+  color: var(--trip-dark-text-secondary);
+}
+
+.dark .text-gray-900 {
+  color: var(--trip-dark-text-primary);
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: var(--trip-dark-border);
+}
+
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl,
+.dark .shadow-md,
+.dark .shadow-sm {
+  box-shadow:
+    0 12px 40px rgba(2, 6, 23, 0.45),
+    0 2px 8px rgba(2, 6, 23, 0.28);
 }
 
 /* Fallback: If Tailwind fails, provide basic styling */

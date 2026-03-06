@@ -29,9 +29,14 @@ import Badge from "./components/common/Badge";
 import Button from "./components/common/Button";
 import KPICard from "./components/common/KPICard";
 import RiskScoreDisplay from "./components/common/RiskScoreDisplay";
+import DashboardHeader from "./components/dashboard/DashboardHeader";
+import QuickActions from "./components/dashboard/QuickActions";
+import RecentActivity from "./components/dashboard/RecentActivity";
 import PatientsList from "./components/patient/PatientsList";
 import Tasks from "./components/dashboard/Tasks";
 import Sidebar from "./components/layout/Sidebar";
+import PageTransition from "./components/PageTransition";
+import ThemeToggle from "./components/ThemeToggle";
 import Grid from "./design-system/layout/Grid";
 import { PatientCardSkeleton, Skeleton } from "./design-system/components/Skeleton";
 import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
@@ -166,6 +171,7 @@ const App = () => {
       tone: notification.tone || "blue",
       title: notification.title || "",
       body: notification.body || "",
+      createdAt: notification.createdAt || new Date().toISOString(),
       titleKey: notification.titleKey,
       bodyKey: notification.bodyKey,
     };
@@ -758,6 +764,50 @@ const App = () => {
     };
   }, [patients, tasks]);
 
+  const recentActivity = useMemo(() => {
+    const alertItems = riskAlerts.slice(0, 3).map((alert) => ({
+      type: "alert",
+      icon: AlertCircle,
+      title: `High-risk alert for ${alert.patientId}`,
+      description: `Score ${alert.score} crossed the ${alert.threshold} threshold.`,
+      timestamp: alert.createdAt,
+      surfaceClass: "bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300",
+    }));
+
+    const notificationItems = notifications.slice(0, 3).map((notification) => ({
+      type: "notification",
+      icon: Bell,
+      title: notification.title || "Operational update",
+      description: notification.body || "A new platform update is available for review.",
+      timestamp: notification.createdAt || new Date().toISOString(),
+      surfaceClass: "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-300",
+    }));
+
+    const taskItems = [...tasks]
+      .sort(
+        (left, right) =>
+          new Date(left.dueDate || Date.now()).getTime() -
+          new Date(right.dueDate || Date.now()).getTime(),
+      )
+      .slice(0, 3)
+      .map((task) => ({
+        type: "task",
+        icon: CheckCircle,
+        title: task.title || "Task queued",
+        description: `Status: ${String(task.status || "pending").replace(/-/g, " ")}`,
+        timestamp: task.updatedAt || task.createdAt || task.dueDate || new Date().toISOString(),
+        surfaceClass: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300",
+      }));
+
+    return [...alertItems, ...notificationItems, ...taskItems]
+      .sort(
+        (left, right) =>
+          new Date(right.timestamp || Date.now()).getTime() -
+          new Date(left.timestamp || Date.now()).getTime(),
+      )
+      .slice(0, 6);
+  }, [notifications, riskAlerts, tasks]);
+
   const urgentTasks = useMemo(() => {
     return tasks
       .map((task) => normalizeTaskRecord(task))
@@ -837,6 +887,68 @@ const App = () => {
     setIsMobileSidebarOpen(false);
   };
 
+  const quickActions = useMemo(
+    () => [
+      {
+        id: "patients",
+        icon: Users,
+        label: language === "sw" ? "Wagonjwa" : "Patient list",
+        description:
+          language === "sw"
+            ? "Pitia wagonjwa walio katika uangalizi wako."
+            : "Review the current caseload and handoffs.",
+        colorClass: "bg-gradient-to-br from-sky-500 to-blue-600",
+        accentClass: "bg-sky-500",
+        onClick: () => setCurrentView("patients"),
+      },
+      {
+        id: "predict",
+        icon: Activity,
+        label: language === "sw" ? "Alama ya hatari" : "Generate risk score",
+        description:
+          language === "sw"
+            ? "Fungua discharge workflow kwa mgonjwa aliyeteuliwa."
+            : "Jump into the discharge workflow for the active patient.",
+        colorClass: "bg-gradient-to-br from-violet-500 to-fuchsia-600",
+        accentClass: "bg-violet-500",
+        onClick: () => {
+          const targetPatient = selectedPatient || patients[0] || null;
+          if (targetPatient) {
+            setSelectedPatient(targetPatient);
+            setCurrentView("discharge");
+            return;
+          }
+          setCurrentView("patients");
+        },
+      },
+      {
+        id: "analytics",
+        icon: BarChart3,
+        label: language === "sw" ? "Takwimu" : "View analytics",
+        description:
+          language === "sw"
+            ? "Angalia mwenendo wa kituo na utendaji."
+            : "Inspect facility trends and intervention performance.",
+        colorClass: "bg-gradient-to-br from-emerald-500 to-teal-600",
+        accentClass: "bg-emerald-500",
+        onClick: () => setCurrentView("analytics"),
+      },
+      {
+        id: "tasks",
+        icon: CheckCircle,
+        label: language === "sw" ? "Majukumu" : "Task queue",
+        description:
+          language === "sw"
+            ? "Kamilisha kazi za uingiliaji na follow-up."
+            : "Work through the next intervention and follow-up tasks.",
+        colorClass: "bg-gradient-to-br from-amber-500 to-orange-500",
+        accentClass: "bg-amber-500",
+        onClick: () => setCurrentView("tasks"),
+      },
+    ],
+    [language, patients, selectedPatient],
+  );
+
   if (isBootstrapping) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -869,15 +981,18 @@ const App = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-            {t("welcome")}, {currentUser?.fullName || "TRIP User"}
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300 mb-2">
+            Operational snapshot
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-slate-100 mb-1">
+            Facility discharge pulse
           </h1>
-          <p className="text-gray-600">
-            {selectedFacility.name} | {selectedFacility.region}
+          <p className="text-gray-600 dark:text-slate-300">
+            {selectedFacility.name} | {selectedFacility.region} | {selectedFacility.district}
           </p>
         </div>
         <div className="w-full sm:w-auto flex items-center gap-3">
-          <select className="w-full sm:w-auto px-4 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-teal-500 outline-none">
+          <select className="w-full sm:w-auto px-4 py-2 border-2 border-gray-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 rounded-lg text-sm font-medium focus:border-teal-500 outline-none">
             <option value="7d">{t("last7Days")}</option>
             <option value="30d">{t("last30Days")}</option>
             <option value="90d">{t("last90Days")}</option>
@@ -1276,52 +1391,52 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden">
-      <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+      <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm dark:bg-slate-950/90 dark:border-slate-800 backdrop-blur-xl">
         <div className="px-3 sm:px-6">
           <div className="h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                 aria-label="Toggle navigation menu"
                 aria-expanded={isMobileSidebarOpen}
                 aria-controls="app-sidebar-nav"
               >
-                <Menu className="w-6 h-6 text-gray-700" />
+                <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
               </button>
               <button
                 onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-                className="hidden lg:inline-flex p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="hidden lg:inline-flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                 aria-label="Collapse sidebar"
               >
-                <Menu className="w-6 h-6 text-gray-700" />
+                <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
               </button>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
                   <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-none">TRIP</h1>
-                  <p className="hidden md:block text-xs text-gray-500">{t("appTagline")}</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
+                  <p className="hidden md:block text-xs text-gray-500 dark:text-slate-400">{t("appTagline")}</p>
                 </div>
               </div>
             </div>
 
             <div className="hidden md:flex items-center gap-2 text-sm">
-              <span className="text-gray-600">{t("national")}</span>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-600">{selectedFacility.region}</span>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-600">{selectedFacility.district}</span>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-              <span className="font-semibold text-gray-900">
+              <span className="text-gray-600 dark:text-slate-300">{t("national")}</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+              <span className="text-gray-600 dark:text-slate-300">{selectedFacility.region}</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+              <span className="text-gray-600 dark:text-slate-300">{selectedFacility.district}</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+              <span className="font-semibold text-gray-900 dark:text-slate-100">
                 {selectedFacility.name}
               </span>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-700 transition-colors flex items-center gap-1.5 sm:gap-2">
+              <div className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg text-xs sm:text-sm font-medium text-gray-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 sm:gap-2">
                 <Globe className="w-4 h-4" />
                 <label htmlFor="app-language" className="sr-only">
                   {t("languageLabel")}
@@ -1337,23 +1452,25 @@ const App = () => {
                 </select>
               </div>
 
+              {currentView !== "dashboard" && <ThemeToggle />}
+
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="relative p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 aria-label={`Open notifications (${notifications.length + riskAlerts.length})`}
               >
-                <Bell className="w-5 h-5 text-gray-700" />
+                <Bell className="w-5 h-5 text-gray-700 dark:text-slate-100" />
                 <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
                   {notifications.length + riskAlerts.length}
                 </span>
               </button>
 
-              <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200">
+              <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200 dark:border-slate-800">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">
                     {currentUser?.fullName || "TRIP User"}
                   </p>
-                  <p className="text-xs text-gray-500">{roleLabel}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">{roleLabel}</p>
                 </div>
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-lg">
                   <span className="text-sm font-bold text-white">
@@ -1378,10 +1495,10 @@ const App = () => {
           title="Navigation"
           footer={
             (!sidebarCollapsed || isMobileSidebarOpen) && (
-              <div className="p-4 mt-4 border-t-2 border-gray-200">
+              <div className="p-4 mt-4 border-t-2 border-gray-200 dark:border-slate-800">
                 <button
                   onClick={handleOpenSettings}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 text-gray-700 transition-all"
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 transition-all"
                 >
                   <Settings className="w-5 h-5" />
                   <span className="font-medium text-sm">{t("settings")}</span>
@@ -1400,7 +1517,7 @@ const App = () => {
             )
           }
         >
-          <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-500">
             Menu
           </div>
           <nav id="app-sidebar-nav" aria-label="Primary navigation" className="p-4 space-y-2">
@@ -1423,7 +1540,7 @@ const App = () => {
                     ${
                       isActive
                         ? "bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-md"
-                        : "hover:bg-gray-100 text-gray-700"
+                        : "hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300"
                     }
                   `}
                 >
@@ -1438,220 +1555,246 @@ const App = () => {
         </Sidebar>
 
         <div className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
-          <Suspense fallback={<PatientCardSkeleton />}>
-            {currentView === "dashboard" && <RoleDashboard />}
-
-            {currentView === "patients" && (
-              <PatientsList
-                patients={patients}
-                onPatientSelect={(patient) => {
-                  setSelectedPatient(patient);
-                  setCurrentView("patient-detail");
-                }}
-              />
+          <div className="space-y-6">
+            {currentView === "dashboard" && (
+              <>
+                <DashboardHeader
+                  user={currentUser}
+                  facility={selectedFacility}
+                  language={language}
+                  notificationCount={notifications.length + riskAlerts.length}
+                  onOpenNotifications={() => setShowNotifications((previous) => !previous)}
+                  onOpenPatients={() => setCurrentView("patients")}
+                  onOpenSettings={handleOpenSettings}
+                />
+                <Grid cols={3} gap={6}>
+                  <div className="lg:col-span-1">
+                    <QuickActions actions={quickActions} />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <RecentActivity activities={recentActivity} />
+                  </div>
+                </Grid>
+              </>
             )}
 
-            {currentView === "patient-detail" && selectedPatient && (
-              <PatientDetail
-                patient={selectedPatient}
-                onBack={() => {
-                  setSelectedPatient(null);
-                  setCurrentView("patients");
-                }}
-                onStartDischarge={() => setCurrentView("discharge")}
-              />
-            )}
+            <Suspense fallback={<PatientCardSkeleton />}>
+              <PageTransition viewKey={currentView}>
+                {currentView === "dashboard" && <RoleDashboard />}
 
-            {currentView === "discharge" &&
-              (selectedPatient || patients[0] ? (
-                <DischargeWorkflow
-                  patient={selectedPatient || patients[0]}
-                  onBack={() =>
-                    setCurrentView(selectedPatient ? "patient-detail" : "patients")
-                  }
-                  onComplete={(result) => {
-                    const prediction = result?.prediction || null;
-                    if (prediction && (selectedPatient || patients[0])) {
-                      const patientId = (selectedPatient || patients[0]).id;
-                      setPatients((previous) =>
-                        previous.map((patient) =>
-                          patient.id === patientId
+                {currentView === "patients" && (
+                  <PatientsList
+                    patients={patients}
+                    onPatientSelect={(patient) => {
+                      setSelectedPatient(patient);
+                      setCurrentView("patient-detail");
+                    }}
+                  />
+                )}
+
+                {currentView === "patient-detail" && selectedPatient && (
+                  <PatientDetail
+                    patient={selectedPatient}
+                    onBack={() => {
+                      setSelectedPatient(null);
+                      setCurrentView("patients");
+                    }}
+                    onStartDischarge={() => setCurrentView("discharge")}
+                  />
+                )}
+
+                {currentView === "discharge" &&
+                  (selectedPatient || patients[0] ? (
+                    <DischargeWorkflow
+                      patient={selectedPatient || patients[0]}
+                      onBack={() =>
+                        setCurrentView(selectedPatient ? "patient-detail" : "patients")
+                      }
+                      onComplete={(result) => {
+                        const prediction = result?.prediction || null;
+                        if (prediction && (selectedPatient || patients[0])) {
+                          const patientId = (selectedPatient || patients[0]).id;
+                          setPatients((previous) =>
+                            previous.map((patient) =>
+                              patient.id === patientId
+                                ? {
+                                    ...patient,
+                                    riskScore: prediction.score ?? patient.riskScore,
+                                    riskTier: prediction.tier ?? patient.riskTier,
+                                    riskConfidence:
+                                      prediction.confidence ?? patient.riskConfidence,
+                                    riskFactors:
+                                      prediction.factors?.length
+                                        ? prediction.factors.map((factor) => ({
+                                            factor: factor.factor || factor.label || "Unknown factor",
+                                            weight: Number(factor.weight || factor.value || 0),
+                                            category: factor.category || "clinical",
+                                          }))
+                                        : patient.riskFactors,
+                                  }
+                                : patient,
+                            ),
+                          );
+                          setSelectedPatient((previous) =>
+                            previous && previous.id === patientId
+                              ? {
+                                  ...previous,
+                                  riskScore: prediction.score ?? previous.riskScore,
+                                  riskTier: prediction.tier ?? previous.riskTier,
+                                  riskConfidence:
+                                    prediction.confidence ?? previous.riskConfidence,
+                                  riskFactors:
+                                    prediction.factors?.length
+                                      ? prediction.factors.map((factor) => ({
+                                          factor: factor.factor || factor.label || "Unknown factor",
+                                          weight: Number(factor.weight || factor.value || 0),
+                                          category: factor.category || "clinical",
+                                        }))
+                                      : previous.riskFactors,
+                                }
+                              : previous,
+                          );
+                        }
+
+                        pushNotification({
+                          tone: prediction ? "emerald" : "blue",
+                          title: "Discharge workflow completed",
+                          body: prediction
+                            ? `Updated score: ${prediction.score ?? "--"} (${prediction.tier || "Unknown"})`
+                            : "Discharge summary saved successfully.",
+                        });
+                        trackEvent("Discharge", "Complete", (selectedPatient || patients[0])?.id || "unknown");
+                        setCurrentView("dashboard");
+                        loadOperationalData();
+                      }}
+                    />
+                  ) : (
+                    <Card className="p-8 text-center">
+                      <p className="text-gray-700 dark:text-slate-200 font-semibold">
+                        Select a patient first to start discharge workflow.
+                      </p>
+                    </Card>
+                  ))}
+
+                {currentView === "tasks" && (
+                  <Tasks
+                    tasks={tasks}
+                    patients={patients}
+                    onPatientSelect={(patient) => {
+                      if (!patient) {
+                        return;
+                      }
+                      setSelectedPatient(patient);
+                      setCurrentView("patient-detail");
+                    }}
+                    onTaskUpdate={async (task, status) => {
+                      setTasks((previous) =>
+                        previous.map((entry) =>
+                          entry.id === task.id
                             ? {
-                                ...patient,
-                                riskScore: prediction.score ?? patient.riskScore,
-                                riskTier: prediction.tier ?? patient.riskTier,
-                                riskConfidence:
-                                  prediction.confidence ?? patient.riskConfidence,
-                                riskFactors:
-                                  prediction.factors?.length
-                                    ? prediction.factors.map((factor) => ({
-                                        factor: factor.factor || factor.label || "Unknown factor",
-                                        weight: Number(factor.weight || factor.value || 0),
-                                        category: factor.category || "clinical",
-                                      }))
-                                    : patient.riskFactors,
+                                ...entry,
+                                status,
                               }
-                            : patient,
+                            : entry,
                         ),
                       );
-                      setSelectedPatient((previous) =>
-                        previous && previous.id === patientId
-                          ? {
-                              ...previous,
-                              riskScore: prediction.score ?? previous.riskScore,
-                              riskTier: prediction.tier ?? previous.riskTier,
-                              riskConfidence:
-                                prediction.confidence ?? previous.riskConfidence,
-                              riskFactors:
-                                prediction.factors?.length
-                                  ? prediction.factors.map((factor) => ({
-                                      factor: factor.factor || factor.label || "Unknown factor",
-                                      weight: Number(factor.weight || factor.value || 0),
-                                      category: factor.category || "clinical",
-                                    }))
-                                  : previous.riskFactors,
-                            }
-                          : previous,
-                      );
-                    }
+                      try {
+                        if (!navigator.onLine) {
+                          throw new Error("offline");
+                        }
 
-                    pushNotification({
-                      tone: prediction ? "emerald" : "blue",
-                      title: "Discharge workflow completed",
-                      body: prediction
-                        ? `Updated score: ${prediction.score ?? "--"} (${prediction.tier || "Unknown"})`
-                        : "Discharge summary saved successfully.",
-                    });
-                    trackEvent("Discharge", "Complete", (selectedPatient || patients[0])?.id || "unknown");
-                    setCurrentView("dashboard");
-                    loadOperationalData();
-                  }}
-                />
-              ) : (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-700 font-semibold">
-                    Select a patient first to start discharge workflow.
-                  </p>
-                </Card>
-              ))}
+                        const updated = await updateTask(task.id, { status });
+                        if (!updated) {
+                          return;
+                        }
 
-            {currentView === "tasks" && (
-              <Tasks
-                tasks={tasks}
-                patients={patients}
-                onPatientSelect={(patient) => {
-                  if (!patient) {
-                    return;
-                  }
-                  setSelectedPatient(patient);
-                  setCurrentView("patient-detail");
-                }}
-                onTaskUpdate={async (task, status) => {
-                  setTasks((previous) =>
-                    previous.map((entry) =>
-                      entry.id === task.id
-                        ? {
-                            ...entry,
-                            status,
-                          }
-                        : entry,
-                    ),
-                  );
-                  try {
-                    if (!navigator.onLine) {
-                      throw new Error("offline");
-                    }
+                        setTasks((previous) =>
+                          previous.map((entry) =>
+                            entry.id === updated.id
+                              ? {
+                                  ...entry,
+                                  ...updated,
+                                  dueDate: updated.dueDate
+                                    ? new Date(updated.dueDate)
+                                    : entry.dueDate,
+                                }
+                              : entry,
+                          ),
+                        );
 
-                    const updated = await updateTask(task.id, { status });
-                    if (!updated) {
-                      return;
-                    }
+                        trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
+                      } catch (error) {
+                        const shouldQueue = !error?.status || !navigator.onLine;
+                        if (!shouldQueue) {
+                          throw error;
+                        }
 
-                    setTasks((previous) =>
-                      previous.map((entry) =>
-                        entry.id === updated.id
-                          ? {
-                              ...entry,
-                              ...updated,
-                              dueDate: updated.dueDate
-                                ? new Date(updated.dueDate)
-                                : entry.dueDate,
-                            }
-                          : entry,
-                      ),
-                    );
+                        await queueTaskStatusUpdate({
+                          taskId: task.id,
+                          status,
+                        });
+                        const queued = await getQueuedSyncOperations();
+                        setPendingSyncCount(queued.length);
+                        pushNotification({
+                          tone: "blue",
+                          title: "Task update queued",
+                          body: `${task.title} will sync when online.`,
+                        });
+                      }
+                    }}
+                  />
+                )}
 
-                    trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
-                  } catch (error) {
-                    const shouldQueue = !error?.status || !navigator.onLine;
-                    if (!shouldQueue) {
-                      throw error;
-                    }
+                {currentView === "analytics" && <Analytics />}
 
-                    await queueTaskStatusUpdate({
-                      taskId: task.id,
-                      status,
-                    });
-                    const queued = await getQueuedSyncOperations();
-                    setPendingSyncCount(queued.length);
-                    pushNotification({
-                      tone: "blue",
-                      title: "Task update queued",
-                      body: `${task.title} will sync when online.`,
-                    });
-                  }
-                }}
-              />
-            )}
+                {currentView === "data-quality" && (
+                  <div className="flex flex-col items-center justify-center h-96 text-center">
+                    <div className="w-24 h-24 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                      <Database className="w-10 h-10 text-gray-400 dark:text-slate-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2">
+                      {t("dataQualityDashboard")}
+                    </h3>
+                    <p className="text-gray-600 dark:text-slate-300">{t("dataQualityInProgress")}</p>
+                    <Button
+                      variant="primary"
+                      onClick={() => setCurrentView("dashboard")}
+                      className="mt-6"
+                    >
+                      {t("backToDashboard")}
+                    </Button>
+                  </div>
+                )}
 
-            {currentView === "analytics" && <Analytics />}
-
-            {currentView === "data-quality" && (
-              <div className="flex flex-col items-center justify-center h-96 text-center">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <Database className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {t("dataQualityDashboard")}
-                </h3>
-                <p className="text-gray-600">{t("dataQualityInProgress")}</p>
-                <Button
-                  variant="primary"
-                  onClick={() => setCurrentView("dashboard")}
-                  className="mt-6"
-                >
-                  {t("backToDashboard")}
-                </Button>
-              </div>
-            )}
-
-            {currentView === "settings" && (
-              <Card className="max-w-3xl mx-auto p-8">
-                <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mx-auto mb-5">
-                  <Settings className="w-8 h-8 text-gray-500" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">
-                  {t("settings")}
-                </h3>
-                <p className="text-center text-gray-600">
-                  Settings controls are being finalized. Use the dashboard to continue
-                  patient review and task management.
-                </p>
-                <Button
-                  variant="primary"
-                  className="mt-6 mx-auto flex"
-                  onClick={() => setCurrentView("dashboard")}
-                >
-                  {t("backToDashboard")}
-                </Button>
-              </Card>
-            )}
-          </Suspense>
+                {currentView === "settings" && (
+                  <Card className="max-w-3xl mx-auto p-8">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-slate-800 mx-auto mb-5">
+                      <Settings className="w-8 h-8 text-gray-500 dark:text-slate-300" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-100 text-center mb-2">
+                      {t("settings")}
+                    </h3>
+                    <p className="text-center text-gray-600 dark:text-slate-300">
+                      Settings controls are being finalized. Use the dashboard to continue
+                      patient review and task management.
+                    </p>
+                    <Button
+                      variant="primary"
+                      className="mt-6 mx-auto flex"
+                      onClick={() => setCurrentView("dashboard")}
+                    >
+                      {t("backToDashboard")}
+                    </Button>
+                  </Card>
+                )}
+              </PageTransition>
+            </Suspense>
+          </div>
         </div>
       </div>
 
       {showNotifications && (
-        <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border-2 border-gray-200 z-50 overflow-hidden">
+        <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-950 rounded-xl shadow-2xl border-2 border-gray-200 dark:border-slate-800 z-50 overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700 flex items-center justify-between gap-3">
             <h3 className="font-bold text-white">{t("notifications")}</h3>
             <button

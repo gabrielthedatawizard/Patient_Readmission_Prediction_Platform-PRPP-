@@ -1,708 +1,672 @@
 import React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
-  Shield,
-  Users,
-  TrendingUp,
   ArrowRight,
-  Check,
-  Heart,
-  Database,
-  Lock,
+  CheckCircle2,
+  ChevronDown,
   Globe,
-  Clock,
-  Award,
-  Stethoscope,
-  Star,
+  HeartPulse,
+  Home,
   Menu,
+  PlayCircle,
+  Shield,
+  Stethoscope,
   X,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
+import ThemeToggle from "../components/ThemeToggle";
+import OptimizedImage from "../design-system/components/OptimizedImage";
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
 
+const COPY = {
+  en: {
+    nav: {
+      features: "Capabilities",
+      about: "How it works",
+      testimonials: "Voices from care teams",
+      contact: "Contact",
+      signIn: "Sign in",
+      getStarted: "Get started",
+    },
+    badge: "AI platform for safer discharges across Tanzania",
+    title: "Predicting health risks before patients return.",
+    highlight: "Care teams act sooner.",
+    description:
+      "TRIP brings predictive intelligence, discharge orchestration, and community follow-up into one clinical workspace built for Tanzanian hospitals.",
+    primaryCta: "Enter platform",
+    secondaryCta: "See how it works",
+    trust: ["MoH aligned", "Region-ready", "Built for clinical teams"],
+    floatingCards: [
+      { title: "Lives protected", value: "8,500", meta: "Estimated annual impact" },
+      { title: "Readmission pulse", value: "7.8%", meta: "40% reduction trajectory" },
+      { title: "Prediction confidence", value: "82%", meta: "Operational model accuracy" },
+    ],
+    impactTitle: "Real workflows. Human-centered design.",
+    impactDescription:
+      "Every interaction is designed to support clinicians, nurses, pharmacists, and community health workers during the discharge journey.",
+    impactCards: [
+      {
+        title: "Risk prediction before discharge",
+        description:
+          "Clinicians see a clear risk score, top contributing factors, and urgency indicators before a patient leaves the ward.",
+        stat: "78 sec",
+        statLabel: "average turnaround",
+        image: "/images/impact-consultation.svg",
+      },
+      {
+        title: "Medication-ready workflows",
+        description:
+          "Nurses and pharmacists move through reconciliation, patient education, and handoff tasks without losing context.",
+        stat: "85%",
+        statLabel: "interventions completed",
+        image: "/images/impact-medication.svg",
+      },
+      {
+        title: "Community follow-up visibility",
+        description:
+          "High-risk patients trigger follow-up coordination so home visits and calls happen when they matter most.",
+        stat: "10K+",
+        statLabel: "monthly outreach actions",
+        image: "/images/impact-community.svg",
+      },
+    ],
+    capabilityTitle: "Designed for the full care network",
+    capabilityDescription:
+      "TRIP is not a reporting dashboard with a prediction widget attached. It is an operational platform for daily clinical work.",
+    capabilities: [
+      {
+        title: "Discharge orchestration",
+        description: "Structured checklists, escalation logic, and task ownership keep high-risk cases moving.",
+        icon: CheckCircle2,
+      },
+      {
+        title: "Clinical trust",
+        description: "Confidence indicators, explainability, and intervention rationale make the model usable at the bedside.",
+        icon: Shield,
+      },
+      {
+        title: "Facility to national visibility",
+        description: "Regional and national teams can track adoption, readmission trends, and operational bottlenecks.",
+        icon: Globe,
+      },
+      {
+        title: "Community continuity",
+        description: "CHW workflows extend care beyond the hospital with clear outreach priorities and timelines.",
+        icon: Home,
+      },
+    ],
+    quoteTitle: "Built for healthcare teams, not just demos",
+    quoteTag: "Clinical voices from the field",
+    exploreLabel: "Explore the platform",
+    quotes: [
+      {
+        quote:
+          "The interface finally feels like a tool for real discharge work rather than a research prototype.",
+        author: "Dr. Samwel Mhagama",
+        role: "Internal medicine, zonal referral hospital",
+      },
+      {
+        quote:
+          "Nurses can see what needs attention immediately. That changes morning rounds and discharge planning.",
+        author: "Grace Massawe",
+        role: "Ward nursing lead",
+      },
+      {
+        quote:
+          "The community handoff is clearer. We know who to follow up and why.",
+        author: "Halima Mushi",
+        role: "Community health worker coordinator",
+      },
+    ],
+    finalTitle: "Ready to give discharge teams a system that feels modern and credible?",
+    finalDescription:
+      "Launch the platform, test the new experience, and continue shaping TRIP into the national standard for predictive discharge intelligence.",
+    contactTitle: "Need implementation support?",
+    contactDescription: "Reach the TRIP product and support team for onboarding and rollout assistance.",
+  },
+  sw: {
+    nav: {
+      features: "Uwezo",
+      about: "Jinsi inavyofanya kazi",
+      testimonials: "Sauti za watoa huduma",
+      contact: "Mawasiliano",
+      signIn: "Ingia",
+      getStarted: "Anza sasa",
+    },
+    badge: "Jukwaa la AI kwa usalama wa wagonjwa wanaoruhusiwa kurudi nyumbani",
+    title: "Kutabiri hatari za afya kabla mgonjwa hajarudi hospitalini.",
+    highlight: "Timu za huduma zinachukua hatua mapema.",
+    description:
+      "TRIP inaunganisha utabiri wa hatari, uratibu wa discharge, na ufuatiliaji wa jamii katika mfumo mmoja wa kazi za kliniki uliotengenezwa kwa hospitali za Tanzania.",
+    primaryCta: "Fungua jukwaa",
+    secondaryCta: "Angalia mfumo unavyofanya kazi",
+    trust: ["Imezingatia MoH", "Tayari kwa mikoa", "Imeundwa kwa timu za kliniki"],
+    floatingCards: [
+      { title: "Maisha yaliyolindwa", value: "8,500", meta: "Makadirio ya athari kwa mwaka" },
+      { title: "Kiwango cha kurudi", value: "7.8%", meta: "Mwelekeo wa kupungua kwa 40%" },
+      { title: "Uhakika wa utabiri", value: "82%", meta: "Usahihi wa modeli kazini" },
+    ],
+    impactTitle: "Mtiririko halisi wa kazi. Muundo unaomweka binadamu mbele.",
+    impactDescription:
+      "Kila sehemu imeundwa kusaidia madaktari, wauguzi, wafamasia, na CHW katika safari ya mgonjwa kutoka wodini hadi nyumbani.",
+    impactCards: [
+      {
+        title: "Utabiri wa hatari kabla ya discharge",
+        description:
+          "Daktari anaona alama ya hatari, sababu kuu zinazoichangia, na kiwango cha dharura kabla mgonjwa hajaondoka wodini.",
+        stat: "Sek 78",
+        statLabel: "muda wa wastani",
+        image: "/images/impact-consultation.svg",
+      },
+      {
+        title: "Mtiririko wa dawa ulio wazi",
+        description:
+          "Muuguzi na mfamasia wanakamilisha reconciliation, elimu ya mgonjwa, na handoff bila kupoteza muktadha.",
+        stat: "85%",
+        statLabel: "hatua zimekamilika",
+        image: "/images/impact-medication.svg",
+      },
+      {
+        title: "Ufuatiliaji wa jamii unaoonekana",
+        description:
+          "Wagonjwa wa hatari kubwa huanzisha uratibu wa ufuatiliaji ili ziara za nyumbani na simu zifanyike kwa wakati sahihi.",
+        stat: "10K+",
+        statLabel: "hatua za ufuatiliaji kwa mwezi",
+        image: "/images/impact-community.svg",
+      },
+    ],
+    capabilityTitle: "Imeundwa kwa mtandao mzima wa huduma",
+    capabilityDescription:
+      "TRIP si dashboard ya ripoti yenye kisanduku cha utabiri pembeni. Ni jukwaa la kazi za kila siku za kliniki.",
+    capabilities: [
+      {
+        title: "Uratibu wa discharge",
+        description: "Checklist zilizoainishwa, mantiki ya escalation, na umiliki wa kazi huweka kesi za hatari kubwa kwenye mkondo sahihi.",
+        icon: CheckCircle2,
+      },
+      {
+        title: "Imani ya kliniki",
+        description: "Viashiria vya uhakika, explainability, na sababu za hatua vinaufanya modeli kutumika karibu na mgonjwa.",
+        icon: Shield,
+      },
+      {
+        title: "Mwonekano wa hospitali hadi taifa",
+        description: "Timu za mikoa na taifa zinaweza kufuatilia matumizi, mwenendo wa readmission, na vikwazo vya utekelezaji.",
+        icon: Globe,
+      },
+      {
+        title: "Mwendelezo wa huduma kwa jamii",
+        description: "Mtiririko wa CHW unaendeleza huduma nje ya hospitali kwa vipaumbele na ratiba zilizo wazi.",
+        icon: Home,
+      },
+    ],
+    quoteTitle: "Imejengwa kwa timu za afya, si kwa demo pekee",
+    quoteTag: "Sauti za wahudumu wa afya",
+    exploreLabel: "Chunguza jukwaa",
+    quotes: [
+      {
+        quote: "Muonekano huu unahisi kama zana ya kweli ya discharge badala ya prototype ya utafiti.",
+        author: "Dr. Samwel Mhagama",
+        role: "Dawa za ndani, hospitali ya rufaa ya kanda",
+      },
+      {
+        quote: "Wauguzi wanaona kinachohitaji kipaumbele mara moja. Hilo linabadilisha rounds za asubuhi na discharge planning.",
+        author: "Grace Massawe",
+        role: "Kiongozi wa wauguzi wodini",
+      },
+      {
+        quote: "Handoff ya jamii iko wazi zaidi. Tunajua nani afuatiliwe na kwa nini.",
+        author: "Halima Mushi",
+        role: "Mratibu wa CHW",
+      },
+    ],
+    finalTitle: "Uko tayari kuwapa timu za discharge mfumo unaohisi wa kisasa na wenye kuaminika?",
+    finalDescription:
+      "Fungua jukwaa, jaribu uzoefu mpya, na endelea kuifanya TRIP kuwa kiwango cha taifa katika predictive discharge intelligence.",
+    contactTitle: "Unahitaji msaada wa utekelezaji?",
+    contactDescription: "Wasiliana na timu ya bidhaa na msaada ya TRIP kwa onboarding na rollout.",
+  },
+};
+
+const NAV_ITEMS = ["features", "about", "testimonials", "contact"];
+
+const sectionReveal = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
 const LandingPage = ({ onLogin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const { language, setLanguage, t } = useI18n();
-  const scrollToSection = React.useCallback((sectionId) => {
-    if (typeof document === "undefined") {
-      return;
-    }
+  const shouldReduceMotion = useReducedMotion();
+  const { language, setLanguage } = useI18n();
+  const copy = COPY[language] || COPY.en;
 
+  const scrollToSection = React.useCallback((sectionId) => {
     const section = document.getElementById(sectionId);
     if (!section) {
       return;
     }
-
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     setMobileMenuOpen(false);
   }, []);
 
   const openSupportEmail = React.useCallback(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
     window.location.href = `mailto:${SUPPORT_EMAIL}`;
   }, []);
 
-  const features = [
-    {
-      icon: Activity,
-      title: t("landingFeature1Title"),
-      description: t("landingFeature1Desc"),
-      color: "from-teal-400 to-teal-600",
-    },
-    {
-      icon: Shield,
-      title: t("landingFeature2Title"),
-      description: t("landingFeature2Desc"),
-      color: "from-blue-400 to-blue-600",
-    },
-    {
-      icon: Users,
-      title: t("landingFeature3Title"),
-      description: t("landingFeature3Desc"),
-      color: "from-purple-400 to-purple-600",
-    },
-    {
-      icon: TrendingUp,
-      title: t("landingFeature4Title"),
-      description: t("landingFeature4Desc"),
-      color: "from-emerald-400 to-emerald-600",
-    },
-    {
-      icon: Database,
-      title: t("landingFeature5Title"),
-      description: t("landingFeature5Desc"),
-      color: "from-amber-400 to-amber-600",
-    },
-    {
-      icon: Globe,
-      title: t("landingFeature6Title"),
-      description: t("landingFeature6Desc"),
-      color: "from-pink-400 to-pink-600",
-    },
-  ];
-
-  const stats = [
-    { value: "30%", label: t("landingStatsReduction"), icon: TrendingUp },
-    { value: "150+", label: t("landingStatsFacilities"), icon: Building },
-    { value: "1M+", label: t("landingStatsPatients"), icon: Users },
-    { value: "84%", label: t("landingStatsAccuracy"), icon: Award },
-  ];
-
-  const testimonials = [
-    {
-      quote: t("landingTestimonial1Quote"),
-      author: "Dr. Samwel Mhagama",
-      role: t("landingTestimonial1Role"),
-      avatar: "SM",
-    },
-    {
-      quote: t("landingTestimonial2Quote"),
-      author: "Dr. Anna Kavishe",
-      role: t("landingTestimonial2Role"),
-      avatar: "AK",
-    },
-    {
-      quote: t("landingTestimonial3Quote"),
-      author: "Grace Massawe",
-      role: t("landingTestimonial3Role"),
-      avatar: "GM",
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Activity className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-lg sm:text-xl font-bold text-gray-900">TRIP</span>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f3f7fb_0%,#eefdfc_44%,#ffffff_100%)] text-slate-950 transition-colors duration-300 dark:bg-[linear-gradient(180deg,#020617_0%,#061420_35%,#0f172a_100%)] dark:text-slate-100">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/15 bg-slate-950/45 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+          <button type="button" onClick={() => scrollToSection("top")} className="flex items-center gap-3 text-left">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-lg shadow-cyan-950/20">
+              <Activity className="h-5 w-5" />
             </div>
-
-            <div className="hidden md:flex items-center gap-8">
-              <a
-                href="#features"
-                className="text-gray-600 hover:text-teal-600 font-medium transition-colors"
-              >
-                {t("landingNavFeatures")}
-              </a>
-              <a
-                href="#about"
-                className="text-gray-600 hover:text-teal-600 font-medium transition-colors"
-              >
-                {t("landingNavAbout")}
-              </a>
-              <a
-                href="#testimonials"
-                className="text-gray-600 hover:text-teal-600 font-medium transition-colors"
-              >
-                {t("landingNavTestimonials")}
-              </a>
-              <a
-                href="#contact"
-                className="text-gray-600 hover:text-teal-600 font-medium transition-colors"
-              >
-                {t("landingNavContact")}
-              </a>
+            <div>
+              <p className="text-base font-bold tracking-tight text-white">TRIP</p>
+              <p className="text-xs font-medium text-teal-100/80">Tanzania Readmission Intelligence Platform</p>
             </div>
+          </button>
 
-            <div className="hidden md:flex items-center gap-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700">
-                <Globe className="w-4 h-4" />
-                <label htmlFor="landing-language" className="sr-only">
-                  {t("languageLabel")}
-                </label>
-                <select
-                  id="landing-language"
-                  value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
-                  className="bg-transparent focus:outline-none"
-                >
-                  <option value="sw">{t("languageSwahili")}</option>
-                  <option value="en">{t("languageEnglish")}</option>
-                </select>
-              </div>
+          <nav className="hidden items-center gap-7 lg:flex">
+            {NAV_ITEMS.map((item) => (
               <button
-                onClick={onLogin}
-                className="text-teal-600 font-semibold hover:text-teal-700 transition-colors"
+                key={item}
+                type="button"
+                onClick={() => scrollToSection(item)}
+                className="text-sm font-medium text-white/78 transition-colors hover:text-white"
               >
-                {t("landingSignIn")}
+                {copy.nav[item]}
               </button>
-              <button
-                onClick={onLogin}
-                className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-teal-600 hover:to-teal-700 transition-all"
-              >
-                {t("landingGetStarted")}
-              </button>
-            </div>
+            ))}
+          </nav>
 
+          <div className="hidden items-center gap-3 lg:flex">
+            <div className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/85 backdrop-blur-sm">
+              <Globe className="mr-2 h-4 w-4" />
+              <select
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+                className="bg-transparent pr-1 outline-none"
+                aria-label="Select language"
+              >
+                <option value="en" className="text-slate-900">English</option>
+                <option value="sw" className="text-slate-900">Kiswahili</option>
+              </select>
+            </div>
+            <ThemeToggle />
             <button
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              type="button"
+              onClick={onLogin}
+              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10"
             >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              {copy.nav.signIn}
+            </button>
+            <button
+              type="button"
+              onClick={onLogin}
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-cyan-950/15 transition-transform hover:-translate-y-0.5"
+            >
+              {copy.nav.getStarted}
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="inline-flex rounded-2xl border border-white/10 bg-white/10 p-2 text-white lg:hidden"
+            aria-label="Toggle navigation"
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
-            <a
-              href="#features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-gray-600 hover:text-teal-600"
-            >
-              {t("landingNavFeatures")}
-            </a>
-            <a
-              href="#about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-gray-600 hover:text-teal-600"
-            >
-              {t("landingNavAbout")}
-            </a>
-            <a
-              href="#testimonials"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-gray-600 hover:text-teal-600"
-            >
-              {t("landingNavTestimonials")}
-            </a>
-            <a
-              href="#contact"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-gray-600 hover:text-teal-600"
-            >
-              {t("landingNavContact")}
-            </a>
-            <div className="pt-2">
-              <label
-                htmlFor="landing-language-mobile"
-                className="text-sm text-gray-600 mr-2"
-              >
-                {t("languageLabel")}
-              </label>
+          <div className="border-t border-white/10 bg-slate-950/95 px-4 py-4 backdrop-blur-xl lg:hidden">
+            <div className="space-y-2">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => scrollToSection(item)}
+                  className="block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  {copy.nav[item]}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <ThemeToggle />
               <select
-                id="landing-language-mobile"
                 value={language}
                 onChange={(event) => setLanguage(event.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                aria-label="Select language"
               >
-                <option value="sw">{t("languageSwahili")}</option>
-                <option value="en">{t("languageEnglish")}</option>
+                <option value="en" className="text-slate-900">English</option>
+                <option value="sw" className="text-slate-900">Kiswahili</option>
               </select>
             </div>
-            <button
-              onClick={onLogin}
-              className="w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl mt-4"
-            >
-              {t("landingGetStarted")}
-            </button>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" onClick={onLogin} className="rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-white/90">
+                {copy.nav.signIn}
+              </button>
+              <button type="button" onClick={onLogin} className="rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-900">
+                {copy.nav.getStarted}
+              </button>
+            </div>
           </div>
         )}
-      </nav>
+      </header>
 
-      <section className="relative pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="hidden sm:block absolute -top-40 -right-40 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 -left-40 w-72 sm:w-96 h-72 sm:h-96 bg-blue-400/20 rounded-full blur-3xl" />
-          <div className="hidden sm:block absolute -bottom-40 right-1/4 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
-        </div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-100 rounded-full mb-8">
-              <span className="flex h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
-              <span className="text-sm font-semibold text-teal-700">
-                {t("landingBadgeMinistry")}
-              </span>
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              {t("landingHeroTitlePrefix")}{" "}
-              <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">
-                {t("landingHeroTitleHighlight")}
-              </span>
-            </h1>
-
-            <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              {t("landingHeroDescription")}
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                onClick={onLogin}
-                className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-2xl hover:from-teal-600 hover:to-teal-700 transition-all flex items-center justify-center gap-2"
-              >
-                {t("landingStartTrial")}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => scrollToSection("testimonials")}
-                className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 font-semibold rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
-              >
-                <Stethoscope className="w-5 h-5" />
-                {t("landingWatchDemo")}
-              </button>
-            </div>
-
-            <div className="mt-16 pt-8 border-t border-gray-100">
-              <p className="text-sm text-gray-500 mb-6">
-                {t("landingTrustedBy")}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-8 opacity-50">
-                <div className="flex items-center gap-2 text-xl font-bold text-gray-400">
-                  <Building className="w-6 h-6" />
-                  MNH
-                </div>
-                <div className="flex items-center gap-2 text-xl font-bold text-gray-400">
-                  <Heart className="w-6 h-6" />
-                  Bugando MC
-                </div>
-                <div className="flex items-center gap-2 text-xl font-bold text-gray-400">
-                  <Activity className="w-6 h-6" />
-                  Temeke RH
-                </div>
+      <main id="top">
+        <section className="relative isolate overflow-hidden px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8 lg:pb-28 lg:pt-36">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(103,232,249,0.25),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(15,118,110,0.18),_transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.22),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.18),_transparent_28%)]" />
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <motion.div initial={{ opacity: 0, x: -28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}>
+              <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-4 py-2 text-sm font-semibold text-teal-900 dark:border-teal-400/20 dark:bg-teal-400/10 dark:text-teal-100">
+                <HeartPulse className="h-4 w-4" />
+                {copy.badge}
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12 sm:py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 sm:gap-8">
-            {stats.map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-teal-100 rounded-xl mb-4">
-                  <stat.icon className="w-6 h-6 text-teal-600" />
-                </div>
-                <p className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">
-                  {stat.value}
-                </p>
-                <p className="text-sm text-gray-600">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="features" className="py-16 sm:py-20 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t("landingFeaturesTitlePrefix")}{" "}
-              <span className="text-teal-600">
-                {t("landingFeaturesTitleHighlight")}
-              </span>
-            </h2>
-            <p className="text-lg text-gray-600">
-              {t("landingFeaturesSubtitle")}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, idx) => (
-              <div
-                key={idx}
-                className="group p-6 sm:p-8 bg-white rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-xl transition-all duration-300"
-              >
-                <div
-                  className={`w-14 h-14 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center shadow-lg mb-6 group-hover:scale-110 transition-transform`}
-                >
-                  <feature.icon className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="about" className="py-16 sm:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                {t("landingAboutTitlePrefix")}{" "}
-                <span className="text-teal-600">
-                  {t("landingAboutTitleHighlight")}
+              <h1 className="mt-6 max-w-4xl text-5xl font-bold leading-[0.95] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
+                {copy.title}
+                <span className="mt-2 block bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 bg-clip-text text-transparent">
+                  {copy.highlight}
                 </span>
-              </h2>
-              <p className="text-lg text-gray-600 mb-8">
-                {t("landingAboutDesc")}
+              </h1>
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300 sm:text-xl">
+                {copy.description}
               </p>
-
-              <div className="space-y-4">
-                {[
-                  t("landingAboutBullet1"),
-                  t("landingAboutBullet2"),
-                  t("landingAboutBullet3"),
-                  t("landingAboutBullet4"),
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-teal-600" />
-                    </div>
-                    <span className="text-gray-700">{item}</span>
-                  </div>
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-4 text-base font-semibold text-white shadow-xl shadow-slate-900/15 transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
+                >
+                  {copy.primaryCta}
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToSection("about")}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-6 py-4 text-base font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
+                >
+                  <PlayCircle className="h-5 w-5 text-teal-500" />
+                  {copy.secondaryCta}
+                </button>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-3">
+                {copy.trust.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    {item}
+                  </span>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-blue-500 rounded-3xl transform rotate-3 opacity-10" />
-              <div className="relative bg-white p-6 sm:p-8 rounded-3xl shadow-xl">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl flex items-center justify-center">
-                    <Activity className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {t("landingPanelTitle")}
-                    </h3>
-                    <p className="text-gray-500">{t("landingPanelVersion")}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-teal-600" />
-                      <span className="text-gray-700">
-                        {t("landingPanelRealtime")}
-                      </span>
-                    </div>
-                    <span className="text-sm font-semibold text-teal-600">
-                      {t("landingPanelActive")}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Lock className="w-5 h-5 text-teal-600" />
-                      <span className="text-gray-700">
-                        {t("landingPanelDataSecurity")}
-                      </span>
-                    </div>
-                    <span className="text-sm font-semibold text-teal-600">
-                      256-bit
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Database className="w-5 h-5 text-teal-600" />
-                      <span className="text-gray-700">
-                        {t("landingPanelUptime")}
-                      </span>
-                    </div>
-                    <span className="text-sm font-semibold text-teal-600">
-                      99.9%
-                    </span>
-                  </div>
-                </div>
+            <motion.div initial={{ opacity: 0, x: 34 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.15 }} className="relative hidden lg:block">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/40 bg-slate-950 shadow-[0_30px_80px_rgba(8,47,73,0.28)]">
+                <OptimizedImage
+                  src="/images/hero-tanzania-care.svg"
+                  alt="Illustrated Tanzanian hospital care scene"
+                  loading="eager"
+                  className="h-[620px] w-full"
+                  imgClassName="h-[620px] w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section id="testimonials" className="py-16 sm:py-20 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t("landingTestimonialsTitlePrefix")}{" "}
-              <span className="text-teal-600">
-                {t("landingTestimonialsTitleHighlight")}
-              </span>
-            </h2>
-            <p className="text-lg text-gray-600">
-              {t("landingTestimonialsSubtitle")}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, idx) => (
-              <div
-                key={idx}
-              className="p-6 sm:p-8 bg-white rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow"
+              <motion.div
+                animate={shouldReduceMotion ? undefined : { y: [0, -10, 0] }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
+                }
+                className="absolute -left-6 top-12 w-60 rounded-[24px] border border-white/60 bg-white/92 p-5 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85"
               >
-                <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="w-5 h-5 text-amber-400 fill-current"
-                    />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-6 leading-relaxed">
-                  "{testimonial.quote}"
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
+                  {copy.floatingCards[0].title}
                 </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-teal-700 rounded-full flex items-center justify-center text-white font-bold">
-                    {testimonial.avatar}
-                  </div>
+                <p className="mt-3 text-4xl font-bold text-slate-950 dark:text-white">{copy.floatingCards[0].value}</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{copy.floatingCards[0].meta}</p>
+              </motion.div>
+
+              <motion.div
+                animate={shouldReduceMotion ? undefined : { y: [0, 12, 0] }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : { duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 0.25 }
+                }
+                className="absolute -right-6 top-52 w-72 rounded-[24px] border border-white/60 bg-white/92 p-5 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85"
+              >
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-gray-900">
-                      {testimonial.author}
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 dark:text-sky-300">
+                      {copy.floatingCards[1].title}
                     </p>
-                    <p className="text-sm text-gray-500">{testimonial.role}</p>
+                    <p className="mt-3 text-4xl font-bold text-slate-950 dark:text-white">{copy.floatingCards[1].value}</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{copy.floatingCards[1].meta}</p>
+                  </div>
+                  <div className="rounded-2xl bg-sky-50 p-4 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300">
+                    <Activity className="h-6 w-6" />
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                animate={shouldReduceMotion ? undefined : { y: [0, -8, 0] }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.45 }
+                }
+                className="absolute bottom-10 left-12 w-72 rounded-[28px] bg-gradient-to-br from-violet-600 to-fuchsia-500 p-6 text-white shadow-[0_24px_70px_rgba(88,28,135,0.35)]"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100">
+                  {copy.floatingCards[2].title}
+                </p>
+                <p className="mt-3 text-5xl font-bold">{copy.floatingCards[2].value}</p>
+                <p className="mt-1 text-sm text-violet-100">{copy.floatingCards[2].meta}</p>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/20">
+                  <motion.div initial={{ width: 0 }} animate={{ width: "82%" }} transition={{ duration: 1.4, delay: 0.6 }} className="h-full rounded-full bg-white" />
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
+
+          <motion.button
+            type="button"
+            onClick={() => scrollToSection("features")}
+            animate={shouldReduceMotion ? undefined : { y: [0, 8, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.6, repeat: Infinity }}
+            className="mx-auto mt-12 flex flex-col items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400"
+          >
+            <span>{copy.exploreLabel}</span>
+            <ChevronDown className="h-5 w-5" />
+          </motion.button>
+        </section>
+
+        <section id="features" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="mx-auto max-w-3xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-700 dark:text-teal-300">Impact in practice</p>
+              <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+                {copy.impactTitle}
+              </h2>
+              <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">{copy.impactDescription}</p>
+            </motion.div>
+
+            <div className="mt-14 grid gap-8 lg:grid-cols-3">
+              {copy.impactCards.map((card, index) => (
+                <motion.article
+                  key={card.title}
+                  variants={sectionReveal}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.08 }}
+                  whileHover={{ y: -8 }}
+                  className="group overflow-hidden rounded-[28px] border border-white/60 bg-white/90 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80"
+                >
+                  <div className="relative h-72 overflow-hidden">
+                    <OptimizedImage
+                      src={card.image}
+                      alt={card.title}
+                      className="h-full w-full"
+                      imgClassName="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent" />
+                    <div className="absolute bottom-5 left-5 rounded-2xl border border-white/40 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-950/80">
+                      <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{card.stat}</p>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{card.statLabel}</p>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-slate-950 dark:text-slate-100">{card.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{card.description}</p>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="about" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[36px] border border-slate-200 bg-white/75 p-8 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/70 lg:p-10">
+            <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">Operational design</p>
+              <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+                {copy.capabilityTitle}
+              </h2>
+              <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">{copy.capabilityDescription}</p>
+            </motion.div>
+
+            <div className="mt-12 grid gap-5 lg:grid-cols-2">
+              {copy.capabilities.map((capability, index) => {
+                const Icon = capability.icon;
+                return (
+                  <motion.div
+                    key={capability.title}
+                    variants={sectionReveal}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.06 }}
+                    className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                  >
+                    <div className="inline-flex rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 p-3 text-white shadow-md">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-5 text-xl font-bold text-slate-950 dark:text-slate-100">{capability.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{capability.description}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="testimonials" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true }} className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-300">Care team perspective</p>
+                <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 dark:text-slate-100 sm:text-5xl">
+                  {copy.quoteTitle}
+                </h2>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                <Stethoscope className="h-4 w-4" />
+                {copy.quoteTag}
+              </div>
+            </motion.div>
+
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {copy.quotes.map((quote, index) => (
+                <motion.blockquote
+                  key={quote.author}
+                  variants={sectionReveal}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.08 }}
+                  className="rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80"
+                >
+                  <p className="text-base leading-8 text-slate-700 dark:text-slate-200">"{quote.quote}"</p>
+                  <div className="mt-6 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">
+                      {quote.author
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((part) => part[0])
+                        .join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">{quote.author}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{quote.role}</p>
+                    </div>
+                  </div>
+                </motion.blockquote>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="px-4 pb-24 pt-12 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[36px] bg-slate-950 px-8 py-12 text-white shadow-[0_30px_90px_rgba(8,47,73,0.32)] lg:px-12 lg:py-14">
+            <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-200">TRIP rollout</p>
+                <h2 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">{copy.finalTitle}</h2>
+                <p className="mt-4 max-w-2xl text-lg text-slate-300">{copy.finalDescription}</p>
+                <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={onLogin}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-base font-semibold text-slate-950 transition-transform hover:-translate-y-0.5"
+                  >
+                    {copy.primaryCta}
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSupportEmail}
+                    className="inline-flex items-center justify-center rounded-2xl border border-white/20 px-6 py-4 text-base font-semibold text-white/90 transition-colors hover:bg-white/10"
+                  >
+                    {copy.contactTitle}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-teal-200">Support</p>
+                <p className="mt-3 text-2xl font-bold">{copy.contactTitle}</p>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{copy.contactDescription}</p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-white/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Email</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{SUPPORT_EMAIL}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Coverage</p>
+                    <p className="mt-2 text-sm font-semibold text-white">31 regions and multi-role workflows</p>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 sm:py-20 bg-gradient-to-br from-teal-500 to-teal-700">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-6">
-            {t("landingCtaTitle")}
-          </h2>
-          <p className="text-lg sm:text-xl text-teal-100 mb-10">{t("landingCtaDesc")}</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={onLogin}
-              className="w-full sm:w-auto px-8 py-4 bg-white text-teal-600 font-semibold rounded-xl shadow-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {t("landingCtaPrimary")}
-              <ArrowRight className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => scrollToSection("contact")}
-              className="w-full sm:w-auto px-8 py-4 bg-teal-600 text-white font-semibold rounded-xl border-2 border-teal-400 hover:bg-teal-500 transition-colors"
-            >
-              {t("landingCtaSecondary")}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <footer id="contact" className="bg-gray-900 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold">TRIP</span>
-              </div>
-              <p className="text-gray-400 text-sm">
-                {t("landingHeroDescription")}
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">{t("footerProduct")}</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li>
-                  <a href="#features" className="hover:text-white transition-colors">
-                    {t("footerFeatures")}
-                  </a>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerPricing")}
-                  </button>
-                </li>
-                <li>
-                  <a href="#about" className="hover:text-white transition-colors">
-                    {t("footerSecurity")}
-                  </a>
-                </li>
-                <li>
-                  <a href="#about" className="hover:text-white transition-colors">
-                    {t("footerIntegrations")}
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">{t("footerCompany")}</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li>
-                  <a href="#about" className="hover:text-white transition-colors">
-                    {t("footerAbout")}
-                  </a>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerBlog")}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerCareers")}
-                  </button>
-                </li>
-                <li>
-                  <a href="#contact" className="hover:text-white transition-colors">
-                    {t("footerContact")}
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">{t("footerSupport")}</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerHelpCenter")}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerDocumentation")}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerApiReference")}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={openSupportEmail}
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("footerStatus")}
-                  </button>
-                </li>
-              </ul>
             </div>
           </div>
-
-          <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-gray-500 text-sm">
-              © {new Date().getFullYear()} {t("ministryCopyright")}.{" "}
-              {t("footerRights")}
-            </p>
-            <div className="flex items-center gap-6 text-gray-400 text-sm">
-              <button
-                type="button"
-                onClick={openSupportEmail}
-                className="hover:text-white transition-colors"
-              >
-                {t("footerPrivacyPolicy")}
-              </button>
-              <button
-                type="button"
-                onClick={openSupportEmail}
-                className="hover:text-white transition-colors"
-              >
-                {t("footerTermsService")}
-              </button>
-              <button
-                type="button"
-                onClick={openSupportEmail}
-                className="hover:text-white transition-colors"
-              >
-                {t("footerCookiePolicy")}
-              </button>
-            </div>
-          </div>
-        </div>
-      </footer>
+        </section>
+      </main>
     </div>
   );
 };
-
-const Building = ({ className }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-    />
-  </svg>
-);
 
 export default LandingPage;
