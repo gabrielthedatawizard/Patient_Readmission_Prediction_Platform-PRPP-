@@ -14,7 +14,9 @@ const { logAudit } = require('../services/auditService');
 const {
   getDashboardKPIs,
   getFacilityComparison,
-  detectAnomalies
+  detectAnomalies,
+  getBedForecast,
+  getAutomationSummary
 } = require('../services/analyticsService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -80,6 +82,44 @@ router.get('/anomalies', requirePermission('analytics:read'), asyncHandler(async
     count: anomalies.length,
     anomalies
   });
+}));
+
+router.get('/bed-forecast', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const forecast = await getBedForecast(req.user, {
+    facilityId: req.query.facilityId,
+    days: req.query.days
+  });
+
+  await logAudit(req, {
+    action: 'analytics_bed_forecast_viewed',
+    resource: 'analytics:bed_forecast',
+    details: {
+      facilityId: req.query.facilityId || null,
+      horizonDays: forecast.horizonDays
+    }
+  });
+
+  return res.json(forecast);
+}));
+
+router.get('/automation-summary', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const summary = await getAutomationSummary(req.user, {
+    facilityId: req.query.facilityId,
+    days: req.query.days,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  });
+
+  await logAudit(req, {
+    action: 'analytics_automation_summary_viewed',
+    resource: 'analytics:automation_summary',
+    details: {
+      facilityId: req.query.facilityId || null,
+      days: req.query.days || 30
+    }
+  });
+
+  return res.json(summary);
 }));
 
 router.get('/quality', requirePermission('analytics:read'), asyncHandler(async (req, res) => {

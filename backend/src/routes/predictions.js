@@ -17,6 +17,8 @@ const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
 const { logAudit } = require('../services/auditService');
 const { generatePrediction } = require('../services/mlService');
+const { dispatchRiskAlert } = require('../services/notificationService');
+const { extractDischargeSummary } = require('../services/nlpService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -162,6 +164,12 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     }
   });
 
+  const automation = await dispatchRiskAlert({
+    req,
+    patient,
+    prediction: responsePrediction
+  });
+
   await appendSyncEvent({
     facilityId: prediction.facilityId,
     eventType: 'mutation',
@@ -192,6 +200,7 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
   return res.status(201).json({
     prediction: responsePrediction,
     tasks: generatedTasks,
+    automation,
     escalationRequired:
       prediction.confidence < 0.5 || Number(prediction.dataQuality?.completeness || 1) < 0.7
   });
@@ -237,6 +246,58 @@ router.get('/history/:patientId', requirePermission('predictions:read'), asyncHa
       method: prediction.fallbackUsed ? 'rules' : 'ml',
       probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
+  });
+}));
+
+router.post('/discharge-summary/extract', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
+  const patientId = String(req.body.patientId || '').trim();
+  const notes = String(req.body.notes || '').trim();
+
+  if (!patientId) {
+    return res.status(400).json({
+      error: 'ValidationError',
+      message: 'patientId is required.'
+    });
+  }
+
+  if (!notes) {
+    return res.status(400).json({
+      error: 'ValidationError',
+      message: 'notes are required for extraction.'
+    });
+  }
+
+  const patient = await getPatientForUser(req.user, patientId);
+  if (!patient) {
+    return res.status(404).json({
+      error: 'NotFound',
+      message: 'Patient not found or not accessible.'
+    });
+  }
+
+  const extraction = extractDischargeSummary({
+    notes,
+    workflow: req.body.workflow || {},
+    patient,
+    prediction: req.body.prediction || null
+  });
+
+  await logAudit(req, {
+    action: 'discharge_summary_extracted',
+    resource: `patient:${patientId}`,
+    details: {
+      entities: {
+        diagnoses: extraction.entities.diagnoses.length,
+        medications: extraction.entities.medications.length,
+        redFlags: extraction.entities.redFlags.length,
+        socialRisks: extraction.entities.socialRisks.length
+      }
+    }
+  });
+
+  return res.json({
+    patientId,
+    extraction
   });
 }));
 

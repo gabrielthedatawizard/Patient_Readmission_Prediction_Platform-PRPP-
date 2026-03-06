@@ -48,3 +48,22 @@ export async function fetchAnomalies({ facilityId } = {}) {
   return payload?.anomalies || [];
 }
 
+export async function fetchBedForecast({ facilityId, days = 7 } = {}) {
+  const query = new URLSearchParams();
+  if (facilityId) {
+    query.set("facilityId", facilityId);
+  }
+  query.set("days", String(days));
+
+  return request(`/analytics/bed-forecast?${query.toString()}`);
+}
+
+export async function fetchAutomationSummary({ facilityId, days = 30 } = {}) {
+  const query = new URLSearchParams();
+  if (facilityId) {
+    query.set("facilityId", facilityId);
+  }
+  query.set("days", String(days));
+
+  return request(`/analytics/automation-summary?${query.toString()}`);
+}

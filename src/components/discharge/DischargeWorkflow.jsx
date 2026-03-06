@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { 
   ArrowLeft, Stethoscope, Pill, MessageSquare, Calendar, 
   Home, FileText, Check, ArrowRight, AlertTriangle,
-  User, Phone, MapPin, Clock, CheckCircle, Save, Loader2
+  User, Phone, MapPin, Clock, CheckCircle, Save, Loader2, Bot
 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
-import { generatePrediction } from '../../services/mlService';
+import { extractDischargeSummary, generatePrediction } from '../../services/mlService';
 
 /**
  * Discharge Workflow Component
@@ -18,8 +18,11 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isExtractingSummary, setIsExtractingSummary] = useState(false);
   const [predictionResult, setPredictionResult] = useState(null);
   const [predictionError, setPredictionError] = useState('');
+  const [summaryError, setSummaryError] = useState('');
+  const [summaryInsights, setSummaryInsights] = useState(null);
   const [formData, setFormData] = useState({
     // Step 0: Clinical Readiness
     clinicalChecks: {
@@ -77,6 +80,27 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       priorAdmissions6mo: Number(patient?.priorAdmissions || profile.priorAdmissions12m || 0),
       charlsonIndex: Number(profile.charlsonIndex || 0),
     };
+  };
+
+  const handleExtractSummary = async () => {
+    if (!patient?.id || !String(formData.dischargeNotes || '').trim()) {
+      return;
+    }
+
+    setIsExtractingSummary(true);
+    setSummaryError('');
+
+    try {
+      const extraction = await extractDischargeSummary(patient.id, formData.dischargeNotes, {
+        workflow: formData,
+        prediction: predictionResult
+      });
+      setSummaryInsights(extraction);
+    } catch (error) {
+      setSummaryError(error?.message || 'Unable to extract discharge summary insights.');
+    } finally {
+      setIsExtractingSummary(false);
+    }
   };
 
   const steps = [
@@ -576,6 +600,65 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         />
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="secondary"
+          icon={<Bot className="w-4 h-4" />}
+          onClick={handleExtractSummary}
+          loading={isExtractingSummary}
+          disabled={!String(formData.dischargeNotes || '').trim() || isExtractingSummary}
+        >
+          {isExtractingSummary ? 'Extracting...' : 'Auto-Extract Clinical Summary'}
+        </Button>
+      </div>
+
+      {summaryError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700">{summaryError}</p>
+        </div>
+      )}
+
+      {summaryInsights && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+          <p className="text-sm font-semibold text-blue-900">NLP Summary Insights</p>
+          <p className="text-sm text-blue-800">{summaryInsights.summaryNarrative}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="font-semibold text-blue-900">Diagnoses</p>
+              <p className="text-blue-800">
+                {summaryInsights?.entities?.diagnoses?.length
+                  ? summaryInsights.entities.diagnoses.join(', ')
+                  : 'None extracted'}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-blue-900">Medications</p>
+              <p className="text-blue-800">
+                {summaryInsights?.entities?.medications?.length
+                  ? summaryInsights.entities.medications.join(', ')
+                  : 'None extracted'}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-blue-900">Red Flags</p>
+              <p className="text-blue-800">
+                {summaryInsights?.entities?.redFlags?.length
+                  ? summaryInsights.entities.redFlags.join(', ')
+                  : 'None extracted'}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-blue-900">Recommended Tasks</p>
+              <p className="text-blue-800">
+                {summaryInsights?.recommendedTasks?.length
+                  ? summaryInsights.recommendedTasks.join(' | ')
+                  : 'No task recommendation'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {predictionResult && (
         <div className="p-4 bg-teal-50 border-2 border-teal-200 rounded-lg">
           <p className="text-sm font-semibold text-teal-900">Latest Predicted Risk</p>
@@ -640,6 +723,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     onComplete?.({
       workflow: formData,
       prediction,
+      summaryInsights,
     });
   };
 

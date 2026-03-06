@@ -31,6 +31,36 @@ export async function generatePrediction(patientId, features = {}, options = {})
   return {
     ...prediction,
     tasks: payload?.tasks || [],
+    automation: payload?.automation || null,
     escalationRequired: Boolean(payload?.escalationRequired),
   };
+}
+
+export async function extractDischargeSummary(patientId, notes, options = {}) {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error("Missing session token.");
+  }
+
+  const response = await fetch(`${API_BASE}/predictions/discharge-summary/extract`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      patientId,
+      notes,
+      workflow: options.workflow || {},
+      prediction: options.prediction || null,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = `Discharge summary extraction failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  return payload?.extraction || null;
 }

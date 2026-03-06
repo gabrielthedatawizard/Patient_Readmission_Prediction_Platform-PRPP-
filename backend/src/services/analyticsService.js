@@ -1,5 +1,6 @@
 const {
   getFacilityById,
+  listAuditLogsForUser,
   listPatientsForUser,
   listPredictionsForPatient,
   listTasksForUser
@@ -45,6 +46,44 @@ function extractLengthOfStay(patient) {
   );
 
   return Number.isFinite(los) ? los : 0;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+const FACILITY_BED_CAPACITY = {
+  'FAC-MNH-001': 1500,
+  'FAC-ARH-001': 900,
+  'FAC-MWZ-001': 900,
+  'FAC-DOD-001': 400,
+  'FAC-MBE-001': 630
+};
+
+function estimateCapacityByLevel(level) {
+  const normalized = String(level || '').toLowerCase();
+  if (normalized.includes('national')) {
+    return 1500;
+  }
+  if (normalized.includes('zonal')) {
+    return 650;
+  }
+  if (normalized.includes('regional')) {
+    return 900;
+  }
+  if (normalized.includes('district')) {
+    return 300;
+  }
+  return 250;
+}
+
+function getPatientFacilityTimestamp(patient) {
+  return (
+    patient.admissionDate ||
+    patient.updatedAt ||
+    patient.createdAt ||
+    patient.dischargeDate
+  );
 }
 
 async function buildPredictionIndex(user, patients) {
@@ -215,9 +254,217 @@ async function detectAnomalies(user, options = {}) {
   return anomalies;
 }
 
+async function getBedForecast(user, options = {}) {
+  const requestedDays = Number(options.days || 7);
+  const horizonDays = clamp(Number.isFinite(requestedDays) ? requestedDays : 7, 3, 14);
+  const facilityId = options.facilityId || null;
+
+  const patients = await listPatientsForUser(user, facilityId ? { facilityId } : {});
+  if (!patients.length) {
+    return {
+      generatedAt: new Date().toISOString(),
+      horizonDays,
+      network: [],
+      facilities: []
+    };
+  }
+
+  const predictionByPatient = await buildPredictionIndex(user, patients);
+  const activePatients = patients.filter(
+    (patient) => !['discharged', 'followup'].includes(String(patient.status || '').toLowerCase())
+  );
+
+  const facilityIds = facilityId
+    ? [facilityId]
+    : Array.from(new Set(patients.map((patient) => patient.facilityId).filter(Boolean)));
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const facilityForecasts = await Promise.all(
+    facilityIds.map(async (id) => {
+      const facility = await getFacilityById(id);
+      const capacity = FACILITY_BED_CAPACITY[id] || estimateCapacityByLevel(facility?.level);
+      const facilityPatients = patients.filter((patient) => patient.facilityId === id);
+      const facilityActive = activePatients.filter((patient) => patient.facilityId === id);
+
+      const recentAdmissions = facilityPatients.filter((patient) =>
+        isInWindow(getPatientFacilityTimestamp(patient), thirtyDaysAgo, now)
+      ).length;
+      const baselineAdmissions = Math.max(recentAdmissions / 30, 0.4);
+
+      const highRiskCount = facilityActive.reduce((count, patient) => {
+        const prediction = predictionByPatient.get(patient.id);
+        return prediction?.tier === 'High' ? count + 1 : count;
+      }, 0);
+      const highRiskShare =
+        facilityActive.length > 0 ? highRiskCount / facilityActive.length : 0;
+
+      let projectedOccupiedBeds = facilityActive.length;
+      const timeline = [];
+
+      for (let dayOffset = 1; dayOffset <= horizonDays; dayOffset += 1) {
+        const date = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+        const weekdayCycle = 1 + Math.sin((date.getDay() / 7) * Math.PI * 2) * 0.04;
+        const riskPressure = 1 + Math.min(highRiskShare * 0.25, 0.25);
+        const predictedAdmissions = Math.max(
+          0,
+          Math.round(baselineAdmissions * weekdayCycle * riskPressure)
+        );
+
+        const dischargeReadiness = 0.11 + (1 - highRiskShare) * 0.04;
+        const predictedDischarges = Math.max(
+          0,
+          Math.round(projectedOccupiedBeds * dischargeReadiness)
+        );
+
+        projectedOccupiedBeds = clamp(
+          projectedOccupiedBeds + predictedAdmissions - predictedDischarges,
+          0,
+          Math.round(capacity * 1.3)
+        );
+
+        const projectedOccupancyRate =
+          capacity > 0 ? Number(((projectedOccupiedBeds / capacity) * 100).toFixed(1)) : 0;
+
+        timeline.push({
+          date: date.toISOString(),
+          dayLabel: date.toLocaleDateString('en-US', { weekday: 'short' }),
+          predictedAdmissions,
+          predictedDischarges,
+          projectedOccupiedBeds,
+          projectedOccupancyRate,
+          status:
+            projectedOccupancyRate >= 95
+              ? 'critical'
+              : projectedOccupancyRate >= 85
+                ? 'watch'
+                : 'stable'
+        });
+      }
+
+      return {
+        facilityId: id,
+        facilityName: facility?.name || id,
+        bedCapacity: capacity,
+        currentOccupiedBeds: facilityActive.length,
+        currentOccupancyRate: capacity
+          ? Number(((facilityActive.length / capacity) * 100).toFixed(1))
+          : 0,
+        forecast: timeline
+      };
+    })
+  );
+
+  const network = [];
+  for (let index = 0; index < horizonDays; index += 1) {
+    const byDay = facilityForecasts.map((row) => row.forecast[index]).filter(Boolean);
+    const projectedOccupiedBeds = byDay.reduce(
+      (sum, day) => sum + Number(day.projectedOccupiedBeds || 0),
+      0
+    );
+    const predictedAdmissions = byDay.reduce(
+      (sum, day) => sum + Number(day.predictedAdmissions || 0),
+      0
+    );
+    const predictedDischarges = byDay.reduce(
+      (sum, day) => sum + Number(day.predictedDischarges || 0),
+      0
+    );
+    const totalCapacity = facilityForecasts.reduce(
+      (sum, row) => sum + Number(row.bedCapacity || 0),
+      0
+    );
+    const projectedOccupancyRate = totalCapacity
+      ? Number(((projectedOccupiedBeds / totalCapacity) * 100).toFixed(1))
+      : 0;
+
+    network.push({
+      date: byDay[0]?.date || new Date(now.getTime() + (index + 1) * 24 * 60 * 60 * 1000).toISOString(),
+      dayLabel: byDay[0]?.dayLabel || `D+${index + 1}`,
+      projectedOccupiedBeds,
+      projectedOccupancyRate,
+      predictedAdmissions,
+      predictedDischarges,
+      targetOccupancyRate: 85
+    });
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    horizonDays,
+    facilities: facilityForecasts,
+    network
+  };
+}
+
+async function getAutomationSummary(user, options = {}) {
+  const { startDate, endDate } = normalizeDateRange(options);
+  const patients = await listPatientsForUser(user, options.facilityId ? { facilityId: options.facilityId } : {});
+  const scopedPatients = patients.filter((patient) =>
+    isInWindow(getPatientFacilityTimestamp(patient), startDate, endDate)
+  );
+  const tasks = await listTasksForUser(user, {});
+  const auditLogs = await listAuditLogsForUser(user, { limit: 500 });
+
+  const predictions = await Promise.all(
+    scopedPatients.map(async (patient) => {
+      const rows = await listPredictionsForPatient(user, patient.id);
+      return rows.filter((prediction) => isInWindow(prediction.generatedAt, startDate, endDate));
+    })
+  );
+
+  const flattenedPredictions = predictions.flat();
+  const mlPredictions = flattenedPredictions.filter((prediction) => !prediction.fallbackUsed).length;
+  const fallbackPredictions = flattenedPredictions.filter((prediction) => prediction.fallbackUsed).length;
+  const highRiskPredictions = flattenedPredictions.filter(
+    (prediction) => Number(prediction.score || 0) >= 80 || prediction.tier === 'High'
+  ).length;
+
+  const scopedTasks = tasks.filter((task) => isInWindow(task.createdAt, startDate, endDate));
+  const autoGeneratedTasks = scopedTasks.filter((task) =>
+    ['medication', 'followup', 'education'].includes(String(task.category || '').toLowerCase())
+  ).length;
+
+  const riskAlertsSent = auditLogs.filter(
+    (log) =>
+      log.action === 'risk_alert_dispatched' &&
+      isInWindow(log.createdAt, startDate, endDate)
+  ).length;
+  const nlpExtractions = auditLogs.filter(
+    (log) =>
+      log.action === 'discharge_summary_extracted' &&
+      isInWindow(log.createdAt, startDate, endDate)
+  ).length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    totalPredictions: flattenedPredictions.length,
+    mlPredictions,
+    fallbackPredictions,
+    highRiskPredictions,
+    riskAlertsSent,
+    autoGeneratedTasks,
+    nlpExtractions,
+    automationCoverage: flattenedPredictions.length
+      ? Number(
+          (
+            ((riskAlertsSent > 0 ? 1 : 0) +
+              (autoGeneratedTasks > 0 ? 1 : 0) +
+              (nlpExtractions > 0 ? 1 : 0)) /
+            3
+          ).toFixed(2)
+        )
+      : 0
+  };
+}
+
 module.exports = {
   getDashboardKPIs,
   getFacilityComparison,
-  detectAnomalies
+  detectAnomalies,
+  getBedForecast,
+  getAutomationSummary
 };
-

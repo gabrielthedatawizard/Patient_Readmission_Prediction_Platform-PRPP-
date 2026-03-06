@@ -523,10 +523,23 @@ const App = () => {
         );
       });
 
+    const unsubscribeRiskAlert = wsClient.subscribe("RISK_ALERT", (alert) => {
+      if (!alert?.patientId) {
+        return;
+      }
+
+      pushNotification({
+        tone: "red",
+        title: "High-risk alert dispatched",
+        body: `Patient ${alert.patientId} scored ${alert.score ?? "--"} (threshold ${alert.threshold ?? "--"}).`,
+      });
+    });
+
     return () => {
       unsubscribePrediction?.();
       unsubscribeTask?.();
       unsubscribeTaskUpdated?.();
+      unsubscribeRiskAlert?.();
       wsClient.disconnect();
     };
   }, [
