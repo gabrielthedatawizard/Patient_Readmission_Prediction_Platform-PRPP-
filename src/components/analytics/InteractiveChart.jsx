@@ -16,6 +16,24 @@ const defaultSeries = [
 ];
 
 const InteractiveChart = ({ data = [], title, xKey = "month", series = defaultSeries, height = 300 }) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-white p-6 rounded-xl border border-neutral-200"
+      >
+        <h3 className="text-lg font-semibold mb-4">{title}</h3>
+        <div
+          className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 flex items-center justify-center text-sm text-neutral-500"
+          style={{ height }}
+        >
+          No live data is available for this chart yet.
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}

@@ -67,3 +67,23 @@ export async function fetchAutomationSummary({ facilityId, days = 30 } = {}) {
 
   return request(`/analytics/automation-summary?${query.toString()}`);
 }
+
+export async function fetchQualitySnapshot({ facilityId } = {}) {
+  const query = new URLSearchParams();
+  if (facilityId) {
+    query.set("facilityId", facilityId);
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request(`/analytics/quality${suffix}`);
+}
+
+export async function fetchFairnessSnapshot({ facilityId } = {}) {
+  const query = new URLSearchParams();
+  if (facilityId) {
+    query.set("facilityId", facilityId);
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request(`/analytics/fairness${suffix}`);
+}

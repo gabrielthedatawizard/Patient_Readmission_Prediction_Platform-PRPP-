@@ -5,6 +5,7 @@
 
 const express = require('express');
 const http = require('http');
+const { randomUUID } = require('crypto');
 const cors = require('cors');
 const helmet = require('helmet');
 
@@ -28,6 +29,14 @@ const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 app.set('wss', null);
+
+function createRequestId() {
+  if (typeof randomUUID === 'function') {
+    return randomUUID();
+  }
+
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function normalizeOrigin(origin) {
   return String(origin || '')
@@ -114,7 +123,13 @@ app.use(
   })
 );
 app.use((req, res, next) => {
+  const requestId = String(req.headers['x-request-id'] || createRequestId());
+  req.requestId = requestId;
+  res.setHeader('X-Request-Id', requestId);
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
   next();
 });
 app.use(express.json());
@@ -178,14 +193,26 @@ app.use((err, req, res, next) => {
   if (err.message && err.message.startsWith('CORS blocked')) {
     return res.status(403).json({
       error: 'Forbidden',
-      message: err.message
+      message: err.message,
+      requestId: req.requestId || null
     });
   }
 
-  console.error(err.stack);
-  return res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message
+  const statusCode =
+    Number.isInteger(err.statusCode) && err.statusCode >= 400
+      ? err.statusCode
+      : Number.isInteger(err.status) && err.status >= 400
+        ? err.status
+        : 500;
+
+  console.error(`[${req.requestId || 'unknown-request'}]`, err.stack || err);
+  return res.status(statusCode).json({
+    error: statusCode >= 500 ? 'Internal Server Error' : 'Request Failed',
+    message:
+      statusCode >= 500 && IS_PRODUCTION
+        ? 'An unexpected server error occurred.'
+        : err.message,
+    requestId: req.requestId || null
   });
 });
 

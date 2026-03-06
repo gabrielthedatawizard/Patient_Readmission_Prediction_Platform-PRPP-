@@ -1,40 +1,86 @@
-const CACHE_NAME = "trip-v2.3";
+const STATIC_CACHE_NAME = "trip-static-v2.4";
 const APP_SHELL = ["/", "/manifest.json"];
+const STATIC_DESTINATIONS = new Set(["document", "style", "script", "image", "font"]);
+
+function isSameOrigin(url) {
+  return url.origin === self.location.origin;
+}
+
+function isApiRequest(url) {
+  return url.pathname.startsWith("/api/");
+}
+
+function isStaticAsset(request, url) {
+  if (STATIC_DESTINATIONS.has(request.destination)) {
+    return true;
+  }
+
+  return /\.(?:css|js|png|jpg|jpeg|svg|webp|woff2?|ico)$/i.test(url.pathname);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
+    caches.open(STATIC_CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key)),
+    Promise.all([
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== STATIC_CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       ),
-    ),
+      self.clients.claim(),
+    ]),
   );
 });
 
 self.addEventListener("fetch", (event) => {
+  const { request } = event;
+
+  if (request.method !== "GET") {
+    return;
+  }
+
+  const url = new URL(request.url);
+
+  if (!isSameOrigin(url) || isApiRequest(url)) {
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match("/").then((cached) => cached || Response.error()),
+      ),
+    );
+    return;
+  }
+
+  if (!isStaticAsset(request, url)) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(request).then((cached) => {
       if (cached) {
         return cached;
       }
 
-      return fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          if (event.request.method === "GET" && response.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
+      return fetch(request).then((response) => {
+        if (!response || response.status !== 200) {
           return response;
-        })
-        .catch(() => caches.match("/"));
+        }
+
+        const clone = response.clone();
+        caches.open(STATIC_CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      });
     }),
   );
 });

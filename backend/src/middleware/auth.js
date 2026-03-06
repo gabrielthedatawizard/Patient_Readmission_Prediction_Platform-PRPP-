@@ -1,7 +1,18 @@
 const jwt = require('jsonwebtoken');
 const { getUserById, toPublicUser } = require('../data');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'trip-dev-secret-change-in-production';
+const DEFAULT_JWT_SECRET = 'trip-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+if (
+  IS_PRODUCTION &&
+  (!process.env.JWT_SECRET ||
+    JWT_SECRET === DEFAULT_JWT_SECRET ||
+    JWT_SECRET.trim().length < 32)
+) {
+  throw new Error('JWT_SECRET must be set to a strong value in production.');
+}
 
 function signAccessToken(user) {
   return jwt.sign(
@@ -13,6 +24,7 @@ function signAccessToken(user) {
     },
     JWT_SECRET,
     {
+      algorithm: 'HS256',
       expiresIn: process.env.JWT_EXPIRES_IN || '8h',
       issuer: 'trip-backend'
     }
@@ -31,7 +43,10 @@ async function requireAuth(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET, { issuer: 'trip-backend' });
+    const payload = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'trip-backend'
+    });
     const user = await getUserById(payload.sub);
 
     if (!user) {

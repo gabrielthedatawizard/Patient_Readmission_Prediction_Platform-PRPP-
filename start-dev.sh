@@ -16,6 +16,16 @@ fi
 echo "✓ Node.js detected: $(node -v)"
 echo ""
 
+NODE_VERSION_RAW=$(node -v | sed 's/^v//')
+NODE_MAJOR=$(printf '%s' "$NODE_VERSION_RAW" | cut -d. -f1)
+NODE_MINOR=$(printf '%s' "$NODE_VERSION_RAW" | cut -d. -f2)
+
+if [ "$NODE_MAJOR" -ne 20 ] || [ "$NODE_MINOR" -lt 19 ]; then
+    echo "❌ Node.js $NODE_VERSION_RAW is unsupported."
+    echo "   TRIP currently requires Node.js 20.19.x to match the frontend toolchain."
+    exit 1
+fi
+
 # Install dependencies if node_modules doesn't exist
 if [ ! -d "node_modules" ]; then
     echo "📦 Installing frontend dependencies..."

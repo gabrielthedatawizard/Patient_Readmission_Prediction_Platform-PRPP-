@@ -32,42 +32,10 @@ import {
   fetchAutomationSummary,
   fetchBedForecast,
   fetchDashboardKPIs,
+  fetchFairnessSnapshot,
   fetchFacilityComparison,
+  fetchQualitySnapshot,
 } from "../../services/analyticsDataService";
-
-const seedFacilityData = [
-  { id: "FAC-001", name: "Muhimbili National Hospital", region: "Dar es Salaam", readmissionRate: 8.4, highRisk: 7, intervention: 92, trend: "down", beds: 1500 },
-  { id: "FAC-002", name: "Bugando Medical Centre", region: "Mwanza", readmissionRate: 11.2, highRisk: 12, intervention: 78, trend: "up", beds: 900 },
-  { id: "FAC-003", name: "KCMC", region: "Kilimanjaro", readmissionRate: 9.8, highRisk: 9, intervention: 85, trend: "down", beds: 630 },
-  { id: "FAC-005", name: "Temeke Regional Hospital", region: "Dar es Salaam", readmissionRate: 7.1, highRisk: 5, intervention: 95, trend: "down", beds: 400 },
-  { id: "FAC-007", name: "Kilosa District Hospital", region: "Morogoro", readmissionRate: 13.5, highRisk: 15, intervention: 71, trend: "up", beds: 150 },
-];
-
-const monthlyTrend = [
-  { month: "Oct", actual: 10.2, predicted: 9.8 },
-  { month: "Nov", actual: 9.8, predicted: 9.5 },
-  { month: "Dec", actual: 9.2, predicted: 9.0 },
-  { month: "Jan", actual: 8.4, predicted: 8.2 },
-  { month: "Feb", actual: 8.1, predicted: 8.0 },
-];
-
-const modelMonitoring = [
-  { month: "Oct", auc: 0.81, sensitivity: 0.78, specificity: 0.75 },
-  { month: "Nov", auc: 0.82, sensitivity: 0.79, specificity: 0.76 },
-  { month: "Dec", auc: 0.83, sensitivity: 0.80, specificity: 0.77 },
-  { month: "Jan", auc: 0.84, sensitivity: 0.82, specificity: 0.79 },
-  { month: "Feb", auc: 0.84, sensitivity: 0.82, specificity: 0.79 },
-];
-
-const modelMetrics = {
-  auc: 0.84,
-  sensitivity: 0.82,
-  specificity: 0.79,
-  ppv: 0.68,
-  calibration: "Good",
-  driftStatus: "Stable",
-  version: "TRIP-v2.3",
-};
 
 const DAYS_LOOKUP = {
   "7d": 7,
@@ -75,6 +43,10 @@ const DAYS_LOOKUP = {
   "90d": 90,
   "1y": 365,
 };
+
+function formatPercent(value, digits = 1) {
+  return `${(Number(value || 0) * 100).toFixed(digits)}%`;
+}
 
 const Analytics = () => {
   const [dateRange, setDateRange] = useState("30d");
@@ -87,10 +59,12 @@ const Analytics = () => {
   const [auditRestricted, setAuditRestricted] = useState(false);
   const [hasLoadedAudit, setHasLoadedAudit] = useState(false);
   const [dashboardKPIs, setDashboardKPIs] = useState(null);
-  const [facilityData, setFacilityData] = useState(seedFacilityData);
+  const [facilityData, setFacilityData] = useState([]);
   const [liveAnomalies, setLiveAnomalies] = useState([]);
   const [bedForecast, setBedForecast] = useState([]);
   const [automationSummary, setAutomationSummary] = useState(null);
+  const [qualitySnapshot, setQualitySnapshot] = useState(null);
+  const [fairnessSnapshot, setFairnessSnapshot] = useState(null);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState("");
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -148,7 +122,19 @@ const Analytics = () => {
       };
     }
 
-    const totalFacilities = Math.max(filteredFacilities.length, 1);
+    if (!filteredFacilities.length) {
+      return {
+        avgReadmission: 0,
+        avgHighRisk: 0,
+        avgIntervention: 0,
+        estimatedDischarges: 0,
+        lowRiskCount: 0,
+        mediumRiskCount: 0,
+        highRiskCount: 0,
+      };
+    }
+
+    const totalFacilities = filteredFacilities.length;
     const avgReadmission =
       filteredFacilities.reduce((acc, row) => acc + row.readmissionRate, 0) / totalFacilities;
     const avgHighRisk =
@@ -171,6 +157,23 @@ const Analytics = () => {
       highRiskCount,
     };
   }, [dashboardKPIs, filteredFacilities]);
+
+  const quality = qualitySnapshot?.quality || null;
+  const fairness = fairnessSnapshot?.fairness || null;
+  const fairnessGroups = fairness?.groups || [];
+  const modelStatus = useMemo(
+    () => ({
+      completeness: Number(quality?.criticalFieldCompleteness || 0),
+      patientCount: Number(quality?.patientCount || 0),
+      fairnessVariance: Number(fairness?.variance || 0),
+      fairnessStatus: fairness?.fairnessStatus || "unknown",
+      dimension: fairness?.dimension || "gender",
+      groupCount: fairnessGroups.length,
+    }),
+    [fairness?.dimension, fairness?.fairnessStatus, fairness?.variance, fairnessGroups.length, quality?.criticalFieldCompleteness, quality?.patientCount],
+  );
+  const facilitySnapshot = filteredFacilities.slice(0, 8);
+  const showingStaleSnapshot = Boolean(analyticsError && lastRefresh);
 
   const getTrendIcon = (trend) =>
     trend === "down" ? (
@@ -213,18 +216,22 @@ const Analytics = () => {
 
     try {
       const days = DAYS_LOOKUP[dateRange] || 30;
-      const [kpis, facilities, anomalies, forecast, automation] = await Promise.all([
+      const [kpis, facilities, anomalies, forecast, automation, qualityData, fairnessData] = await Promise.all([
         fetchDashboardKPIs({ days }),
         fetchFacilityComparison({ days }),
         fetchAnomalies({}),
         fetchBedForecast({ days: 7 }),
         fetchAutomationSummary({ days }),
+        fetchQualitySnapshot({}),
+        fetchFairnessSnapshot({}),
       ]);
 
       setDashboardKPIs(kpis);
       setLiveAnomalies(anomalies);
       setBedForecast(Array.isArray(forecast?.network) ? forecast.network : []);
       setAutomationSummary(automation || null);
+      setQualitySnapshot(qualityData || null);
+      setFairnessSnapshot(fairnessData || null);
       setLastRefresh(new Date());
 
       if (facilities.length > 0) {
@@ -248,13 +255,10 @@ const Analytics = () => {
         });
         setFacilityData(normalized);
       } else {
-        setFacilityData(seedFacilityData);
+        setFacilityData([]);
       }
     } catch (error) {
       setAnalyticsError(error?.message || "Failed to load live analytics.");
-      setFacilityData(seedFacilityData);
-      setBedForecast([]);
-      setAutomationSummary(null);
     } finally {
       setIsAnalyticsLoading(false);
     }
@@ -386,6 +390,15 @@ const Analytics = () => {
         </Card>
       )}
 
+      {showingStaleSnapshot && (
+        <Card className="p-4 border-amber-200 bg-amber-50" hover={false}>
+          <p className="text-sm text-amber-800">
+            Live analytics refresh failed. Showing the last successful snapshot from{" "}
+            {lastRefresh.toLocaleString("sw-TZ")}.
+          </p>
+        </Card>
+      )}
+
       {liveAnomalies.length > 0 && (
         <Card className="p-4 border-amber-200 bg-amber-50" hover={false}>
           <div className="flex items-start gap-3">
@@ -510,11 +523,12 @@ const Analytics = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <InteractiveChart
-                title="Readmission Trend (Actual vs Predicted)"
-                data={monthlyTrend}
+                title="Facility Readmission Snapshot"
+                data={facilitySnapshot}
+                xKey="name"
                 series={[
-                  { key: "actual", label: "Actual", color: "#00A6A6" },
-                  { key: "predicted", label: "Predicted", color: "#3B82F6" },
+                  { key: "readmissionRate", label: "Readmission %", color: "#00A6A6" },
+                  { key: "intervention", label: "Intervention %", color: "#3B82F6" },
                 ]}
               />
             </div>
@@ -701,54 +715,59 @@ const Analytics = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4 sm:p-6" hover={false}>
-              <p className="text-sm font-medium text-gray-600">AUC</p>
-              <p className="text-4xl font-bold text-gray-900">{modelMetrics.auc.toFixed(2)}</p>
-              <p className="text-sm text-emerald-600 mt-2">Target greater than 0.80</p>
+              <p className="text-sm font-medium text-gray-600">Critical Field Completeness</p>
+              <p className="text-4xl font-bold text-gray-900">{formatPercent(modelStatus.completeness, 0)}</p>
+              <p className="text-sm text-emerald-600 mt-2">
+                {quality?.qualityStatus === "alert" ? "Below target" : "Within target"}
+              </p>
             </Card>
             <Card className="p-4 sm:p-6" hover={false}>
-              <p className="text-sm font-medium text-gray-600">Sensitivity</p>
-              <p className="text-4xl font-bold text-gray-900">{(modelMetrics.sensitivity * 100).toFixed(0)}%</p>
-              <p className="text-sm text-blue-600 mt-2">True positive capture</p>
+              <p className="text-sm font-medium text-gray-600">Fairness Variance</p>
+              <p className="text-4xl font-bold text-gray-900">{modelStatus.fairnessVariance.toFixed(1)}</p>
+              <p className="text-sm text-blue-600 mt-2">Mean score gap across monitored groups</p>
             </Card>
             <Card className="p-4 sm:p-6" hover={false}>
-              <p className="text-sm font-medium text-gray-600">Specificity</p>
-              <p className="text-4xl font-bold text-gray-900">{(modelMetrics.specificity * 100).toFixed(0)}%</p>
-              <p className="text-sm text-indigo-600 mt-2">False-positive control</p>
+              <p className="text-sm font-medium text-gray-600">Records Assessed</p>
+              <p className="text-4xl font-bold text-gray-900">{modelStatus.patientCount}</p>
+              <p className="text-sm text-indigo-600 mt-2">{modelStatus.groupCount} fairness groups tracked</p>
             </Card>
           </div>
 
           <InteractiveChart
-            title="Model Monitoring (Monthly)"
-            data={modelMonitoring}
+            title={`Fairness Monitoring by ${modelStatus.dimension}`}
+            data={fairnessGroups}
+            xKey="group"
             series={[
-              { key: "auc", label: "AUC", color: "#00A6A6" },
-              { key: "sensitivity", label: "Sensitivity", color: "#10B981" },
-              { key: "specificity", label: "Specificity", color: "#3B82F6" },
+              { key: "meanScore", label: "Mean Risk Score", color: "#00A6A6" },
             ]}
           />
 
           <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Model Status</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Model Governance Status</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <p className="text-gray-500">Version</p>
-                <p className="font-semibold text-gray-900">{modelMetrics.version}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Calibration</p>
-                <Badge variant={modelMetrics.calibration === "Good" ? "success" : "warning"}>
-                  {modelMetrics.calibration}
+                <p className="text-gray-500">Quality Status</p>
+                <Badge variant={quality?.qualityStatus === "ok" ? "success" : "warning"}>
+                  {quality?.qualityStatus || "Unavailable"}
                 </Badge>
               </div>
               <div>
-                <p className="text-gray-500">Drift Status</p>
-                <Badge variant={modelMetrics.driftStatus === "Stable" ? "success" : "warning"}>
-                  {modelMetrics.driftStatus}
+                <p className="text-gray-500">Fairness Status</p>
+                <Badge variant={modelStatus.fairnessStatus === "ok" ? "success" : "warning"}>
+                  {modelStatus.fairnessStatus}
                 </Badge>
               </div>
               <div>
-                <p className="text-gray-500">PPV</p>
-                <p className="font-semibold text-gray-900">{(modelMetrics.ppv * 100).toFixed(0)}%</p>
+                <p className="text-gray-500">Monitoring Dimension</p>
+                <p className="font-semibold text-gray-900 capitalize">{modelStatus.dimension}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Last Governance Snapshot</p>
+                <p className="font-semibold text-gray-900">
+                  {quality?.generatedAt
+                    ? new Date(quality.generatedAt).toLocaleString("sw-TZ")
+                    : "Unavailable"}
+                </p>
               </div>
             </div>
           </Card>
