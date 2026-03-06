@@ -43,6 +43,27 @@ const COPY = {
       { title: "Readmission pulse", value: "7.8%", meta: "40% reduction trajectory" },
       { title: "Prediction confidence", value: "82%", meta: "Operational model accuracy" },
     ],
+    workflowBadge: "Care coordination live",
+    workflowTitle: "Today's care board",
+    workflowDescription:
+      "A discharge team can see risk, medication readiness, and follow-up priorities without switching contexts.",
+    workflowItems: [
+      {
+        title: "Discharge checklist",
+        value: "4/5 complete",
+        meta: "Medication review pending",
+      },
+      {
+        title: "Home visit queue",
+        value: "12 follow-ups",
+        meta: "3 due before 16:00",
+      },
+      {
+        title: "Education status",
+        value: "82% coverage",
+        meta: "7 high-risk patients need counselling",
+      },
+    ],
     impactTitle: "Real workflows. Human-centered design.",
     impactDescription:
       "Every interaction is designed to support clinicians, nurses, pharmacists, and community health workers during the discharge journey.",
@@ -147,6 +168,27 @@ const COPY = {
       { title: "Maisha yaliyolindwa", value: "8,500", meta: "Makadirio ya athari kwa mwaka" },
       { title: "Kiwango cha kurudi", value: "7.8%", meta: "Mwelekeo wa kupungua kwa 40%" },
       { title: "Uhakika wa utabiri", value: "82%", meta: "Usahihi wa modeli kazini" },
+    ],
+    workflowBadge: "Uratibu wa huduma mubashara",
+    workflowTitle: "Bodi ya huduma ya leo",
+    workflowDescription:
+      "Timu ya discharge inaweza kuona hatari, utayari wa dawa, na vipaumbele vya follow-up bila kubadilisha mazingira ya kazi.",
+    workflowItems: [
+      {
+        title: "Checklist ya discharge",
+        value: "4/5 imekamilika",
+        meta: "Ukaguzi wa dawa unasubiri",
+      },
+      {
+        title: "Foleni ya ziara ya nyumbani",
+        value: "12 za follow-up",
+        meta: "3 kabla ya saa 10 jioni",
+      },
+      {
+        title: "Hali ya elimu ya mgonjwa",
+        value: "82% imefikiwa",
+        meta: "Wagonjwa 7 wa hatari kubwa wanahitaji ushauri",
+      },
     ],
     impactTitle: "Mtiririko halisi wa kazi. Muundo unaomweka binadamu mbele.",
     impactDescription:
@@ -427,6 +469,49 @@ const LandingPage = ({ onLogin }) => {
                   </div>
                 ))}
               </div>
+
+              <div className="mt-4 rounded-[28px] border border-white/60 bg-white/90 p-5 shadow-trip backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 lg:hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">
+                      {copy.workflowBadge}
+                    </p>
+                    <h3 className="mt-2 text-xl font-bold text-slate-950 dark:text-slate-100">
+                      {copy.workflowTitle}
+                    </h3>
+                  </div>
+                  <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+                    {copy.workflowItems.length} lanes
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {copy.workflowDescription}
+                </p>
+                <div className="mt-4 space-y-3">
+                  {copy.workflowItems.map((item, index) => (
+                    <div
+                      key={item.title}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                          {item.title}
+                        </p>
+                        <span className="text-sm font-bold text-slate-950 dark:text-slate-100">
+                          {item.value}
+                        </span>
+                      </div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500"
+                          style={{ width: `${72 + index * 10}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{item.meta}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, x: 34 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.15 }} className="relative hidden lg:block">
@@ -487,15 +572,48 @@ const LandingPage = ({ onLogin }) => {
                     ? undefined
                     : { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.45 }
                 }
-                className="absolute bottom-10 left-12 w-72 rounded-[28px] bg-gradient-to-br from-violet-600 to-fuchsia-500 p-6 text-white shadow-[0_24px_70px_rgba(88,28,135,0.35)]"
+                className="absolute bottom-8 left-10 w-[25rem] rounded-[30px] border border-white/15 bg-slate-950/88 p-6 text-white shadow-[0_28px_90px_rgba(8,15,42,0.45)] backdrop-blur-xl"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100">
-                  {copy.floatingCards[2].title}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-200">
+                      {copy.workflowBadge}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold">{copy.workflowTitle}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 px-3 py-2 text-right">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-300">
+                      {copy.floatingCards[2].title}
+                    </p>
+                    <p className="mt-1 text-2xl font-bold">{copy.floatingCards[2].value}</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  {copy.workflowDescription}
                 </p>
-                <p className="mt-3 text-5xl font-bold">{copy.floatingCards[2].value}</p>
-                <p className="mt-1 text-sm text-violet-100">{copy.floatingCards[2].meta}</p>
-                <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/20">
-                  <motion.div initial={{ width: 0 }} animate={{ width: "82%" }} transition={{ duration: 1.4, delay: 0.6 }} className="h-full rounded-full bg-white" />
+                <div className="mt-5 space-y-3">
+                  {copy.workflowItems.map((item, index) => (
+                    <div
+                      key={item.title}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">{item.title}</p>
+                        <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-100">
+                          {item.value}
+                        </span>
+                      </div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${72 + index * 10}%` }}
+                          transition={{ duration: 1.1, delay: 0.5 + index * 0.15 }}
+                          className="h-full rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-sky-400"
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-300">{item.meta}</p>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             </motion.div>

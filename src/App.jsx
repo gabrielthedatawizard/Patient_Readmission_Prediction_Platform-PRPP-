@@ -768,6 +768,7 @@ const App = () => {
     const alertItems = riskAlerts.slice(0, 3).map((alert) => ({
       type: "alert",
       icon: AlertCircle,
+      tagLabel: language === "sw" ? "Tahadhari" : "Alert",
       title: `High-risk alert for ${alert.patientId}`,
       description: `Score ${alert.score} crossed the ${alert.threshold} threshold.`,
       timestamp: alert.createdAt,
@@ -777,6 +778,7 @@ const App = () => {
     const notificationItems = notifications.slice(0, 3).map((notification) => ({
       type: "notification",
       icon: Bell,
+      tagLabel: language === "sw" ? "Arifa" : "Notice",
       title: notification.title || "Operational update",
       description: notification.body || "A new platform update is available for review.",
       timestamp: notification.createdAt || new Date().toISOString(),
@@ -793,6 +795,7 @@ const App = () => {
       .map((task) => ({
         type: "task",
         icon: CheckCircle,
+        tagLabel: language === "sw" ? "Kazi" : "Task",
         title: task.title || "Task queued",
         description: `Status: ${String(task.status || "pending").replace(/-/g, " ")}`,
         timestamp: task.updatedAt || task.createdAt || task.dueDate || new Date().toISOString(),
@@ -806,7 +809,7 @@ const App = () => {
           new Date(left.timestamp || Date.now()).getTime(),
       )
       .slice(0, 6);
-  }, [notifications, riskAlerts, tasks]);
+  }, [language, notifications, riskAlerts, tasks]);
 
   const urgentTasks = useMemo(() => {
     return tasks
@@ -893,6 +896,8 @@ const App = () => {
         id: "patients",
         icon: Users,
         label: language === "sw" ? "Wagonjwa" : "Patient list",
+        tag: language === "sw" ? "Caseload" : "Caseload",
+        metric: `${patients.length}`,
         description:
           language === "sw"
             ? "Pitia wagonjwa walio katika uangalizi wako."
@@ -905,6 +910,15 @@ const App = () => {
         id: "predict",
         icon: Activity,
         label: language === "sw" ? "Alama ya hatari" : "Generate risk score",
+        tag: language === "sw" ? "Modeli" : "Model",
+        metric:
+          selectedPatient || patients[0]
+            ? language === "sw"
+              ? "Tayari"
+              : "Ready"
+            : language === "sw"
+              ? "Chagua"
+              : "Select",
         description:
           language === "sw"
             ? "Fungua discharge workflow kwa mgonjwa aliyeteuliwa."
@@ -925,6 +939,8 @@ const App = () => {
         id: "analytics",
         icon: BarChart3,
         label: language === "sw" ? "Takwimu" : "View analytics",
+        tag: language === "sw" ? "Mwenendo" : "Trends",
+        metric: `${dashboardStats.readmissionRate}%`,
         description:
           language === "sw"
             ? "Angalia mwenendo wa kituo na utendaji."
@@ -937,6 +953,8 @@ const App = () => {
         id: "tasks",
         icon: CheckCircle,
         label: language === "sw" ? "Majukumu" : "Task queue",
+        tag: language === "sw" ? "Ufuatiliaji" : "Follow-up",
+        metric: `${urgentTasks.length}`,
         description:
           language === "sw"
             ? "Kamilisha kazi za uingiliaji na follow-up."
@@ -946,7 +964,7 @@ const App = () => {
         onClick: () => setCurrentView("tasks"),
       },
     ],
-    [language, patients, selectedPatient],
+    [dashboardStats.readmissionRate, language, patients, selectedPatient, urgentTasks.length],
   );
 
   if (isBootstrapping) {
@@ -1563,6 +1581,8 @@ const App = () => {
                   facility={selectedFacility}
                   language={language}
                   notificationCount={notifications.length + riskAlerts.length}
+                  patientCount={patients.length}
+                  urgentTaskCount={urgentTasks.length}
                   onOpenNotifications={() => setShowNotifications((previous) => !previous)}
                   onOpenPatients={() => setCurrentView("patients")}
                   onOpenSettings={handleOpenSettings}

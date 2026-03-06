@@ -46,16 +46,26 @@ const RecentActivity = ({ activities = [] }) => {
               initial={{ opacity: 0, x: -18 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"
+              className="relative flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"
             >
+              {index !== activities.length - 1 && (
+                <span className="absolute left-[1.62rem] top-12 h-[calc(100%+0.75rem)] w-px bg-slate-200 dark:bg-slate-800" />
+              )}
               <div className={`mt-0.5 rounded-2xl p-3 ${activity.surfaceClass || "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                    {activity.title}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activity.tagLabel && (
+                      <span className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
+                        {activity.tagLabel}
+                      </span>
+                    )}
+                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      {activity.title}
+                    </p>
+                  </div>
                   <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
                     {formatTimeAgo(activity.timestamp)}
                   </span>

@@ -38,6 +38,8 @@ const DashboardHeader = ({
   facility,
   language = "en",
   notificationCount = 0,
+  patientCount = 0,
+  urgentTaskCount = 0,
   onOpenNotifications,
   onOpenPatients,
   onOpenSettings,
@@ -103,6 +105,34 @@ const DashboardHeader = ({
                 <Clock3 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300" />
                 {facility?.region || "National view"}
               </span>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                {
+                  label: language === "sw" ? "Wagonjwa hai" : "Active patients",
+                  value: patientCount,
+                },
+                {
+                  label: language === "sw" ? "Follow-up za haraka" : "Urgent follow-ups",
+                  value: urgentTaskCount,
+                },
+                {
+                  label: language === "sw" ? "Arifa wazi" : "Open alerts",
+                  value: notificationCount,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/70"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-100">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
