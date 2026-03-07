@@ -1,48 +1,29 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo } from "react";
 
-const STORAGE_KEY = "trip-theme";
 const ThemeContext = createContext(null);
 
-function resolveInitialTheme() {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-
-  try {
-    const storedTheme = window.localStorage.getItem(STORAGE_KEY);
-    if (storedTheme === "dark" || storedTheme === "light") {
-      return storedTheme;
-    }
-  } catch (error) {
-    // Storage may be unavailable in private browsing or embedded contexts.
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(resolveInitialTheme);
-
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
-    root.style.colorScheme = theme;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-    } catch (error) {
-      // Ignore persistence failures when storage is unavailable.
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
+
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("trip-theme", "light");
+      } catch (error) {
+        // Ignore persistence failures when storage is unavailable.
+      }
     }
-  }, [theme]);
+  }, []);
 
   const value = useMemo(
     () => ({
-      theme,
-      setTheme,
-      toggleTheme: () => {
-        setTheme((previousTheme) => (previousTheme === "dark" ? "light" : "dark"));
-      },
+      theme: "light",
+      setTheme: () => {},
+      toggleTheme: () => {},
     }),
-    [theme],
+    [],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -36,7 +36,6 @@ import PatientsList from "./components/patient/PatientsList";
 import Tasks from "./components/dashboard/Tasks";
 import Sidebar from "./components/layout/Sidebar";
 import PageTransition from "./components/PageTransition";
-import ThemeToggle from "./components/ThemeToggle";
 import Grid from "./design-system/layout/Grid";
 import { PatientCardSkeleton, Skeleton } from "./design-system/components/Skeleton";
 import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
@@ -1920,7 +1919,7 @@ const App = () => {
 
                       <div className="space-y-6">
                         <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex flex-col gap-4">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                                 {t("appearance")}
@@ -1929,7 +1928,6 @@ const App = () => {
                                 {t("settingsAppearanceDesc")}
                               </p>
                             </div>
-                            <ThemeToggle className="self-start sm:self-auto" />
                           </div>
                           <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800/80">
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
