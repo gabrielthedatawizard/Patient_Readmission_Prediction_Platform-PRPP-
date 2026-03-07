@@ -237,6 +237,8 @@ export const translations = {
     landingHeroTitleHighlight: "AI-Powered Intelligence",
     landingHeroDescription:
       "TRIP helps providers identify high-risk patients, optimize discharge planning, and reduce preventable readmissions across Tanzania.",
+    landingHeroImageAlt:
+      "Healthcare team using TRIP in a Tanzanian hospital environment.",
     landingStartTrial: "Start Free Trial",
     landingWatchDemo: "Watch Demo",
     landingTrustedBy: "Trusted by leading healthcare institutions",
@@ -244,6 +246,9 @@ export const translations = {
     landingStatsFacilities: "Healthcare Facilities",
     landingStatsPatients: "Patients Monitored",
     landingStatsAccuracy: "Prediction Accuracy",
+    landingPhotoSectionTitle: "Care Pathways in Practice",
+    landingPhotoSectionSubtitle:
+      "Image-ready cards that highlight how prediction, discharge, and follow-up work together.",
     landingFeaturesTitlePrefix: "Everything You Need to",
     landingFeaturesTitleHighlight: "Reduce Readmissions",
     landingFeaturesSubtitle:
@@ -556,6 +561,8 @@ export const translations = {
     landingHeroTitleHighlight: "Akili Inayoendeshwa na AI",
     landingHeroDescription:
       "TRIP husaidia wahudumu kutambua wagonjwa wa hatari kubwa, kuboresha mipango ya kuondoka, na kupunguza kurudi hospitali kunakozuilika nchini Tanzania.",
+    landingHeroImageAlt:
+      "Timu ya afya ikitumia TRIP katika mazingira ya hospitali ya Tanzania.",
     landingStartTrial: "Anza Jaribio Bure",
     landingWatchDemo: "Tazama Onyesho",
     landingTrustedBy: "Inaaminiwa na taasisi zinazoongoza za afya",
@@ -563,6 +570,9 @@ export const translations = {
     landingStatsFacilities: "Vituo vya Afya",
     landingStatsPatients: "Wagonjwa Wanaofuatiliwa",
     landingStatsAccuracy: "Usahihi wa Utabiri",
+    landingPhotoSectionTitle: "Mtiririko wa Huduma kwa Vitendo",
+    landingPhotoSectionSubtitle:
+      "Kadi zilizo tayari kwa picha zinazoonyesha jinsi utabiri, kuondoka, na ufuatiliaji vinavyofanya kazi pamoja.",
     landingFeaturesTitlePrefix: "Kila Unachohitaji ili",
     landingFeaturesTitleHighlight: "Kupunguza Kurudi Hospitali",
     landingFeaturesSubtitle:

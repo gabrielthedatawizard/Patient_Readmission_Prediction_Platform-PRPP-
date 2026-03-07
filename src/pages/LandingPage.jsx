@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
+import OptimizedImage from "../design-system/components/OptimizedImage";
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
 
@@ -109,6 +110,36 @@ const LandingPage = ({ onLogin }) => {
       author: "Grace Massawe",
       role: t("landingTestimonial3Role"),
       avatar: "GM",
+    },
+  ];
+
+  const careSnapshots = [
+    {
+      image: "/images/impact-consultation.svg",
+      alt:
+        language === "sw"
+          ? "Daktari akipitia taarifa za mgonjwa kabla ya kuondoka hospitalini."
+          : "Clinician reviewing patient discharge information before discharge.",
+      title: t("landingFeature1Title"),
+      description: t("landingFeature1Desc"),
+    },
+    {
+      image: "/images/impact-medication.svg",
+      alt:
+        language === "sw"
+          ? "Muuguzi na mfamasia wakikagua hatua za dawa na elimu ya mgonjwa."
+          : "Nurse and pharmacist reviewing medication and patient education steps.",
+      title: t("landingFeature2Title"),
+      description: t("landingFeature2Desc"),
+    },
+    {
+      image: "/images/impact-community.svg",
+      alt:
+        language === "sw"
+          ? "Mfuatiliaji wa jamii akiratibu huduma baada ya mgonjwa kuondoka."
+          : "Community follow-up coordination after a patient leaves the facility.",
+      title: t("landingFeature4Title"),
+      description: t("landingFeature4Desc"),
     },
   ];
 
@@ -295,6 +326,16 @@ const LandingPage = ({ onLogin }) => {
               </button>
             </div>
 
+            <div className="mt-12 max-w-5xl mx-auto overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-2xl shadow-teal-100/70">
+              <OptimizedImage
+                src="/images/hero-tanzania-care.svg"
+                alt={t("landingHeroImageAlt")}
+                className="h-64 sm:h-72 lg:h-80"
+                imgClassName="object-cover"
+                loading="eager"
+              />
+            </div>
+
             <div className="mt-16 pt-8 border-t border-gray-100">
               <p className="text-sm text-gray-500 mb-6">
                 {t("landingTrustedBy")}
@@ -331,6 +372,43 @@ const LandingPage = ({ onLogin }) => {
                 </p>
                 <p className="text-sm text-gray-600">{stat.label}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-12 sm:pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {t("landingPhotoSectionTitle")}
+            </h2>
+            <p className="mt-3 text-base sm:text-lg text-gray-600">
+              {t("landingPhotoSectionSubtitle")}
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {careSnapshots.map((snapshot) => (
+              <article
+                key={snapshot.title}
+                className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-xl"
+              >
+                <OptimizedImage
+                  src={snapshot.image}
+                  alt={snapshot.alt}
+                  className="h-52 w-full"
+                  imgClassName="object-cover"
+                />
+                <div className="p-5 sm:p-6">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {snapshot.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-7 text-gray-600">
+                    {snapshot.description}
+                  </p>
+                </div>
+              </article>
             ))}
           </div>
         </div>
@@ -407,6 +485,15 @@ const LandingPage = ({ onLogin }) => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-blue-500 rounded-3xl transform rotate-3 opacity-10" />
               <div className="relative bg-white p-6 sm:p-8 rounded-3xl shadow-xl">
+                <div className="mb-6 overflow-hidden rounded-[24px] border border-gray-100">
+                  <OptimizedImage
+                    src="/images/hero-tanzania-care.svg"
+                    alt={t("landingHeroImageAlt")}
+                    className="h-52 sm:h-56"
+                    imgClassName="object-cover"
+                  />
+                </div>
+
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl flex items-center justify-center">
                     <Activity className="w-8 h-8 text-white" />
