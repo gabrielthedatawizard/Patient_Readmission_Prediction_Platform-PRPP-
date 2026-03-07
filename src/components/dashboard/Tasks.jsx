@@ -13,6 +13,7 @@ import {
 import Card from "../common/Card";
 import Badge from "../common/Badge";
 import Button from "../common/Button";
+import { useI18n } from "../../context/I18nProvider";
 
 /**
  * Tasks Component
@@ -20,10 +21,25 @@ import Button from "../common/Button";
  */
 
 const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => {
-  const [filter, setFilter] = useState("all"); // all, pending, overdue, completed
+  const { language, t } = useI18n();
+  const [filter, setFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [actionError, setActionError] = useState("");
+
+  const priorityLabels = {
+    high: language === "sw" ? "Kipaumbele cha juu" : "High priority",
+    medium: language === "sw" ? "Kipaumbele cha kati" : "Medium priority",
+    low: language === "sw" ? "Kipaumbele cha chini" : "Low priority",
+  };
+
+  const statusLabels = {
+    pending: t("pending"),
+    completed: t("completed"),
+    overdue: t("overdue"),
+    "in-progress": t("inProgress"),
+    scheduled: language === "sw" ? "Imepangwa" : "Scheduled",
+  };
 
   const normalizedTasks = useMemo(() => {
     const patientById = new Map(patients.map((patient) => [patient.id, patient]));
@@ -43,7 +59,11 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
   const filteredTasks = normalizedTasks
     .filter((task) => {
       if (filter === "pending") {
-        return task.status === "pending" || task.status === "scheduled" || task.status === "in-progress";
+        return (
+          task.status === "pending" ||
+          task.status === "scheduled" ||
+          task.status === "in-progress"
+        );
       }
       if (filter === "overdue") {
         return new Date() > task.dueDate && task.status !== "completed";
@@ -104,7 +124,10 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
     try {
       await onTaskUpdate(task, status);
     } catch (error) {
-      setActionError(error?.message || "Task update failed.");
+      setActionError(
+        error?.message ||
+          (language === "sw" ? "Imeshindikana kusasisha kazi." : "Task update failed."),
+      );
     } finally {
       setUpdatingTaskId(null);
     }
@@ -116,87 +139,89 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return "Today";
+      return t("today");
     }
     if (date.toDateString() === tomorrow.toDateString()) {
-      return "Tomorrow";
+      return language === "sw" ? "Kesho" : "Tomorrow";
     }
-    return date.toLocaleDateString();
+    return date.toLocaleDateString(language === "sw" ? "sw-TZ" : "en-US");
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks & Follow-up</h1>
-          <p className="text-gray-600 mt-1">
-            Manage interventions and follow-up activities
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{t("tasks")}</h1>
+          <p className="mt-1 text-gray-600">
+            {language === "sw"
+              ? "Simamia hatua za matibabu na shughuli za ufuatiliaji."
+              : "Manage interventions and follow-up activities."}
           </p>
         </div>
-        <div className="flex gap-3 w-full sm:w-auto">
+        <div className="flex w-full gap-3 sm:w-auto">
           <Button
             variant="secondary"
             icon={<Filter className="w-4 h-4" />}
             onClick={() => setFilter((previous) => (previous === "all" ? "pending" : "all"))}
           >
-            Filter
+            {t("filter")}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-4" hover={false}>
-          <p className="text-sm text-gray-500">Total Tasks</p>
+          <p className="text-sm text-gray-500">{language === "sw" ? "Kazi zote" : "Total tasks"}</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </Card>
-        <Card className="p-4 bg-red-50/50" hover={false}>
-          <p className="text-sm text-red-600">High Priority</p>
+        <Card className="bg-red-50/50 p-4" hover={false}>
+          <p className="text-sm text-red-600">{language === "sw" ? "Kipaumbele cha juu" : "High priority"}</p>
           <p className="text-2xl font-bold text-red-700">{stats.highPriority}</p>
         </Card>
-        <Card className="p-4 bg-amber-50/50" hover={false}>
-          <p className="text-sm text-amber-600">Overdue</p>
+        <Card className="bg-amber-50/50 p-4" hover={false}>
+          <p className="text-sm text-amber-600">{t("overdue")}</p>
           <p className="text-2xl font-bold text-amber-700">{stats.overdue}</p>
         </Card>
-        <Card className="p-4 bg-emerald-50/50" hover={false}>
-          <p className="text-sm text-emerald-600">Completed</p>
+        <Card className="bg-emerald-50/50 p-4" hover={false}>
+          <p className="text-sm text-emerald-600">{t("completed")}</p>
           <p className="text-2xl font-bold text-emerald-700">{stats.completed}</p>
         </Card>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {[
-          { id: "all", label: "All Tasks" },
-          { id: "pending", label: "Pending" },
-          { id: "overdue", label: "Overdue" },
-          { id: "completed", label: "Completed" },
-        ].map((f) => (
+          { id: "all", label: language === "sw" ? "Kazi zote" : "All tasks" },
+          { id: "pending", label: t("pending") },
+          { id: "overdue", label: t("overdue") },
+          { id: "completed", label: t("completed") },
+        ].map((entry) => (
           <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              filter === f.id
+            key={entry.id}
+            onClick={() => setFilter(entry.id)}
+            className={`rounded-lg px-4 py-2 font-medium transition-all ${
+              filter === entry.id
                 ? "bg-teal-600 text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            {f.label}
+            {entry.label}
           </button>
         ))}
-        <div className="hidden sm:block w-px h-8 bg-gray-300 mx-2" />
+        <div className="mx-2 hidden h-8 w-px bg-gray-300 sm:block" />
         <select
           value={priorityFilter}
           onChange={(event) => setPriorityFilter(event.target.value)}
-          className="w-full sm:w-auto px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none text-sm"
+          className="w-full rounded-lg border-2 border-gray-200 px-4 py-2 text-sm outline-none focus:border-teal-500 sm:w-auto"
         >
-          <option value="all">All Priorities</option>
-          <option value="high">High Priority</option>
-          <option value="medium">Medium Priority</option>
-          <option value="low">Low Priority</option>
+          <option value="all">{language === "sw" ? "Vipaumbele vyote" : "All priorities"}</option>
+          <option value="high">{language === "sw" ? "Kipaumbele cha juu" : "High priority"}</option>
+          <option value="medium">{language === "sw" ? "Kipaumbele cha kati" : "Medium priority"}</option>
+          <option value="low">{language === "sw" ? "Kipaumbele cha chini" : "Low priority"}</option>
         </select>
       </div>
 
       {actionError && (
-        <Card className="p-3 border-red-200 bg-red-50" hover={false}>
+        <Card className="border-red-200 bg-red-50 p-3" hover={false}>
           <p className="text-sm text-red-700">{actionError}</p>
         </Card>
       )}
@@ -205,7 +230,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
         {filteredTasks.map((task) => (
           <Card
             key={task.id}
-            className={`p-4 cursor-pointer transition-all hover:shadow-lg ${
+            className={`cursor-pointer p-4 transition-all hover:shadow-lg ${
               isOverdue(task.dueDate) && task.status !== "completed"
                 ? "border-red-300 bg-red-50/30"
                 : task.priority === "high" && task.status !== "completed"
@@ -214,9 +239,9 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
             }`}
             onClick={() => onPatientSelect?.(task.patient)}
           >
-            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
               <div
-                className={`p-3 rounded-xl ${
+                className={`rounded-xl p-3 ${
                   task.category === "followup"
                     ? "bg-blue-100 text-blue-600"
                     : task.priority === "high"
@@ -227,21 +252,18 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
                 {getTaskIcon(task.category, task.type)}
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
                     <h3 className="font-semibold text-gray-900">{task.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      <User className="w-4 h-4 inline mr-1" />
+                    <p className="mt-1 text-sm text-gray-600">
+                      <User className="mr-1 inline w-4 h-4" />
                       {task.patient?.name || task.patientId}
                       {task.patient && (
                         <>
-                          <span className="mx-2">·</span>
-                          <Badge
-                            variant={String(task.patient.riskTier).toLowerCase()}
-                            size="sm"
-                          >
-                            {task.patient.riskTier} Risk
+                          <span className="mx-2">-</span>
+                          <Badge variant={String(task.patient.riskTier).toLowerCase()} size="sm">
+                            {task.patient.riskTier} {t("riskSuffix")}
                           </Badge>
                         </>
                       )}
@@ -264,18 +286,16 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
                       )}
                       {formatDueDate(task.dueDate)}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {task.patient?.ward || "Ward not assigned"}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {task.patient?.ward ||
+                        (language === "sw" ? "Wodi haijapangwa" : "Ward not assigned")}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  <Badge
-                    variant={task.priority === "high" ? "danger" : "warning"}
-                    size="sm"
-                  >
-                    {task.priority} Priority
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge variant={task.priority === "high" ? "danger" : "warning"} size="sm">
+                    {priorityLabels[task.priority] || priorityLabels.medium}
                   </Badge>
                   <Badge
                     variant={
@@ -287,12 +307,12 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
                     }
                     size="sm"
                   >
-                    {task.status}
+                    {statusLabels[task.status] || task.status}
                   </Badge>
                 </div>
 
                 {task.status !== "completed" && (
-                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     {task.status === "pending" && (
                       <Button
                         size="sm"
@@ -304,7 +324,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
                         loading={updatingTaskId === task.id}
                         disabled={updatingTaskId === task.id}
                       >
-                        Start
+                        {language === "sw" ? "Anza" : "Start"}
                       </Button>
                     )}
                     <Button
@@ -317,7 +337,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
                       loading={updatingTaskId === task.id}
                       disabled={updatingTaskId === task.id}
                     >
-                      Mark Done
+                      {language === "sw" ? "Kamilisha" : "Mark done"}
                     </Button>
                   </div>
                 )}
@@ -329,7 +349,9 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
         {filteredTasks.length === 0 && (
           <Card className="p-10 text-center">
             <p className="text-sm text-gray-600">
-              No tasks match your current filters.
+              {language === "sw"
+                ? "Hakuna kazi zinazolingana na vichujio vya sasa."
+                : "No tasks match your current filters."}
             </p>
           </Card>
         )}

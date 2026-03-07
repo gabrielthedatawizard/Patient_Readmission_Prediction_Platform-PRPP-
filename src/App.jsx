@@ -125,7 +125,7 @@ const App = () => {
     },
     {
       id: "seed-2",
-      tone: "blue",
+      tone: "amber",
       titleKey: "notificationFollowupDue",
       bodyKey: "notificationFollowupDueBody",
     },
@@ -805,10 +805,38 @@ const App = () => {
   }, [patients, tasks]);
 
   const recentActivity = useMemo(() => {
+    const toneStyles = {
+      red: {
+        containerClass: "border-rose-200 bg-rose-50/85",
+        iconWrapClass: "bg-rose-100 text-rose-700",
+        tagClass: "bg-rose-100 text-rose-700",
+        timeClass: "text-rose-700",
+      },
+      amber: {
+        containerClass: "border-amber-200 bg-amber-50/85",
+        iconWrapClass: "bg-amber-100 text-amber-700",
+        tagClass: "bg-amber-100 text-amber-700",
+        timeClass: "text-amber-700",
+      },
+      blue: {
+        containerClass: "border-sky-200 bg-sky-50/85",
+        iconWrapClass: "bg-sky-100 text-sky-700",
+        tagClass: "bg-sky-100 text-sky-700",
+        timeClass: "text-sky-700",
+      },
+      emerald: {
+        containerClass: "border-emerald-200 bg-emerald-50/85",
+        iconWrapClass: "bg-emerald-100 text-emerald-700",
+        tagClass: "bg-emerald-100 text-emerald-700",
+        timeClass: "text-emerald-700",
+      },
+    };
+    const getToneStyle = (tone) => toneStyles[tone] || toneStyles.blue;
+
     const alertItems = riskAlerts.slice(0, 3).map((alert) => ({
       type: "alert",
       icon: AlertCircle,
-      tagLabel: language === "sw" ? "Tahadhari" : "Alert",
+      tagLabel: language === "sw" ? "Hatari kubwa" : "Critical",
       title:
         language === "sw"
           ? `Tahadhari ya hatari kubwa kwa ${alert.patientId}`
@@ -818,22 +846,39 @@ const App = () => {
           ? `Alama ${alert.score} imevuka kizingiti cha ${alert.threshold}.`
           : `Score ${alert.score} crossed the ${alert.threshold} threshold.`,
       timestamp: alert.createdAt,
-      surfaceClass: "bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300",
+      ...getToneStyle("red"),
     }));
 
-    const notificationItems = notifications.slice(0, 3).map((notification) => ({
-      type: "notification",
-      icon: Bell,
-      tagLabel: language === "sw" ? "Arifa" : "Notice",
-      title: notification.titleKey
-        ? t(notification.titleKey, notification.title || t("operationalUpdate"))
-        : notification.title || t("operationalUpdate"),
-      description: notification.bodyKey
-        ? t(notification.bodyKey, notification.body || t("operationalUpdateBody"))
-        : notification.body || t("operationalUpdateBody"),
-      timestamp: notification.createdAt || new Date().toISOString(),
-      surfaceClass: "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-300",
-    }));
+    const notificationItems = notifications.slice(0, 3).map((notification) => {
+      const tone = notification.tone || "blue";
+      const toneStyle = getToneStyle(tone);
+      const tagLabel =
+        tone === "red"
+          ? language === "sw"
+            ? "Hatari kubwa"
+            : "Critical"
+          : tone === "amber"
+            ? language === "sw"
+              ? "Ufuatiliaji"
+              : "Follow-up"
+            : language === "sw"
+              ? "Sasisho"
+              : "Update";
+
+      return {
+        type: "notification",
+        icon: tone === "red" ? AlertCircle : Bell,
+        tagLabel,
+        title: notification.titleKey
+          ? t(notification.titleKey, notification.title || t("operationalUpdate"))
+          : notification.title || t("operationalUpdate"),
+        description: notification.bodyKey
+          ? t(notification.bodyKey, notification.body || t("operationalUpdateBody"))
+          : notification.body || t("operationalUpdateBody"),
+        timestamp: notification.createdAt || new Date().toISOString(),
+        ...toneStyle,
+      };
+    });
 
     const taskItems = [...tasks]
       .sort(
@@ -842,15 +887,28 @@ const App = () => {
           new Date(right.dueDate || Date.now()).getTime(),
       )
       .slice(0, 3)
-      .map((task) => ({
-        type: "task",
-        icon: CheckCircle,
-        tagLabel: language === "sw" ? "Kazi" : "Task",
-        title: task.title || t("taskQueued"),
-        description: `${t("statusLabel")}: ${formatStatusLabel(task.status || "pending")}`,
-        timestamp: task.updatedAt || task.createdAt || task.dueDate || new Date().toISOString(),
-        surfaceClass: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300",
-      }));
+      .map((task) => {
+        const isTaskOverdue =
+          new Date(task.dueDate || Date.now()).getTime() < Date.now() &&
+          task.status !== "completed";
+        const tone =
+          isTaskOverdue || task.priority === "high"
+            ? "amber"
+            : task.status === "completed"
+              ? "emerald"
+              : "blue";
+
+        return {
+          type: "task",
+          icon: isTaskOverdue ? AlertCircle : CheckCircle,
+          tagLabel: language === "sw" ? "Kazi" : "Task",
+          title: task.title || t("taskQueued"),
+          description: `${t("statusLabel")}: ${formatStatusLabel(task.status || "pending")}`,
+          timestamp:
+            task.updatedAt || task.createdAt || task.dueDate || new Date().toISOString(),
+          ...getToneStyle(tone),
+        };
+      });
 
     return [...alertItems, ...notificationItems, ...taskItems]
       .sort(
@@ -946,7 +1004,7 @@ const App = () => {
         id: "patients",
         icon: Users,
         label: language === "sw" ? "Wagonjwa" : "Patient list",
-        tag: language === "sw" ? "Caseload" : "Caseload",
+        tag: language === "sw" ? "Kesi" : "Caseload",
         metric: `${patients.length}`,
         description:
           language === "sw"
@@ -1635,13 +1693,13 @@ const App = () => {
                   onOpenPatients={() => setCurrentView("patients")}
                   onOpenSettings={handleOpenSettings}
                 />
-                <Grid cols={1} gap={6} className="lg:grid-cols-3">
-                  <div className="lg:col-span-1">
-                    <QuickActions actions={quickActions} />
-                  </div>
-                  <div className="lg:col-span-2">
-                    <RecentActivity activities={recentActivity} />
-                  </div>
+                <Grid
+                  cols={1}
+                  gap={6}
+                  className="lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]"
+                >
+                  <QuickActions actions={quickActions} />
+                  <RecentActivity activities={recentActivity} />
                 </Grid>
               </>
             )}

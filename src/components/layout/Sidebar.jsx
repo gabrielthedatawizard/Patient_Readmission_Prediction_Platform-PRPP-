@@ -24,12 +24,12 @@ const Sidebar = ({
         className={`
           bg-white border-r-2 border-gray-200 dark:bg-slate-950 dark:border-slate-800
           fixed top-14 sm:top-16 bottom-0 left-0 z-40
-          w-[82vw] max-w-[320px] transform transition-transform duration-300 ease-out
+          w-[80vw] max-w-[296px] transform transition-transform duration-300 ease-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           shadow-2xl
           lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100vh-4rem)]
           lg:translate-x-0 lg:shadow-none lg:max-w-none
-          ${collapsed ? "lg:w-20" : "lg:w-64"}
+          ${collapsed ? "lg:w-[4.5rem]" : "lg:w-56"}
         `}
       >
         <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white dark:border-slate-800 dark:bg-slate-950">
