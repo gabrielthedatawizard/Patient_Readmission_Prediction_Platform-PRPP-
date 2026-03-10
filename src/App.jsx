@@ -102,6 +102,9 @@ const DEFAULT_FACILITY = SAMPLE_FACILITIES[0] || {
 };
 
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
+const DataQualityDashboard = lazy(
+  () => import("./components/analytics/DataQualityDashboard"),
+);
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
 const MoHNationalDashboard = lazy(() => import("./dashboards/MoHNationalDashboard"));
@@ -1879,22 +1882,9 @@ const App = () => {
                 {currentView === "analytics" && <Analytics />}
 
                 {currentView === "data-quality" && (
-                  <div className="flex flex-col items-center justify-center h-96 text-center">
-                    <div className="w-24 h-24 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                      <Database className="w-10 h-10 text-gray-400 dark:text-slate-400" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2">
-                      {t("dataQualityDashboard")}
-                    </h3>
-                    <p className="text-gray-600 dark:text-slate-300">{t("dataQualityInProgress")}</p>
-                    <Button
-                      variant="primary"
-                      onClick={() => setCurrentView("dashboard")}
-                      className="mt-6"
-                    >
-                      {t("backToDashboard")}
-                    </Button>
-                  </div>
+                  <DataQualityDashboard
+                    onBack={() => setCurrentView("dashboard")}
+                  />
                 )}
 
                 {currentView === "settings" && (

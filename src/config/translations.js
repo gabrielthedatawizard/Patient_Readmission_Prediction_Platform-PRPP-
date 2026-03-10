@@ -119,6 +119,28 @@ export const translations = {
     dischargeShareHigh: "7% of discharges",
     dataQualityDashboard: "Data Quality Dashboard",
     dataQualityInProgress: "This feature is under development.",
+    dataQualityOverview:
+      "Monitor data completeness and model fairness thresholds.",
+    dataQualityCriticalFieldCompleteness: "Critical Field Completeness",
+    dataQualityPatientsReviewed: "Patients Reviewed",
+    dataQualityFairnessVariance: "Fairness Variance",
+    dataQualityGroupsTracked: "Groups Tracked",
+    dataQualityEscalationRequired: "Escalation required",
+    dataQualityEscalationDescription:
+      "One or more safety thresholds are outside target and need data steward review.",
+    dataQualityThreshold: "Threshold",
+    dataQualityNoPredictions: "No prediction groups are available yet.",
+    dataQualityPermissionDenied: "Access restricted",
+    dataQualityPermissionDeniedDesc:
+      "Your role does not currently allow viewing data quality analytics.",
+    dataQualityRefreshFailed: "Unable to refresh data quality analytics.",
+    dataQualityShowingLastSnapshot: "Showing the last successful snapshot from",
+    lastUpdated: "Last updated",
+    qualityStatusLabel: "Quality status",
+    fairnessStatusLabel: "Fairness status",
+    predictionsLabel: "Predictions",
+    meanScoreLabel: "Mean score",
+    shareLabel: "Share",
     backToDashboard: "Back to Dashboard",
     dischargeWorkflowCompleted: "Discharge workflow completed.",
 
@@ -444,6 +466,29 @@ export const translations = {
     dischargeShareHigh: "7% ya wanaoondoka",
     dataQualityDashboard: "Dashibodi ya Ubora wa Data",
     dataQualityInProgress: "Kipengele hiki kinaendelea kutengenezwa.",
+    dataQualityOverview:
+      "Fuatilia ukamilifu wa data na viwango vya usawa wa modeli.",
+    dataQualityCriticalFieldCompleteness: "Ukamilifu wa maeneo muhimu",
+    dataQualityPatientsReviewed: "Wagonjwa waliokaguliwa",
+    dataQualityFairnessVariance: "Tofauti ya usawa",
+    dataQualityGroupsTracked: "Makundi yanayofuatiliwa",
+    dataQualityEscalationRequired: "Uangalizi wa haraka unahitajika",
+    dataQualityEscalationDescription:
+      "Kizingiti kimoja au zaidi kiko nje ya lengo na kinahitaji mapitio ya msimamizi wa data.",
+    dataQualityThreshold: "Kizingiti",
+    dataQualityNoPredictions: "Bado hakuna makundi ya utabiri yaliyopatikana.",
+    dataQualityPermissionDenied: "Ufikiaji umezuiliwa",
+    dataQualityPermissionDeniedDesc:
+      "Wajibu wako kwa sasa hauruhusu kuona uchambuzi wa ubora wa data.",
+    dataQualityRefreshFailed: "Imeshindikana kuonyesha upya uchambuzi wa ubora wa data.",
+    dataQualityShowingLastSnapshot:
+      "Inaonyesha picha ya mwisho iliyofanikiwa kutoka",
+    lastUpdated: "Ilisasishwa mwisho",
+    qualityStatusLabel: "Hali ya ubora",
+    fairnessStatusLabel: "Hali ya usawa",
+    predictionsLabel: "Utabiri",
+    meanScoreLabel: "Wastani wa alama",
+    shareLabel: "Sehemu",
     backToDashboard: "Rudi Dashibodi",
     dischargeWorkflowCompleted: "Mchakato wa kuondoka umekamilika.",
 

@@ -6,7 +6,9 @@ async function request(path) {
   });
 
   if (!response.ok) {
-    throw new Error(`Analytics request failed (${response.status}).`);
+    const error = new Error(`Analytics request failed (${response.status}).`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
