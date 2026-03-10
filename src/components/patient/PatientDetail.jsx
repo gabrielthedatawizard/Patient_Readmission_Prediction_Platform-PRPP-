@@ -17,7 +17,13 @@ import PredictionHistory from '../prediction/PredictionHistory';
  * Comprehensive patient profile with risk explanation and interventions
  */
 
-const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
+const PatientDetail = ({
+  patient,
+  onBack,
+  onStartDischarge,
+  canOverridePrediction = false,
+  onPredictionOverridden,
+}) => {
   if (!patient) return null;
 
   // Mock clinical history data
@@ -318,7 +324,11 @@ const PatientDetail = ({ patient, onBack, onStartDischarge }) => {
       </div>
 
       <Card className="p-4 sm:p-6">
-        <PredictionHistory patientId={patient.id} />
+        <PredictionHistory
+          patientId={patient.id}
+          canOverride={canOverridePrediction}
+          onPredictionOverridden={onPredictionOverridden}
+        />
       </Card>
 
       {/* Clinical History & Vitals */}

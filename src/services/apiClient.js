@@ -342,6 +342,23 @@ export async function fetchLatestPrediction(patientId) {
   }
 }
 
+export async function fetchPredictionHistory(patientId) {
+  const payload = await request(`/predictions/history/${patientId}`);
+  return Array.isArray(payload?.predictions) ? payload.predictions : [];
+}
+
+export async function overridePrediction(predictionId, { newTier, reason } = {}) {
+  const payload = await request(`/predictions/${predictionId}/override`, {
+    method: 'POST',
+    body: {
+      newTier,
+      reason
+    }
+  });
+
+  return payload?.prediction || null;
+}
+
 export async function fetchAuditLogs({ limit = 100, offset = 0 } = {}) {
   const query = new URLSearchParams();
   if (limit !== undefined && limit !== null) {

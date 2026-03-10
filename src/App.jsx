@@ -235,6 +235,18 @@ const App = () => {
     [normalizeTaskRecord],
   );
 
+  const toUiRiskFactors = useCallback((factors = []) => {
+    if (!Array.isArray(factors) || factors.length === 0) {
+      return null;
+    }
+
+    return factors.map((factor) => ({
+      factor: factor.factor || factor.label || "Unknown factor",
+      weight: Number(factor.weight || factor.value || 0),
+      category: factor.category || "clinical",
+    }));
+  }, []);
+
   const normalizeAlertRecord = useCallback((alert = {}) => {
     const createdAt = alert.createdAt || alert.generatedAt || new Date().toISOString();
 
@@ -470,6 +482,68 @@ const App = () => {
       setIsDataLoading(false);
     }
   }, [currentUser, normalizeTaskCollection]);
+
+  const handlePredictionOverridden = useCallback(
+    (prediction) => {
+      const patientId = prediction?.patientId;
+      if (!patientId) {
+        return;
+      }
+
+      const mappedFactors = toUiRiskFactors(prediction.factors);
+      const nextScore = Number.isFinite(Number(prediction.score))
+        ? Number(prediction.score)
+        : null;
+      const nextConfidence = Number.isFinite(Number(prediction.confidence))
+        ? Number(prediction.confidence)
+        : null;
+
+      setPatients((previous) =>
+        previous.map((patient) =>
+          patient.id === patientId
+            ? {
+                ...patient,
+                riskTier: prediction.tier || patient.riskTier,
+                riskScore: nextScore ?? patient.riskScore,
+                riskConfidence: nextConfidence ?? patient.riskConfidence,
+                riskFactors: mappedFactors || patient.riskFactors,
+              }
+            : patient,
+        ),
+      );
+
+      setSelectedPatient((previous) =>
+        previous && previous.id === patientId
+          ? {
+              ...previous,
+              riskTier: prediction.tier || previous.riskTier,
+              riskScore: nextScore ?? previous.riskScore,
+              riskConfidence: nextConfidence ?? previous.riskConfidence,
+              riskFactors: mappedFactors || previous.riskFactors,
+            }
+          : previous,
+      );
+
+      pushNotification({
+        tone: "amber",
+        title:
+          language === "sw"
+            ? "Marekebisho ya utabiri yamehifadhiwa"
+            : "Prediction override saved",
+        body:
+          language === "sw"
+            ? `Mgonjwa ${patientId} amewekwa kwenye ngazi ya ${prediction.tier || "Unknown"}.`
+            : `Patient ${patientId} tier updated to ${prediction.tier || "Unknown"}.`,
+      });
+
+      trackEvent(
+        "Prediction",
+        "Override",
+        `${patientId}:${prediction.tier || "unknown"}`,
+      );
+    },
+    [language, pushNotification, toUiRiskFactors],
+  );
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -1729,6 +1803,8 @@ const App = () => {
                       setCurrentView("patients");
                     }}
                     onStartDischarge={() => setCurrentView("discharge")}
+                    canOverridePrediction={userRole === "clinician"}
+                    onPredictionOverridden={handlePredictionOverridden}
                   />
                 )}
 
