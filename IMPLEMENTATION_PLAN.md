@@ -35,7 +35,8 @@
 - Provider layer delivered:
 - Data provider selector at `backend/src/data/index.js`.
 - Prisma-backed repository implementation at `backend/src/data/prismaStore.js`.
-- Remaining for Phase 2: apply migration in a live PostgreSQL environment, run seed, and execute end-to-end route tests with `TRIP_DATA_PROVIDER=prisma`.
+- Prisma route e2e coverage added at `backend/src/e2e/prisma.routes.e2e.test.js` with runner scripts in `backend/package.json`.
+- Remaining for Phase 2: execute `npm run phase2:verify` against a live PostgreSQL environment.
 - Phase 3 backend contracts started:
 - Sync pull/push APIs at `backend/src/routes/sync.js`.
 - Idempotency replay service at `backend/src/services/idempotencyService.js`.

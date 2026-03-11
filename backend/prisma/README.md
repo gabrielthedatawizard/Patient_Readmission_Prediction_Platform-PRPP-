@@ -25,6 +25,12 @@ Run from `backend/`:
 4. Seed baseline roles/facilities/demo users:
 `npm run prisma:seed`
 
+5. Run Prisma-backed route e2e verification:
+`npm run test:e2e:prisma`
+
+6. Run full Phase 2 verification pipeline (migrate + seed + e2e):
+`npm run phase2:verify`
+
 ## Seed dataset
 - 10 roles
 - 5 regions
