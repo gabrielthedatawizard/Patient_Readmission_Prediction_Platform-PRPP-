@@ -1,9 +1,9 @@
-const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
 const { ROLES } = require('../config/roles');
+const { hashSync } = require('../lib/passwordHash');
 
 const DEMO_PASSWORD = 'Trip@2026';
-const DEFAULT_PASSWORD_HASH = bcrypt.hashSync(DEMO_PASSWORD, 10);
+const DEFAULT_PASSWORD_HASH = hashSync(DEMO_PASSWORD, 10);
 
 const facilities = [
   { id: 'FAC-MNH-001', name: 'Muhimbili National Hospital', regionCode: 'DAR', district: 'Ilala', level: 'national_referral' },

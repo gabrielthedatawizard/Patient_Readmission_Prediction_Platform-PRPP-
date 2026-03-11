@@ -1,4 +1,3 @@
-const bcrypt = require('bcrypt');
 const { prisma } = require('../lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';

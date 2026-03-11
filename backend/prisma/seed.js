@@ -1,6 +1,6 @@
-const bcrypt = require('bcrypt');
 const { PrismaClient, RiskTier, Priority, TaskStatus } = require('@prisma/client');
 const { ROLE_PERMISSIONS } = require('../src/config/roles');
+const { hash } = require('../src/lib/passwordHash');
 
 const prisma = new PrismaClient();
 
@@ -180,7 +180,7 @@ async function seedRoles() {
 }
 
 async function seedUsers(roleMap, regionMap) {
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const passwordHash = await hash(DEMO_PASSWORD, 10);
 
   for (const slug of Object.keys(ROLE_PERMISSIONS)) {
     const assignment = roleAssignments[slug] || {};

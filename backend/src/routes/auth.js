@@ -4,8 +4,8 @@
  */
 
 const express = require('express');
-const bcrypt = require('bcrypt');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
+const { compareSync } = require('../lib/passwordHash');
 const {
   ACCESS_TOKEN_COOKIE_NAME,
   clearAccessTokenCookie,
@@ -60,7 +60,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   const user = await getUserByEmail(email);
 
-  if (!user || !bcrypt.compareSync(password, user.passwordHash || '')) {
+  if (!user || !compareSync(password, user.passwordHash || '')) {
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid credentials.'
