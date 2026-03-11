@@ -1,4 +1,7 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+import {
+  buildApiUrl,
+  getProtectedDeploymentMessage
+} from "./runtimeConfig";
 const TOKEN_KEY = 'trip_access_token';
 const USER_KEY = 'trip_session_user';
 
@@ -177,7 +180,7 @@ async function request(path, { method = 'GET', body, token, headers: extraHeader
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     method,
     headers,
     credentials: 'include',
@@ -185,13 +188,18 @@ async function request(path, { method = 'GET', body, token, headers: extraHeader
   });
 
   const text = await response.text();
-  const payload = text ? safeParseJson(text) : null;
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json') && text ? safeParseJson(text) : null;
 
   if (!response.ok) {
-    const message = parseErrorMessage(payload) || `Request failed with status ${response.status}`;
+    const message =
+      parseErrorMessage(payload) ||
+      getProtectedDeploymentMessage(text) ||
+      `Request failed with status ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
     error.payload = payload;
+    error.responseText = text;
     throw error;
   }
 

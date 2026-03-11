@@ -1,7 +1,7 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+import { buildApiUrl } from "./runtimeConfig";
 
 export async function generatePrediction(patientId, features = {}, options = {}) {
-  const response = await fetch(`${API_BASE}/predictions/predict`, {
+  const response = await fetch(buildApiUrl("/predictions/predict"), {
     method: "POST",
     credentials: "include",
     headers: {
@@ -30,19 +30,22 @@ export async function generatePrediction(patientId, features = {}, options = {})
 }
 
 export async function extractDischargeSummary(patientId, notes, options = {}) {
-  const response = await fetch(`${API_BASE}/predictions/discharge-summary/extract`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetch(
+    buildApiUrl("/predictions/discharge-summary/extract"),
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        patientId,
+        notes,
+        workflow: options.workflow || {},
+        prediction: options.prediction || null,
+      }),
     },
-    body: JSON.stringify({
-      patientId,
-      notes,
-      workflow: options.workflow || {},
-      prediction: options.prediction || null,
-    }),
-  });
+  );
 
   if (!response.ok) {
     const message = `Discharge summary extraction failed (${response.status})`;

@@ -1,22 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
-
-function buildUrl(endpoint) {
-  if (!endpoint) {
-    return API_BASE;
-  }
-
-  if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
-    return endpoint;
-  }
-
-  if (endpoint.startsWith("/")) {
-    return `${API_BASE}${endpoint}`;
-  }
-
-  return `${API_BASE}/${endpoint}`;
-}
+import { buildApiUrl } from "../services/runtimeConfig";
 
 export function useDashboardData(endpoint, refreshInterval = 300000) {
   const [data, setData] = useState(null);
@@ -28,7 +11,7 @@ export function useDashboardData(endpoint, refreshInterval = 300000) {
     setLoading(true);
 
     try {
-      const response = await fetch(buildUrl(endpoint), {
+      const response = await fetch(buildApiUrl(endpoint), {
         credentials: "include",
         headers: {
           Accept: "application/json",

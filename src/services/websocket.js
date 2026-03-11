@@ -1,3 +1,5 @@
+import { getWebSocketBaseUrl } from "./runtimeConfig";
+
 class WebSocketClient {
   constructor() {
     this.ws = null;
@@ -10,7 +12,7 @@ class WebSocketClient {
       return;
     }
 
-    const baseUrl = import.meta.env.VITE_WS_URL || "ws://localhost:5000";
+    const baseUrl = getWebSocketBaseUrl();
     const params = new URLSearchParams();
     params.set("userId", userId);
     if (token) {

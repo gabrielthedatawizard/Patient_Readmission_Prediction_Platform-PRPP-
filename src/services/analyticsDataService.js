@@ -1,7 +1,7 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+import { buildApiUrl } from "./runtimeConfig";
 
 async function request(path) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     credentials: "include",
   });
 

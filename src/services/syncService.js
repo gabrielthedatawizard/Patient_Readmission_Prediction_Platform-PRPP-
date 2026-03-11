@@ -3,8 +3,7 @@ import {
   getQueuedSyncOperations,
   removeQueuedSyncOperation,
 } from "./offlineStorage";
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+import { buildApiUrl } from "./runtimeConfig";
 
 function normalizeTaskStatusForSync(status) {
   if (status === "completed") {
@@ -50,7 +49,7 @@ export async function flushSyncQueue() {
     const idempotencyKey = buildIdempotencyKey("sync-batch");
 
     try {
-      const response = await fetch(`${API_BASE}/sync/push`, {
+      const response = await fetch(buildApiUrl("/sync/push"), {
         method: "POST",
         credentials: "include",
         headers: {
