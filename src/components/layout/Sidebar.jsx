@@ -16,35 +16,37 @@ const Sidebar = ({
           type="button"
           aria-label="Close sidebar"
           onClick={onClose}
-          className="lg:hidden fixed inset-0 top-14 sm:top-16 bg-black/45 z-30"
+          className="lg:hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[60]"
         />
       )}
 
       <aside
         className={`
-          bg-white border-r-2 border-gray-200 dark:bg-slate-950 dark:border-slate-800
-          fixed top-14 sm:top-16 bottom-0 left-0 z-40
-          w-[80vw] max-w-[296px] transform transition-transform duration-300 ease-out
+          bg-white/95 border-r border-slate-200 dark:bg-slate-950/95 dark:border-slate-800
+          fixed top-0 bottom-0 left-0 z-[70]
+          w-screen max-w-none transform transition-transform duration-300 ease-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           shadow-2xl
           lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100vh-4rem)]
-          lg:translate-x-0 lg:shadow-none lg:max-w-none
-          ${collapsed ? "lg:w-[4.5rem]" : "lg:w-56"}
+          lg:translate-x-0 lg:shadow-none lg:max-w-none lg:w-auto lg:rounded-r-3xl
+          ${collapsed ? "lg:w-[5.25rem]" : "lg:w-72"}
         `}
       >
-        <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white dark:border-slate-800 dark:bg-slate-950">
-          <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">{title}</p>
+        <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-wide">
+            {title}
+          </p>
           <button
             type="button"
             aria-label="Close navigation menu"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="h-full flex flex-col overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden lg:pt-3">
           <div className="flex-1 overflow-y-auto">{children}</div>
           {footer}
         </div>

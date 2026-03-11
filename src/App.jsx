@@ -1,4 +1,12 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Activity,
   Users,
@@ -162,6 +170,8 @@ const App = () => {
   const [dataError, setDataError] = useState("");
   const [isUsingOfflineData, setIsUsingOfflineData] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const notificationPanelRef = useRef(null);
+  const notificationButtonRef = useRef(null);
   const { language, setLanguage, t } = useI18n();
   const { theme } = useTheme();
   const dashboardKpiVariant = useMemo(
@@ -590,6 +600,38 @@ const App = () => {
   }, [isAuthenticated, showNotifications, loadRiskAlerts]);
 
   useEffect(() => {
+    if (!showNotifications) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      const panel = notificationPanelRef.current;
+      const toggleButton = notificationButtonRef.current;
+      const target = event.target;
+
+      if (panel?.contains(target) || toggleButton?.contains(target)) {
+        return;
+      }
+
+      setShowNotifications(false);
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showNotifications]);
+
+  useEffect(() => {
     if (!isMobileSidebarOpen) {
       return undefined;
     }
@@ -604,6 +646,7 @@ const App = () => {
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
+    setShowNotifications(false);
   }, [currentView]);
 
   useEffect(() => {
@@ -1038,6 +1081,18 @@ const App = () => {
   const roleLabel = ROLE_TRANSLATION_KEYS[userRole]
     ? t(ROLE_TRANSLATION_KEYS[userRole])
     : (userRole || "").replace("-", " ");
+  const avatarFallbackSrc = "/images/default-avatar.svg";
+  const profileAvatarSrc = currentUser?.profilePicture || avatarFallbackSrc;
+  const userInitials = useMemo(
+    () =>
+      (currentUser?.fullName || t("userFallback"))
+        .split(" ")
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase(),
+    [currentUser?.fullName, t],
+  );
 
   const handleLogin = (session) => {
     trackEvent("Session", "Login", session?.user?.role || "unknown");
@@ -1656,30 +1711,53 @@ const App = () => {
               </div>
 
               <button
+                ref={notificationButtonRef}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className={`
+                  relative p-2 rounded-lg transition-colors
+                  ${
+                    showNotifications
+                      ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200"
+                      : "hover:bg-gray-100 dark:hover:bg-slate-800"
+                  }
+                `}
                 aria-label={`${t("notifications")} (${notifications.length + riskAlerts.length})`}
+                aria-expanded={showNotifications}
+                aria-controls="trip-notification-panel"
               >
-                <Bell className="w-5 h-5 text-gray-700 dark:text-slate-100" />
+                <Bell
+                  className={`
+                    w-5 h-5
+                    ${
+                      showNotifications
+                        ? "text-teal-700 dark:text-teal-200"
+                        : "text-gray-700 dark:text-slate-100"
+                    }
+                  `}
+                />
                 <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
                   {notifications.length + riskAlerts.length}
                 </span>
               </button>
 
-              <div className="hidden sm:flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200 dark:border-slate-800">
+              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l-2 border-gray-200 dark:border-slate-800">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">
                     {currentUser?.fullName || t("userFallback")}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-slate-400">{roleLabel}</p>
                 </div>
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-sm font-bold text-white">
-                    {(currentUser?.fullName || "TR")
-                      .split(" ")
-                      .map((part) => part[0])
-                      .slice(0, 2)
-                      .join("")}
+                <div className="relative">
+                  <img
+                    src={profileAvatarSrc}
+                    alt={currentUser?.fullName || t("userFallback")}
+                    className="w-10 h-10 rounded-full object-cover shadow-lg ring-2 ring-white dark:ring-slate-900"
+                    onError={(event) => {
+                      event.currentTarget.src = avatarFallbackSrc;
+                    }}
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-teal-500 text-white text-[9px] font-bold px-1.5 py-0.5 shadow">
+                    {userInitials}
                   </span>
                 </div>
               </div>
@@ -1696,7 +1774,28 @@ const App = () => {
           title={t("navigation")}
           footer={
             (!sidebarCollapsed || isMobileSidebarOpen) && (
-              <div className="p-4 mt-4 border-t-2 border-gray-200 dark:border-slate-800">
+              <div className="p-4 mt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                <button
+                  onClick={handleOpenSettings}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+                >
+                  <img
+                    src={profileAvatarSrc}
+                    alt={currentUser?.fullName || t("userFallback")}
+                    className="h-10 w-10 rounded-xl object-cover ring-2 ring-teal-500/40"
+                    onError={(event) => {
+                      event.currentTarget.src = avatarFallbackSrc;
+                    }}
+                  />
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      {currentUser?.fullName || t("userFallback")}
+                    </span>
+                    <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {roleLabel}
+                    </span>
+                  </span>
+                </button>
                 <button
                   onClick={handleOpenSettings}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 transition-all"
@@ -1718,10 +1817,23 @@ const App = () => {
             )
           }
         >
+          {(!sidebarCollapsed || isMobileSidebarOpen) && (
+            <div className="mx-4 mt-4 rounded-2xl border border-teal-200/70 bg-gradient-to-br from-teal-50 to-cyan-50 p-3 dark:border-teal-800/70 dark:from-slate-900 dark:to-slate-900">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">
+                {t("facility")}
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                {selectedFacility.name}
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                {selectedFacility.region} | {selectedFacility.district}
+              </p>
+            </div>
+          )}
           <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-500">
             {t("menu")}
           </div>
-          <nav id="app-sidebar-nav" aria-label="Primary navigation" className="p-4 space-y-2">
+          <nav id="app-sidebar-nav" aria-label="Primary navigation" className="p-4 space-y-1.5">
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
@@ -1734,18 +1846,26 @@ const App = () => {
                     setSelectedPatient(null);
                     setIsMobileSidebarOpen(false);
                   }}
+                  title={sidebarCollapsed && !isMobileSidebarOpen ? item.label : undefined}
                   aria-current={isActive ? "page" : undefined}
                   className={`
                     w-full flex items-center ${sidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "gap-3"}
-                    px-3 py-3 rounded-xl transition-all
+                    px-3 py-2.5 rounded-xl transition-all
                     ${
                       isActive
-                        ? "bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-md"
+                        ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-900/25"
                         : "hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300"
                     }
                   `}
                 >
-                  <Icon className="w-5 h-5" />
+                  <span
+                    className={`
+                      inline-flex items-center justify-center w-8 h-8 rounded-lg
+                      ${isActive ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}
+                    `}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </span>
                   {(!sidebarCollapsed || isMobileSidebarOpen) && (
                     <span className="font-medium text-sm">{item.label}</span>
                   )}
@@ -1992,21 +2112,19 @@ const App = () => {
                         </p>
 
                         <div className="mt-6 flex items-center gap-4">
-                          {currentUser?.profilePicture ? (
+                          <div className="relative">
                             <img
-                              src={currentUser.profilePicture}
-                              alt={currentUser.fullName || t("userFallback")}
+                              src={profileAvatarSrc}
+                              alt={currentUser?.fullName || t("userFallback")}
                               className="h-16 w-16 rounded-2xl object-cover ring-2 ring-teal-500/70"
+                              onError={(event) => {
+                                event.currentTarget.src = avatarFallbackSrc;
+                              }}
                             />
-                          ) : (
-                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-lg font-bold text-white">
-                              {(currentUser?.fullName || t("userFallback"))
-                                .split(" ")
-                                .map((part) => part[0])
-                                .slice(0, 2)
-                                .join("")}
-                            </div>
-                          )}
+                            <span className="absolute -bottom-1 -right-1 rounded-full bg-teal-600 text-white text-[10px] font-bold px-1.5 py-0.5 shadow">
+                              {userInitials}
+                            </span>
+                          </div>
                           <div>
                             <p className="text-lg font-bold text-slate-950 dark:text-slate-100">
                               {currentUser?.fullName || t("userFallback")}
@@ -2102,153 +2220,174 @@ const App = () => {
       </div>
 
       {showNotifications && (
-        <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-950 rounded-xl shadow-2xl border-2 border-gray-200 dark:border-slate-800 z-50 overflow-hidden">
-          <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700 flex items-center justify-between gap-3">
-            <h3 className="font-bold text-white">{t("notifications")}</h3>
-            <button
-              onClick={loadRiskAlerts}
-              className="inline-flex items-center gap-1 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 text-xs text-white"
-              type="button"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isAlertsLoading ? "animate-spin" : ""}`} />
-              {t("refresh")}
-            </button>
-          </div>
-
-          <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
-                  {t("activeRiskAlerts")}
-                </p>
-                <Badge
-                  variant={riskAlerts.length > 0 ? "danger" : "default"}
-                  size="sm"
+        <>
+          <button
+            type="button"
+            aria-label="Close notifications panel"
+            className="fixed inset-0 bg-slate-950/20 backdrop-blur-[1px] z-50"
+            onClick={() => setShowNotifications(false)}
+          />
+          <div
+            id="trip-notification-panel"
+            ref={notificationPanelRef}
+            className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-950 rounded-xl shadow-2xl border-2 border-gray-200 dark:border-slate-800 z-[60] overflow-hidden"
+          >
+            <div className="p-4 bg-gradient-to-r from-teal-600 to-teal-700 flex items-center justify-between gap-3">
+              <h3 className="font-bold text-white">{t("notifications")}</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadRiskAlerts}
+                  className="inline-flex items-center gap-1 rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 text-xs text-white"
+                  type="button"
                 >
-                  {riskAlerts.length}
-                </Badge>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isAlertsLoading ? "animate-spin" : ""}`} />
+                  {t("refresh")}
+                </button>
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="inline-flex items-center rounded-md bg-white/20 hover:bg-white/30 px-2 py-1 text-xs text-white"
+                  type="button"
+                >
+                  {t("close")}
+                </button>
               </div>
-
-              {isAlertsLoading && (
-                <div className="space-y-2">
-                  {[0, 1].map((index) => (
-                    <div
-                      key={index}
-                      className="h-16 rounded-lg border border-gray-200 bg-gray-100 animate-pulse"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {!isAlertsLoading && alertsError && (
-                <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700">
-                  {alertsError}
-                </div>
-              )}
-
-              {!isAlertsLoading && !alertsError && riskAlerts.length === 0 && (
-                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50">
-                  <p className="text-xs text-emerald-700 font-medium">
-                    {t("noOpenHighRiskAlerts")}
-                  </p>
-                </div>
-              )}
-
-              {!isAlertsLoading && !alertsError && riskAlerts.length > 0 && (
-                <div className="space-y-2">
-                  {riskAlerts.map((alert) => (
-                    <div key={alert.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-red-900">
-                          {t("patientLabel")} {alert.patientId}
-                        </p>
-                        <Badge variant="danger" size="sm">
-                          {resolveRiskTier(alert.tier || "High")}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-red-700 mt-1">
-                        {t("scoreLabel")} {alert.score} ({t("thresholdLabel").toLowerCase()} {alert.threshold})
-                      </p>
-                      <p className="text-[11px] text-red-700 mt-1">
-                        {t("statusLabel")}: {formatStatusLabel(alert.status || "open")}
-                      </p>
-                      <p className="text-[11px] text-red-600 mt-1">
-                        {new Date(alert.createdAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")}
-                      </p>
-                      <div className="flex items-center gap-2 mt-3">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="!py-1 !px-2 text-xs"
-                          onClick={() => handleAcknowledgeAlert(alert.id)}
-                          loading={alertActionId === `ack:${alert.id}`}
-                          disabled={alert.status !== "open" || Boolean(alertActionId)}
-                        >
-                          {t("acknowledge")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          className="!py-1 !px-2 text-xs"
-                          onClick={() => handleResolveAlert(alert.id)}
-                          loading={alertActionId === `resolve:${alert.id}`}
-                          disabled={Boolean(alertActionId)}
-                        >
-                          {t("resolve")}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            <div className="pt-2 border-t border-gray-200">
-              <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
-                {t("activityNotifications")}
-              </p>
-              <div className="space-y-3">
-                {notifications.map((notification) => {
-                  const tones = {
-                    red: {
-                      card: "bg-red-50 border-red-200",
-                      title: "text-red-900",
-                      body: "text-red-700",
-                    },
-                    blue: {
-                      card: "bg-blue-50 border-blue-200",
-                      title: "text-blue-900",
-                      body: "text-blue-700",
-                    },
-                    emerald: {
-                      card: "bg-emerald-50 border-emerald-200",
-                      title: "text-emerald-900",
-                      body: "text-emerald-700",
-                    },
-                  };
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                    {t("activeRiskAlerts")}
+                  </p>
+                  <Badge
+                    variant={riskAlerts.length > 0 ? "danger" : "default"}
+                    size="sm"
+                  >
+                    {riskAlerts.length}
+                  </Badge>
+                </div>
 
-                  const tone = tones[notification.tone] || tones.blue;
+                {isAlertsLoading && (
+                  <div className="space-y-2">
+                    {[0, 1].map((index) => (
+                      <div
+                        key={index}
+                        className="h-16 rounded-lg border border-gray-200 bg-gray-100 animate-pulse"
+                      />
+                    ))}
+                  </div>
+                )}
 
-                  return (
-                    <div key={notification.id} className={`p-3 rounded-lg border ${tone.card}`}>
-                      <p className={`text-sm font-semibold ${tone.title}`}>
-                        {notification.titleKey ? t(notification.titleKey) : notification.title}
-                      </p>
-                      <p className={`text-xs mt-1 ${tone.body}`}>
-                        {notification.bodyKey ? t(notification.bodyKey) : notification.body}
-                      </p>
-                    </div>
-                  );
-                })}
-                {!notifications.length && (
-                  <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <p className="text-sm text-gray-700">{t("noNotificationsYet")}</p>
+                {!isAlertsLoading && alertsError && (
+                  <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700">
+                    {alertsError}
+                  </div>
+                )}
+
+                {!isAlertsLoading && !alertsError && riskAlerts.length === 0 && (
+                  <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50">
+                    <p className="text-xs text-emerald-700 font-medium">
+                      {t("noOpenHighRiskAlerts")}
+                    </p>
+                  </div>
+                )}
+
+                {!isAlertsLoading && !alertsError && riskAlerts.length > 0 && (
+                  <div className="space-y-2">
+                    {riskAlerts.map((alert) => (
+                      <div key={alert.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-red-900">
+                            {t("patientLabel")} {alert.patientId}
+                          </p>
+                          <Badge variant="danger" size="sm">
+                            {resolveRiskTier(alert.tier || "High")}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-red-700 mt-1">
+                          {t("scoreLabel")} {alert.score} ({t("thresholdLabel").toLowerCase()} {alert.threshold})
+                        </p>
+                        <p className="text-[11px] text-red-700 mt-1">
+                          {t("statusLabel")}: {formatStatusLabel(alert.status || "open")}
+                        </p>
+                        <p className="text-[11px] text-red-600 mt-1">
+                          {new Date(alert.createdAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")}
+                        </p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="!py-1 !px-2 text-xs"
+                            onClick={() => handleAcknowledgeAlert(alert.id)}
+                            loading={alertActionId === `ack:${alert.id}`}
+                            disabled={alert.status !== "open" || Boolean(alertActionId)}
+                          >
+                            {t("acknowledge")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className="!py-1 !px-2 text-xs"
+                            onClick={() => handleResolveAlert(alert.id)}
+                            loading={alertActionId === `resolve:${alert.id}`}
+                            disabled={Boolean(alertActionId)}
+                          >
+                            {t("resolve")}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
+
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
+                  {t("activityNotifications")}
+                </p>
+                <div className="space-y-3">
+                  {notifications.map((notification) => {
+                    const tones = {
+                      red: {
+                        card: "bg-red-50 border-red-200",
+                        title: "text-red-900",
+                        body: "text-red-700",
+                      },
+                      blue: {
+                        card: "bg-blue-50 border-blue-200",
+                        title: "text-blue-900",
+                        body: "text-blue-700",
+                      },
+                      emerald: {
+                        card: "bg-emerald-50 border-emerald-200",
+                        title: "text-emerald-900",
+                        body: "text-emerald-700",
+                      },
+                    };
+
+                    const tone = tones[notification.tone] || tones.blue;
+
+                    return (
+                      <div key={notification.id} className={`p-3 rounded-lg border ${tone.card}`}>
+                        <p className={`text-sm font-semibold ${tone.title}`}>
+                          {notification.titleKey ? t(notification.titleKey) : notification.title}
+                        </p>
+                        <p className={`text-xs mt-1 ${tone.body}`}>
+                          {notification.bodyKey ? t(notification.bodyKey) : notification.body}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {!notifications.length && (
+                    <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                      <p className="text-sm text-gray-700">{t("noNotificationsYet")}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <div className="bg-white border-t-2 border-gray-200 px-4 sm:px-6 py-4 text-center">
