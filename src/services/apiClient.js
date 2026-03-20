@@ -108,7 +108,7 @@ export function normalizeRoleForUi(role) {
 }
 
 export function getStoredToken() {
-  return null;
+  return getAnyStorageValue(TOKEN_KEY);
 }
 
 export function getStoredUser() {
@@ -129,7 +129,7 @@ export function clearSession() {
   removeStorageValue(USER_KEY);
 }
 
-function persistSession({ user }, rememberMe = true) {
+function persistSession({ accessToken, user }, rememberMe = true) {
   const storage = getStorageFromRememberMe(rememberMe);
 
   if (!storage) {
@@ -139,7 +139,7 @@ function persistSession({ user }, rememberMe = true) {
   // Keep only one active persistence location.
   clearSession();
   try {
-    removeStorageValue(TOKEN_KEY);
+    storage.setItem(TOKEN_KEY, accessToken);
     storage.setItem(USER_KEY, JSON.stringify(user));
   } catch (error) {
     // Storage write failures should not crash authentication flow.
@@ -243,6 +243,7 @@ export async function fetchCurrentUser() {
   if (rememberMe !== null) {
     persistSession(
       {
+        accessToken: getStoredToken(),
         user: sessionUser
       },
       rememberMe
