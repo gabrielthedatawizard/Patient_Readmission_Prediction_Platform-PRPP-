@@ -3,6 +3,12 @@
  * Express app is exported so it can run both locally and as a Vercel function.
  */
 
+try {
+  require('dotenv').config();
+} catch (error) {
+  // dotenv is optional in serverless deployments where env vars are injected by platform.
+}
+
 const express = require('express');
 const http = require('http');
 const { randomUUID } = require('crypto');
@@ -18,12 +24,6 @@ const chwRoutes = require('./src/routes/chw');
 const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
-
-try {
-  require('dotenv').config();
-} catch (error) {
-  // dotenv is optional in serverless deployments where env vars are injected by platform.
-}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -67,8 +67,11 @@ const allowAllOrigins = configuredOrigins.includes('*');
 const allowedOrigins = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  normalizeOrigin(process.env.FRONTEND_URL),
   ...configuredOrigins.filter((origin) => origin !== '*')
-]);
+].filter(Boolean));
 
 const vercelOrigins = [
   process.env.VERCEL_URL,

@@ -2,19 +2,37 @@ const jwt = require('jsonwebtoken');
 const { getUserById, toPublicUser } = require('../data');
 
 const DEFAULT_JWT_SECRET = 'trip-dev-secret-change-in-production';
-const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const ACCESS_TOKEN_COOKIE_NAME =
-  process.env.ACCESS_TOKEN_COOKIE_NAME || 'trip_access_token';
 
-if (
-  IS_PRODUCTION &&
-  (!process.env.JWT_SECRET ||
-    JWT_SECRET === DEFAULT_JWT_SECRET ||
-    JWT_SECRET.trim().length < 32)
-) {
-  throw new Error('JWT_SECRET must be set to a strong value in production.');
+function getJwtSecret() {
+  return process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 }
+
+function getIsProduction() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function getAccessTokenCookieName() {
+  return process.env.ACCESS_TOKEN_COOKIE_NAME || 'trip_access_token';
+}
+
+function getJwtExpiresIn() {
+  return process.env.JWT_EXPIRES_IN || process.env.JWT_EXPIRY || '8h';
+}
+
+function assertAuthConfig() {
+  const jwtSecret = getJwtSecret();
+
+  if (
+    getIsProduction() &&
+    (!process.env.JWT_SECRET ||
+      jwtSecret === DEFAULT_JWT_SECRET ||
+      jwtSecret.trim().length < 32)
+  ) {
+    throw new Error('JWT_SECRET must be set to a strong value in production.');
+  }
+}
+
+assertAuthConfig();
 
 function parseDurationToMs(rawValue) {
   if (typeof rawValue === 'number' && Number.isFinite(rawValue) && rawValue > 0) {
@@ -49,7 +67,7 @@ function getAccessTokenCookieBaseOptions() {
   const options = {
     httpOnly: true,
     sameSite,
-    secure: IS_PRODUCTION || sameSite === 'none',
+    secure: getIsProduction() || sameSite === 'none',
     path: '/'
   };
 
@@ -66,14 +84,14 @@ function getAccessTokenCookieOptions({ rememberMe = true } = {}) {
   };
 
   if (rememberMe) {
-    options.maxAge = parseDurationToMs(process.env.JWT_EXPIRES_IN || '8h');
+    options.maxAge = parseDurationToMs(getJwtExpiresIn());
   }
 
   return options;
 }
 
 function clearAccessTokenCookie(res) {
-  res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, getAccessTokenCookieBaseOptions());
+  res.clearCookie(getAccessTokenCookieName(), getAccessTokenCookieBaseOptions());
 }
 
 function parseCookies(cookieHeader) {
@@ -104,17 +122,22 @@ function parseCookies(cookieHeader) {
 }
 
 function resolveAccessTokenFromHeaders(headers = {}) {
+  const cookies = parseCookies(headers.cookie);
+  const cookieToken = cookies[getAccessTokenCookieName()];
+  if (cookieToken) {
+    return cookieToken;
+  }
+
   const authHeader = headers.authorization || headers.Authorization || '';
   if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
     return authHeader.slice(7);
   }
 
-  const cookies = parseCookies(headers.cookie);
-  return cookies[ACCESS_TOKEN_COOKIE_NAME] || null;
+  return null;
 }
 
 function verifyAccessToken(token) {
-  return jwt.verify(token, JWT_SECRET, {
+  return jwt.verify(token, getJwtSecret(), {
     algorithms: ['HS256'],
     issuer: 'trip-backend'
   });
@@ -128,10 +151,10 @@ function signAccessToken(user) {
       facilityId: user.facilityId,
       regionCode: user.regionCode
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       algorithm: 'HS256',
-      expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+      expiresIn: getJwtExpiresIn(),
       issuer: 'trip-backend'
     }
   );
@@ -171,7 +194,7 @@ async function requireAuth(req, res, next) {
 }
 
 module.exports = {
-  ACCESS_TOKEN_COOKIE_NAME,
+  ACCESS_TOKEN_COOKIE_NAME: getAccessTokenCookieName(),
   clearAccessTokenCookie,
   getAccessTokenCookieOptions,
   parseCookies,

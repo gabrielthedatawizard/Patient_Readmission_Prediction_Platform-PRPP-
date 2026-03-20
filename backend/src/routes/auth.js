@@ -89,7 +89,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   return res.json({
     accessToken,
     tokenType: 'Bearer',
-    expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+    expiresIn: process.env.JWT_EXPIRES_IN || process.env.JWT_EXPIRY || '8h',
     sessionMode: rememberMe ? 'persistent' : 'session',
     user: publicUser
   });

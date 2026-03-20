@@ -167,6 +167,7 @@ function detectRememberMePreference() {
 }
 
 async function request(path, { method = 'GET', body, token, headers: extraHeaders } = {}) {
+  const resolvedToken = token || getStoredToken();
   const headers = {
     Accept: 'application/json',
     ...(extraHeaders || {})
@@ -176,8 +177,8 @@ async function request(path, { method = 'GET', body, token, headers: extraHeader
     headers['Content-Type'] = 'application/json';
   }
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  if (resolvedToken) {
+    headers.Authorization = `Bearer ${resolvedToken}`;
   }
 
   const response = await fetch(buildApiUrl(path), {
