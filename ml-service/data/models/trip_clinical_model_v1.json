@@ -1,0 +1,30 @@
+{
+  "model_name": "TRIP Clinical Readmission Model",
+  "model_version": "trip-clinical-logit-v1",
+  "model_type": "logistic_regression_surrogate",
+  "intercept": -3.2,
+  "score_thresholds": {
+    "medium": 0.4,
+    "high": 0.7
+  },
+  "confidence_interval_width": 0.12,
+  "feature_weights": {
+    "age_scaled": 0.55,
+    "prior_admissions_6mo_scaled": 0.45,
+    "prior_admissions_12m_scaled": 0.4,
+    "length_of_stay_scaled": 0.28,
+    "charlson_index_scaled": 0.32,
+    "egfr_low_severity": 0.62,
+    "anemia_severity": 0.44,
+    "hba1c_risk": 0.3,
+    "high_bp_flag": 0.22,
+    "high_risk_medication_scaled": 0.26,
+    "icu_stay_scaled": 0.29,
+    "no_phone_access_flag": 0.38,
+    "transportation_difficulty_flag": 0.42,
+    "lives_alone_flag": 0.18,
+    "heart_failure_flag": 0.65,
+    "diabetes_flag": 0.2,
+    "ckd_flag": 0.34
+  }
+}
