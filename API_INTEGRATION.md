@@ -42,21 +42,25 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "username": "staff123",
+  "email": "clinician@trip.go.tz",
   "password": "********",
-  "facilityId": "FAC-001"
+  "rememberMe": true
 }
 
 // Response
 {
-  "token": "eyJhbGc...",
-  "refreshToken": "refresh_token",
+  "accessToken": "eyJhbGc...",
+  "tokenType": "Bearer",
+  "expiresIn": "8h",
+  "sessionMode": "persistent",
   "user": {
-    "id": "USER-001",
-    "name": "Dr. Samwel Mhagama",
+    "id": "USR-0002",
+    "email": "clinician@trip.go.tz",
+    "fullName": "clinician Demo User",
     "role": "clinician",
-    "facility": "FAC-001",
-    "permissions": ["view_patients", "discharge_patients"]
+    "facilityId": "FAC-ARH-001",
+    "regionCode": "ARU",
+    "mfaEnabled": false
   }
 }
 ```
@@ -294,7 +298,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const apiClient = {
   async get(endpoint, options = {}) {
-    const token = localStorage.getItem('authToken');
+    const token =
+      localStorage.getItem('trip_access_token') ||
+      sessionStorage.getItem('trip_access_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
@@ -312,7 +318,9 @@ export const apiClient = {
   },
 
   async post(endpoint, data, options = {}) {
-    const token = localStorage.getItem('authToken');
+    const token =
+      localStorage.getItem('trip_access_token') ||
+      sessionStorage.getItem('trip_access_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -405,7 +413,8 @@ export class APIError extends Error {
 export const handleAPIError = (error) => {
   if (error.status === 401) {
     // Unauthorized - redirect to login
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('trip_access_token');
+    sessionStorage.removeItem('trip_access_token');
     window.location.href = '/login';
   } else if (error.status === 403) {
     // Forbidden - show permission error
@@ -423,48 +432,55 @@ export const handleAPIError = (error) => {
 ```javascript
 // src/utils/auth.js
 export const authService = {
-  async login(username, password, facilityId) {
+  async login(email, password, rememberMe = true) {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, facilityId })
+      credentials: 'include',
+      body: JSON.stringify({ email, password, rememberMe })
     });
     
     const data = await response.json();
     
     if (response.ok) {
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('trip_access_token', data.accessToken);
+      storage.setItem('trip_session_user', JSON.stringify(data.user));
       return data.user;
     } else {
       throw new Error(data.message || 'Login failed');
     }
   },
 
-  async refreshToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+  async getCurrentUser() {
+    const token =
+      localStorage.getItem('trip_access_token') ||
+      sessionStorage.getItem('trip_access_token');
+
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
-    
+
     const data = await response.json();
-    localStorage.setItem('authToken', data.token);
-    return data.token;
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to fetch current user');
+    }
+
+    return data.user;
   },
 
-  logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  },
+  async logout() {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(() => undefined);
 
-  getCurrentUser() {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    localStorage.removeItem('trip_access_token');
+    localStorage.removeItem('trip_session_user');
+    sessionStorage.removeItem('trip_access_token');
+    sessionStorage.removeItem('trip_session_user');
   }
 };
 ```
@@ -517,8 +533,8 @@ export class WebSocketClient {
 }
 
 // Usage
-const ws = new WebSocketClient('ws://localhost:8000/ws');
-ws.connect(authToken);
+const ws = new WebSocketClient('ws://localhost:5000');
+ws.connect(accessToken);
 ws.on('risk_update', (data) => {
   console.log('Risk score updated:', data);
 });

@@ -1,223 +1,136 @@
 # TRIP Platform - Quick Start Guide
 
-## 🎯 What is TRIP?
+## What is TRIP?
 
-The **Tanzania Readmission Intelligence Platform (TRIP)** is a comprehensive, AI-powered healthcare dashboard designed to predict and prevent 30-day hospital readmissions across Tanzania's health system.
+TRIP is the Tanzania Readmission Intelligence Platform: a full-stack healthcare decision-support app for readmission risk scoring, discharge coordination, operational dashboards, and follow-up planning.
 
-## 📦 What's Included
+## What You Get
 
-This package contains a **complete, production-ready React application** with:
+- React 18 + Vite frontend at the repo root
+- Express backend in `backend/`
+- Vercel serverless wrapper in `api/index.js`
+- Role-aware dashboards for MoH, RHMT, CHMT, facility, clinical, and CHW users
+- English and Swahili localization
+- Offline caching and sync queue support
+- Memory mode for demos, plus optional Prisma/PostgreSQL mode
 
-✅ **10 User Roles** - From MoH National Admin to Community Health Workers  
-✅ **AI Risk Prediction** - 0-100 risk scores with explainable AI  
-✅ **6-Step Discharge Workflow** - Clinical readiness to follow-up  
-✅ **Multi-Level Dashboards** - National, Regional, District, Facility  
-✅ **Real Tanzania Data** - Authentic facilities, regions, sample patients  
-✅ **Swahili + English** - Full localization support  
-✅ **Design System** - Professional clinical color palette  
-✅ **Complete Documentation** - Setup, API integration, deployment guides  
+## Get Started in 3 Steps
 
-## 🚀 Get Started in 3 Steps
-
-### Step 1: Install Dependencies
+### 1. Install dependencies
 
 ```bash
-cd trip-platform
 npm install
+cd backend && npm install
 ```
 
-### Step 2: Set Up Environment
+### 2. Set up environment files
 
 ```bash
 cp .env.example .env
-# Edit .env if needed (works with defaults for demo)
+cp backend/.env.example backend/.env
 ```
 
-### Step 3: Run the Application
+The default local setup uses:
+
+- Frontend on `http://localhost:3000`
+- Backend on `http://localhost:5000`
+- `TRIP_DATA_PROVIDER=memory` for demo data and seeded users
+
+### 3. Run the app
+
+Terminal 1:
 
 ```bash
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Terminal 2:
 
-## 🎨 Explore Different Roles
-
-On the login screen, select different roles to see customized views:
-
-- **Facility Manager** → Facility operations dashboard
-- **Clinician** → Patient risk prediction & discharge planning
-- **MoH National Admin** → National oversight and policy KPIs
-- **Community Health Worker** → Mobile-friendly follow-up tasks
-
-## 📂 Project Structure
-
-```
-trip-platform/
-├── src/
-│   ├── components/          # All React components
-│   │   ├── common/          # Reusable UI components
-│   │   ├── auth/            # Login & authentication
-│   │   ├── dashboard/       # Dashboard views
-│   │   ├── patient/         # Patient management
-│   │   ├── discharge/       # Discharge workflow
-│   │   └── analytics/       # Reports & analytics
-│   ├── data/               # Sample Tanzania data
-│   ├── config/             # Design system & translations
-│   ├── hooks/              # Custom React hooks
-│   └── utils/              # Helper functions
-├── docs/                   # Complete documentation
-└── public/                 # Static assets
+```bash
+cd backend
+npm start
 ```
 
-## 🎯 Key Features to Explore
+Open [http://localhost:3000](http://localhost:3000).
 
-### 1. Dashboard (Home Screen)
-- KPI cards with trends
-- Today's high-risk discharges
-- Action queue with priority items
-- Risk distribution visualization
+## Demo Accounts
 
-### 2. Patient Detail View
-- Click any patient to see:
-  - Risk score with visual indicator
-  - AI explanation ("Why this risk?")
-  - Top risk factors with weights
-  - Recommended interventions
-  - Clinical history timeline
+In memory mode, demo users are available as `<role>@trip.go.tz` with password `Trip@2026`.
 
-### 3. Discharge Workflow
-- 6-step guided process
-- Clinical readiness checklist
-- Medication reconciliation
-- Patient education
-- Follow-up scheduling
+Examples:
 
-### 4. Analytics
-- Facility benchmarking
-- Performance comparisons
-- Model performance metrics
-- Export to PDF/CSV
+- `moh@trip.go.tz`
+- `clinician@trip.go.tz`
+- `facility_manager@trip.go.tz`
+- `chw@trip.go.tz`
 
-## 🌍 Localization
+## Explore Different Roles
 
-Toggle between English and Swahili using the language selector in the top navigation bar.
+- Facility Manager: facility operations and task oversight
+- Clinician: patient risk prediction and discharge planning
+- MoH National Admin: national KPIs and analytics
+- CHW: mobile-friendly follow-up workflow
 
-## 🎨 Design System
+## Current Repository Layout
 
-The platform uses a professional clinical design system:
+```text
+.
+├── api/                    # Vercel function entry
+├── backend/                # Express API + Prisma + tests
+├── public/                 # Static assets
+├── src/                    # Frontend source
+├── README.md               # Project overview
+├── SETUP.md                # Detailed setup guide
+├── API_INTEGRATION.md      # Integration guide
+├── DEPLOYMENT.md           # Deployment guide
+└── ORGANIZATION_GUIDE.md   # Repo layout guide
+```
 
-- **Primary Color**: Teal (#00A6A6) - Medical professionalism
-- **Risk Colors**: 
-  - 🟢 Low: Emerald
-  - 🟡 Medium: Amber  
-  - 🔴 High: Red
-- **Typography**: Clear hierarchy, accessible contrast
-- **Components**: Glass morphism, gradient accents, subtle animations
+## Backend Integration
 
-## 📱 Responsive Design
+The frontend is already wired to the backend through:
 
-- **Desktop**: Full feature set (recommended)
-- **Tablet**: Optimized layouts
-- **Mobile**: CHW module is mobile-friendly
+- `src/services/runtimeConfig.js`
+- `src/services/apiClient.js`
+- `src/services/websocket.js`
 
-## 🔌 Backend Integration
+For local development, set `VITE_API_URL=http://localhost:5000/api` in `.env`.
 
-The frontend is ready to connect to backend APIs. See:
-- `docs/API_INTEGRATION.md` - API endpoints and integration guide
-- `src/utils/api.js` - API client template
-- `.env.example` - Configuration options
-
-Currently using **mock data** for demo purposes (set `VITE_MOCK_API=true`).
-
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |----------|-------------|
-| `README.md` | Complete project overview |
-| `docs/SETUP.md` | Detailed installation guide |
-| `docs/API_INTEGRATION.md` | Backend integration |
-| `docs/FILE_STRUCTURE.md` | Directory organization |
-| `docs/DEPLOYMENT.md` | Production deployment |
+| `README.md` | Overview, stack, and scripts |
+| `SETUP.md` | Detailed local setup |
+| `API_INTEGRATION.md` | API and client integration guidance |
+| `DEPLOYMENT.md` | Vercel deployment notes |
+| `ORGANIZATION_GUIDE.md` | Current repo layout and responsibilities |
 
-## 🛠️ Available Scripts
+## Available Scripts
+
+Root:
 
 ```bash
-npm start          # Start development server
-npm run build      # Create production build
-npm test           # Placeholder (no frontend tests configured yet)
-npm run lint       # Check code quality
-npm run format     # Format code with Prettier
+npm start
+npm run build
+npm run lint
+npm run format
 ```
 
-## 🎓 Learning Path
+Backend:
 
-**For Developers:**
-1. Start with `src/components/common/` to understand reusable components
-2. Explore `src/data/` to see Tanzania health system data structure
-3. Review `src/config/colors.js` for the design system
-4. Check `docs/API_INTEGRATION.md` to connect to real backend
+```bash
+cd backend
+npm start
+npm test
+npm run test:e2e:prisma
+```
 
-**For Designers:**
-1. Review `src/config/colors.js` for color palette
-2. Explore components in `src/components/common/`
-3. Check `src/index.css` for global styles
-4. See the live demo at `http://localhost:3000`
+## Notes
 
-**For Health IT Administrators:**
-1. Review role-based access in login screen
-2. Explore different dashboards by role
-3. Check `docs/DEPLOYMENT.md` for production setup
-4. Review `.env.example` for configuration options
-
-## 🔐 Security & Compliance
-
-- **Role-Based Access Control** - 10 distinct roles with permissions
-- **Audit Trails** - All actions logged (UI ready)
-- **Data Privacy** - Privacy notices and consent management
-- **AI Transparency** - "Decision Support, Not Diagnosis" disclaimers
-- **SSO/MFA Ready** - Enterprise authentication support
-
-## 🌟 Tanzania Health System Integration
-
-The platform reflects Tanzania's real health system:
-- National → Regional → District → Facility hierarchy
-- Real facility names (Muhimbili, Bugando, KCMC, etc.)
-- Tanzania regions and districts
-- DHIS2 integration-ready
-- Swahili localization
-
-## 🤝 Contributing
-
-This is a Ministry of Health initiative. Contributions welcome from:
-- Healthcare providers (clinical workflow feedback)
-- Developers (code improvements)
-- Researchers (AI/ML enhancements)
-
-## 📞 Support
-
-- **Documentation**: Check `docs/` folder first
-- **Issues**: GitHub Issues (when repository is public)
-- **Email**: trip-support@moh.go.tz
-
-## 🎉 Next Steps
-
-1. **Explore the Demo** - Try different user roles
-2. **Customize Colors** - Edit `src/config/colors.js`
-3. **Add Your Data** - Update `src/data/facilities.js`
-4. **Connect Backend** - See `docs/API_INTEGRATION.md`
-5. **Deploy** - Follow `docs/DEPLOYMENT.md`
-
-## 💡 Tips
-
-- Use Chrome DevTools (F12) to inspect components
-- Check the Console for any errors
-- Modify `src/data/patients.js` to add test cases
-- Toggle between EN/SW to test localization
-
----
-
-**Built with ❤️ for Tanzania's Healthcare System**
+- `npm test` at the repo root is still a placeholder; frontend automated tests are not configured yet.
+- Prisma mode requires `DATABASE_URL` and `TRIP_DATA_PROVIDER=prisma` in `backend/.env`.
+- The backend health check is available at `http://localhost:5000/api/health`.
 
 *Reducing readmissions through intelligent technology*
 

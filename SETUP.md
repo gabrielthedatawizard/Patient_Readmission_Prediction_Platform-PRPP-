@@ -2,229 +2,167 @@
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, make sure you have:
 
-- **Node.js**: Version 20.19+ (or newer LTS)
-- **npm**: Version 9.0.0 or higher (comes with Node.js)
-- **Git**: For version control
-- **Modern Web Browser**: Chrome, Firefox, Safari, or Edge (latest version)
+- Node.js `20.19+`
+- npm `9+`
+- Git
 
 ### Verify Installation
 
 ```bash
-node --version  # Should show v20.19+ or newer
-npm --version   # Should show 9.0.0 or higher
-git --version   # Should show any recent version
+node --version
+npm --version
+git --version
 ```
 
-## Installation Steps
+## Installation
 
-### 1. Clone the Repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/moh-tanzania/trip-platform.git
 cd trip-platform
 ```
 
-### 2. Install Dependencies
+### 2. Install dependencies
 
 ```bash
 npm install
+cd backend && npm install
 ```
 
-This will install all required packages including:
-- React and React DOM
-- Lucide React (icons)
-- Recharts (charting)
-- Date-fns (date utilities)
-- Tailwind CSS (styling)
-- And more...
+### 3. Configure environment files
 
-### 3. Environment Configuration
-
-Copy the example environment file:
+Frontend:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and configure the following variables:
+Recommended local frontend env:
 
 ```env
-# API Configuration
-VITE_API_URL=http://localhost:8000/api
-VITE_ML_API_URL=http://localhost:8001/api
-
-# Authentication
-VITE_SSO_ENABLED=false
-VITE_SSO_PROVIDER=keycloak
-VITE_SSO_URL=
-
-# Feature Flags
-VITE_ENABLE_OFFLINE=true
-VITE_ENABLE_CHW_MODULE=true
-VITE_ENABLE_MODEL_OPS=true
-
-# Analytics
-VITE_ANALYTICS_ID=
-
-# Map Configuration (for facility maps)
-VITE_MAP_API_KEY=
+VITE_API_URL=http://localhost:5000/api
+VITE_WS_URL=ws://localhost:5000
+PORT=3000
 ```
 
-### 4. Start Development Server
+Backend:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Recommended local backend env:
+
+```env
+NODE_ENV=development
+PORT=5000
+TRIP_DATA_PROVIDER=memory
+JWT_SECRET=change-me-for-production
+JWT_EXPIRES_IN=8h
+FRONTEND_URL=http://localhost:3000
+CORS_ORIGIN=http://localhost:3000
+```
+
+If you want persistent data instead of demo memory mode, also set:
+
+```env
+DATABASE_URL=postgresql://trip_user:trip_password@localhost:5432/trip_platform?schema=public
+TRIP_DATA_PROVIDER=prisma
+```
+
+## Running the App
+
+Terminal 1:
 
 ```bash
 npm start
 ```
 
-The application will automatically open in your default browser at:
-```
-http://localhost:3000
+Terminal 2:
+
+```bash
+cd backend
+npm start
 ```
 
-## Build for Production
+Local URLs:
 
-### Create Production Build
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:5000`
+- Health check: `http://localhost:5000/api/health`
+
+## Verification
+
+Frontend:
 
 ```bash
 npm run build
+npm run lint
 ```
 
-This creates an optimized production build in the `build/` directory.
-
-### Preview Production Build
+Backend:
 
 ```bash
-npm run preview
-```
-
-## Development Workflow
-
-### Running Tests
-
-```bash
-# Run all tests
+cd backend
 npm test
 ```
 
-### Code Quality
+Prisma-backed verification:
 
 ```bash
-# Lint code
-npm run lint
-
-# Format code
-npm run format
+cd backend
+npm run phase2:verify
 ```
 
-## Project Structure Overview
+## Current Project Structure
 
-```
-trip-platform/
-├── public/              # Static files
-├── src/
-│   ├── components/      # React components
-│   │   ├── common/      # Reusable components
-│   │   ├── auth/        # Authentication
-│   │   ├── dashboard/   # Dashboard views
-│   │   ├── patient/     # Patient management
-│   │   ├── discharge/   # Discharge workflow
-│   │   └── analytics/   # Analytics & reports
-│   ├── data/           # Sample data
-│   ├── hooks/          # Custom hooks
-│   ├── utils/          # Utility functions
-│   ├── config/         # Configuration
-│   └── styles/         # Global styles
-└── docs/               # Documentation
+```text
+.
+├── api/                    # Vercel wrapper for backend
+├── backend/                # Express API, Prisma, tests
+├── public/                 # Static assets
+├── src/                    # React frontend
+├── README.md
+├── QUICK_START.md
+├── SETUP.md
+├── API_INTEGRATION.md
+├── DEPLOYMENT.md
+└── ORGANIZATION_GUIDE.md
 ```
 
-## Common Issues & Solutions
+## Common Issues
 
-### Issue: Port 3000 is already in use
+### Node version is too old
 
-**Solution:**
+TRIP uses Vite 7, which requires Node `20.19+`. If `npm run build` fails with a Node version message, upgrade Node first.
+
+### Port 3000 or 5000 is already in use
+
+Stop the conflicting process or launch the frontend with a different port:
+
 ```bash
-# Kill the process using port 3000
-lsof -ti:3000 | xargs kill -9
-
-# Or use a different port
 npm run dev -- --port 3001
 ```
 
-### Issue: Module not found errors
+### Prisma tests fail immediately
 
-**Solution:**
-```bash
-# Clear cache and reinstall
-rm -rf node_modules package-lock.json
-npm install
-```
+Make sure `DATABASE_URL` is set and points to a reachable PostgreSQL instance before running Prisma migrations or e2e tests.
 
-### Issue: Styling not appearing correctly
+## Notes
 
-**Solution:**
-```bash
-# Restart the dev server to reload Vite and Tailwind
-npm start
-```
-
-## Browser Compatibility
-
-TRIP is tested and supported on:
-
-- **Chrome**: Version 90+
-- **Firefox**: Version 88+
-- **Safari**: Version 14+
-- **Edge**: Version 90+
-
-## Mobile Development
-
-For testing mobile-responsive features:
-
-1. Open Chrome DevTools (F12)
-2. Click the device toolbar icon (Ctrl+Shift+M)
-3. Select a mobile device or set custom dimensions
-
-## Troubleshooting
-
-### Clear Browser Cache
-
-Sometimes cached files can cause issues:
-
-1. Open DevTools (F12)
-2. Right-click the refresh button
-3. Select "Empty Cache and Hard Reload"
-
-### Check Console for Errors
-
-1. Open DevTools (F12)
-2. Go to Console tab
-3. Look for error messages (red text)
-
-### Verify Node Version
-
-```bash
-node --version
-# If version is below 20.19, upgrade Node.js
-```
-
-## Next Steps
-
-After successful setup:
-
-1. **Explore the Demo**: Use the role selector to see different views
-2. **Read the Documentation**: Check `docs/USER_GUIDE.md`
-3. **Review Components**: Explore `src/components/`
-4. **Customize**: Modify colors in `src/config/colors.js`
-5. **Integrate Backend**: See `docs/API_INTEGRATION.md`
+- Root `npm test` is still a placeholder; frontend automated tests are not configured yet.
+- Memory mode is the simplest local setup and includes seeded demo users and patients.
+- The backend accepts both `JWT_EXPIRES_IN` and the legacy `JWT_EXPIRY`, but `JWT_EXPIRES_IN` is the preferred setting going forward.
 
 ## Getting Help
 
 If you encounter issues:
 
 1. Check this documentation
-2. Review `docs/` folder for more guides
+2. Review the root documentation files such as `README.md`, `API_INTEGRATION.md`, and `DEPLOYMENT.md`
 3. Search GitHub Issues
 4. Contact: trip-support@moh.go.tz
 
@@ -250,7 +188,7 @@ Follow these patterns:
 
 ## Production Deployment
 
-See `docs/DEPLOYMENT.md` for detailed deployment instructions for:
+See `DEPLOYMENT.md` for detailed deployment instructions for:
 - Government servers (on-premise)
 - Cloud platforms (AWS, Azure, GCP)
 - Docker containerization
