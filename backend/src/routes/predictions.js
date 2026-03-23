@@ -10,6 +10,7 @@ const {
   createTasks,
   getPatientForUser,
   listPatientsForUser,
+  listVisitsForPatient,
   getVisitForUser,
   listPredictionsForPatient,
   updatePredictionOverrideForUser
@@ -20,6 +21,7 @@ const { logAudit } = require('../services/auditService');
 const { generatePrediction } = require('../services/mlService');
 const { dispatchRiskAlert } = require('../services/notificationService');
 const { extractDischargeSummary } = require('../services/nlpService');
+const { buildPredictionFeatures } = require('../services/predictionFeatureBuilder');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -105,43 +107,45 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     });
   }
 
-  const mergedFeatures = {
-    ...(patient.clinicalProfile || {}),
-    ...(visit
-      ? {
-          diagnosis: visit.diagnosis,
-          lengthOfStay: visit.lengthOfStay,
-          lengthOfStayDays: visit.lengthOfStay
-        }
-      : {}),
-    ...(req.body.features || {})
-  };
-
-  const result = await generatePrediction(visit?.id || patient.id, {
-    ...mergedFeatures,
-    requestUserId: req.user.id
+  const visits = await listVisitsForPatient(req.user, patient.id);
+  const { modelFeatures, featureSnapshot, analysisSummary } = buildPredictionFeatures({
+    patient,
+    visit,
+    visits,
+    requestFeatures: req.body.features || {}
   });
+
+  const result = await generatePrediction(visit?.id || patient.id, modelFeatures);
 
   const prediction = await createPrediction({
     patientId: patient.id,
     visitId: visit?.id || null,
     facilityId: patient.facilityId,
     score: result.score,
+    probability: result.probability,
     tier: result.tier,
     confidence: result.confidence,
     confidenceInterval: result.confidenceInterval,
     modelVersion: result.modelVersion,
     modelType: result.modelType,
+    method: result.method || (result.fallbackUsed ? 'rules' : 'ml'),
     fallbackUsed: result.fallbackUsed,
     factors: result.factors,
     explanation: result.explanation,
     dataQuality: result.dataQuality,
+    featureSnapshot,
+    analysisSummary,
     createdBy: req.user.id
   });
   const responsePrediction = {
     ...prediction,
-    method: result.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
-    probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+    method: prediction.method || result.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+    probability:
+      prediction.probability !== undefined && prediction.probability !== null
+        ? prediction.probability
+        : Number((Number(prediction.score || 0) / 100).toFixed(3)),
+    featureSnapshot,
+    analysisSummary
   };
 
   const tasksToCreate = buildInterventionTasks({
@@ -161,7 +165,9 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
       tier: prediction.tier,
       score: prediction.score,
       fallbackUsed: prediction.fallbackUsed,
-      method: responsePrediction.method
+      method: responsePrediction.method,
+      probability: responsePrediction.probability,
+      analysisSummary
     }
   });
 
@@ -249,8 +255,11 @@ router.get('/results/:patientId', requirePermission('predictions:read'), asyncHa
     count: predictions.length,
     predictions: predictions.map((prediction) => ({
       ...prediction,
-      method: prediction.fallbackUsed ? 'rules' : 'ml',
-      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+      method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+      probability:
+        prediction.probability !== undefined && prediction.probability !== null
+          ? prediction.probability
+          : Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
   });
 }));
@@ -263,8 +272,11 @@ router.get('/history/:patientId', requirePermission('predictions:read'), asyncHa
     count: predictions.length,
     predictions: predictions.map((prediction) => ({
       ...prediction,
-      method: prediction.fallbackUsed ? 'rules' : 'ml',
-      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+      method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+      probability:
+        prediction.probability !== undefined && prediction.probability !== null
+          ? prediction.probability
+          : Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
   });
 }));
@@ -296,8 +308,11 @@ router.get('/recent', requirePermission('predictions:read'), asyncHandler(async 
     .slice(0, limit)
     .map((prediction) => ({
       ...prediction,
-      method: prediction.fallbackUsed ? 'rules' : 'ml',
-      probability: Number((Number(prediction.score || 0) / 100).toFixed(3))
+      method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+      probability:
+        prediction.probability !== undefined && prediction.probability !== null
+          ? prediction.probability
+          : Number((Number(prediction.score || 0) / 100).toFixed(3))
     }));
 
   return res.json({

@@ -142,6 +142,23 @@ const visits = [
     admissionDate: '2026-02-10T08:00:00.000Z',
     dischargeDate: null,
     diagnosis: 'I50.9',
+    diagnoses: ['I50.9', 'N18.3'],
+    medications: ['Furosemide', 'Spironolactone', 'Warfarin'],
+    labResults: {
+      egfr: 52,
+      hemoglobin: 9.6,
+      hba1c: 8.9
+    },
+    vitalSigns: {
+      bpSystolic: 148,
+      bpDiastolic: 92
+    },
+    socialFactors: {
+      phoneAccess: true,
+      transportationDifficulty: true,
+      livesAlone: false
+    },
+    dischargeDisposition: null,
     ward: 'Medical Ward B',
     lengthOfStay: 9,
     createdAt: new Date().toISOString(),
@@ -154,6 +171,23 @@ const visits = [
     admissionDate: '2026-02-22T09:30:00.000Z',
     dischargeDate: null,
     diagnosis: 'E11.9',
+    diagnoses: ['E11.9'],
+    medications: ['Metformin'],
+    labResults: {
+      egfr: 82,
+      hemoglobin: 12.5,
+      hba1c: 7.2
+    },
+    vitalSigns: {
+      bpSystolic: 130,
+      bpDiastolic: 85
+    },
+    socialFactors: {
+      phoneAccess: true,
+      transportationDifficulty: false,
+      livesAlone: false
+    },
+    dischargeDisposition: null,
     ward: 'Medical Ward A',
     lengthOfStay: 4,
     createdAt: new Date().toISOString(),
@@ -166,8 +200,48 @@ const visits = [
     admissionDate: '2026-02-18T11:00:00.000Z',
     dischargeDate: null,
     diagnosis: 'I10',
+    diagnoses: ['I10', 'N18.3'],
+    medications: ['Amlodipine', 'Furosemide'],
+    labResults: {
+      hemoglobin: 10.1
+    },
+    vitalSigns: {},
+    socialFactors: {
+      phoneAccess: false,
+      transportationDifficulty: true,
+      livesAlone: true
+    },
+    dischargeDisposition: null,
     ward: 'Internal Medicine',
     lengthOfStay: 11,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'VIS-TRIP-DEMO-0004',
+    patientId: 'PT-2026-0001',
+    facilityId: 'FAC-MNH-001',
+    admissionDate: '2025-12-03T10:30:00.000Z',
+    dischargeDate: '2025-12-08T14:00:00.000Z',
+    diagnosis: 'I50.9',
+    diagnoses: ['I50.9'],
+    medications: ['Furosemide'],
+    labResults: {
+      egfr: 56,
+      hemoglobin: 10.4
+    },
+    vitalSigns: {
+      bpSystolic: 150,
+      bpDiastolic: 88
+    },
+    socialFactors: {
+      phoneAccess: true,
+      transportationDifficulty: false,
+      livesAlone: false
+    },
+    dischargeDisposition: 'home',
+    ward: 'Medical Ward B',
+    lengthOfStay: 5,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -296,6 +370,18 @@ function getVisitForUser(user, visitId) {
   return visit;
 }
 
+function listVisitsForPatient(user, patientId) {
+  const patient = getPatientForUser(user, patientId);
+
+  if (!patient) {
+    return [];
+  }
+
+  return visits
+    .filter((visit) => visit.patientId === patientId)
+    .sort((left, right) => new Date(right.admissionDate).getTime() - new Date(left.admissionDate).getTime());
+}
+
 function createPatientForUser(user, payload) {
   const facilityId = payload.facilityId || user.facilityId;
 
@@ -378,6 +464,41 @@ function updatePatientForUser(user, patientId, payload) {
   return patient;
 }
 
+function createVisitForUser(user, patientId, payload = {}) {
+  const patient = getPatientForUser(user, patientId);
+
+  if (!patient) {
+    return null;
+  }
+
+  const facilityId = payload.facilityId || patient.facilityId;
+  if (!canAccessFacility(user, facilityId)) {
+    throw new Error('You do not have access to create an encounter in this facility.');
+  }
+
+  const visit = {
+    id: payload.id || randomUUID(),
+    patientId,
+    facilityId,
+    admissionDate: payload.admissionDate,
+    dischargeDate: payload.dischargeDate || null,
+    diagnosis: payload.diagnosis,
+    diagnoses: payload.diagnoses || [],
+    medications: payload.medications || [],
+    labResults: payload.labResults || null,
+    vitalSigns: payload.vitalSigns || null,
+    socialFactors: payload.socialFactors || null,
+    dischargeDisposition: payload.dischargeDisposition || null,
+    ward: payload.ward || 'General',
+    lengthOfStay: payload.lengthOfStay ?? null,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+
+  visits.unshift(visit);
+  return visit;
+}
+
 function createPrediction(entry) {
   const prediction = {
     id: entry.id || randomUUID(),
@@ -385,15 +506,22 @@ function createPrediction(entry) {
     visitId: entry.visitId || null,
     facilityId: entry.facilityId,
     score: entry.score,
+    probability:
+      entry.probability !== undefined && entry.probability !== null
+        ? entry.probability
+        : Number((Number(entry.score || 0) / 100).toFixed(3)),
     tier: entry.tier,
     confidence: entry.confidence,
     confidenceInterval: entry.confidenceInterval,
     modelVersion: entry.modelVersion,
     modelType: entry.modelType,
+    method: entry.method || (entry.fallbackUsed ? 'rules' : 'ml'),
     fallbackUsed: Boolean(entry.fallbackUsed),
     factors: entry.factors || [],
     explanation: entry.explanation || null,
     dataQuality: entry.dataQuality || null,
+    featureSnapshot: entry.featureSnapshot || null,
+    analysisSummary: entry.analysisSummary || null,
     createdBy: entry.createdBy || null,
     generatedAt: nowIso(),
     override: null
@@ -820,8 +948,10 @@ module.exports = {
   getPatientForUser,
   getVisitById,
   getVisitForUser,
+  listVisitsForPatient,
   createPatientForUser,
   updatePatientForUser,
+  createVisitForUser,
   createPrediction,
   getPredictionForUser,
   listPredictionsForPatient,

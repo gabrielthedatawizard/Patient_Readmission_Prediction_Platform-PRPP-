@@ -6,7 +6,7 @@ TRIP is a healthcare decision-support platform focused on reducing preventable 3
 
 - Frontend: React 18 + Vite + Tailwind (`src/`)
 - Backend API: Express (`backend/`), deployed as Vercel Function via `api/index.js`
-- Data mode: In-memory by default, Prisma/PostgreSQL ready in backend
+- Data mode: Prisma/PostgreSQL ready for Supabase-backed deployments
 - Deployment: Vercel (`vercel.json`)
 
 ## Core Features
@@ -104,6 +104,10 @@ This repo is configured for full-stack deployment on Vercel:
 Required Vercel environment variables:
 - `NODE_ENV=production`
 - `JWT_SECRET=<strong-random-secret>`
+- `TRIP_DATA_PROVIDER=prisma`
+- `TRIP_STRICT_DATA_PROVIDER=true`
+- `DATABASE_URL=<supabase pooled url>`
+- `DIRECT_URL=<supabase direct url>`
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for the detailed flow.
 

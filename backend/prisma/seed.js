@@ -234,6 +234,7 @@ async function seedPatients() {
         address: patient.address,
         insurance: patient.insurance,
         status: patient.status,
+        clinicalProfile: patient.clinicalProfile,
         facilityId: patient.facilityId
       },
       create: patient
@@ -259,6 +260,23 @@ async function seedClinicalRecords() {
       facilityId: 'FAC-MNH-001',
       admissionDate: new Date('2026-02-10T08:00:00Z'),
       diagnosis: 'I50.9',
+      diagnoses: ['I50.9', 'N18.3'],
+      medications: ['Furosemide', 'Spironolactone', 'Warfarin'],
+      labResults: {
+        egfr: 52,
+        hemoglobin: 9.6,
+        hba1c: 8.9
+      },
+      vitalSigns: {
+        bpSystolic: 148,
+        bpDiastolic: 92
+      },
+      socialFactors: {
+        phoneAccess: true,
+        transportationDifficulty: true,
+        livesAlone: false
+      },
+      dischargeDisposition: null,
       ward: 'Medical Ward B',
       lengthOfStay: 9
     },
@@ -268,8 +286,80 @@ async function seedClinicalRecords() {
       facilityId: 'FAC-MNH-001',
       admissionDate: new Date('2026-02-10T08:00:00Z'),
       diagnosis: 'I50.9',
+      diagnoses: ['I50.9', 'N18.3'],
+      medications: ['Furosemide', 'Spironolactone', 'Warfarin'],
+      labResults: {
+        egfr: 52,
+        hemoglobin: 9.6,
+        hba1c: 8.9
+      },
+      vitalSigns: {
+        bpSystolic: 148,
+        bpDiastolic: 92
+      },
+      socialFactors: {
+        phoneAccess: true,
+        transportationDifficulty: true,
+        livesAlone: false
+      },
+      dischargeDisposition: null,
       ward: 'Medical Ward B',
       lengthOfStay: 9
+    }
+  });
+
+  await prisma.visit.upsert({
+    where: { id: 'VIS-TRIP-DEMO-0004' },
+    update: {
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      admissionDate: new Date('2025-12-03T10:30:00Z'),
+      dischargeDate: new Date('2025-12-08T14:00:00Z'),
+      diagnosis: 'I50.9',
+      diagnoses: ['I50.9'],
+      medications: ['Furosemide'],
+      labResults: {
+        egfr: 56,
+        hemoglobin: 10.4
+      },
+      vitalSigns: {
+        bpSystolic: 150,
+        bpDiastolic: 88
+      },
+      socialFactors: {
+        phoneAccess: true,
+        transportationDifficulty: false,
+        livesAlone: false
+      },
+      dischargeDisposition: 'home',
+      ward: 'Medical Ward B',
+      lengthOfStay: 5
+    },
+    create: {
+      id: 'VIS-TRIP-DEMO-0004',
+      patientId: 'PT-2026-0001',
+      facilityId: 'FAC-MNH-001',
+      admissionDate: new Date('2025-12-03T10:30:00Z'),
+      dischargeDate: new Date('2025-12-08T14:00:00Z'),
+      diagnosis: 'I50.9',
+      diagnoses: ['I50.9'],
+      medications: ['Furosemide'],
+      labResults: {
+        egfr: 56,
+        hemoglobin: 10.4
+      },
+      vitalSigns: {
+        bpSystolic: 150,
+        bpDiastolic: 88
+      },
+      socialFactors: {
+        phoneAccess: true,
+        transportationDifficulty: false,
+        livesAlone: false
+      },
+      dischargeDisposition: 'home',
+      ward: 'Medical Ward B',
+      lengthOfStay: 5
     }
   });
 
@@ -280,6 +370,7 @@ async function seedClinicalRecords() {
       facilityId: 'FAC-MNH-001',
       generatedById: clinician.id,
       score: 78,
+      probability: 0.78,
       tier: RiskTier.High,
       factors: [
         { factor: 'Frequent prior admissions', weight: 0.29 },
@@ -292,8 +383,31 @@ async function seedClinicalRecords() {
       confidenceHigh: 88,
       modelVersion: 'trip-rules-xgb-surrogate-v1',
       modelType: 'xgboost_surrogate',
+      method: 'ml',
       fallbackUsed: false,
       dataQuality: { completeness: 0.9, missingCriticalFields: [], imputedValues: {} },
+      featureSnapshot: {
+        encounter: {
+          diagnosis: 'I50.9',
+          diagnoses: ['I50.9', 'N18.3'],
+          lengthOfStayDays: 9
+        },
+        utilization: {
+          priorAdmissions6mo: 1,
+          priorAdmissions12m: 3
+        },
+        labs: {
+          egfr: 52,
+          hemoglobin: 9.6,
+          hba1c: 8.9
+        }
+      },
+      analysisSummary: {
+        labAbnormalities: ['reduced_kidney_function', 'anemia'],
+        socialRiskFactors: ['transport_barrier'],
+        medicationRiskProfile: 'high',
+        utilizationRiskProfile: 'high'
+      },
       generatedAt: new Date('2026-02-19T09:15:00Z')
     },
     create: {
@@ -302,6 +416,7 @@ async function seedClinicalRecords() {
       facilityId: 'FAC-MNH-001',
       generatedById: clinician.id,
       score: 78,
+      probability: 0.78,
       tier: RiskTier.High,
       factors: [
         { factor: 'Frequent prior admissions', weight: 0.29 },
@@ -314,8 +429,31 @@ async function seedClinicalRecords() {
       confidenceHigh: 88,
       modelVersion: 'trip-rules-xgb-surrogate-v1',
       modelType: 'xgboost_surrogate',
+      method: 'ml',
       fallbackUsed: false,
       dataQuality: { completeness: 0.9, missingCriticalFields: [], imputedValues: {} },
+      featureSnapshot: {
+        encounter: {
+          diagnosis: 'I50.9',
+          diagnoses: ['I50.9', 'N18.3'],
+          lengthOfStayDays: 9
+        },
+        utilization: {
+          priorAdmissions6mo: 1,
+          priorAdmissions12m: 3
+        },
+        labs: {
+          egfr: 52,
+          hemoglobin: 9.6,
+          hba1c: 8.9
+        }
+      },
+      analysisSummary: {
+        labAbnormalities: ['reduced_kidney_function', 'anemia'],
+        socialRiskFactors: ['transport_barrier'],
+        medicationRiskProfile: 'high',
+        utilizationRiskProfile: 'high'
+      },
       generatedAt: new Date('2026-02-19T09:15:00Z')
     }
   });

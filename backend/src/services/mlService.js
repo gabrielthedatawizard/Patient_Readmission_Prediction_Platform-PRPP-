@@ -14,19 +14,25 @@ function normalizeInputFeatures(features = {}) {
     age: toNumber(features.age),
     gender: features.gender || 'unknown',
     diagnosis: features.diagnosis || 'unknown',
+    diagnoses: Array.isArray(features.diagnoses) ? features.diagnoses : [],
     lengthOfStay: toNumber(features.lengthOfStay ?? features.lengthOfStayDays),
     priorAdmissions6mo: toNumber(features.priorAdmissions6mo ?? features.priorAdmissions12m),
+    priorAdmissions12m: toNumber(features.priorAdmissions12m ?? features.priorAdmissions6mo),
     charlsonIndex: toNumber(features.charlsonIndex),
     egfr: features.egfr,
     hemoglobin: features.hemoglobin,
     hba1c: features.hba1c,
     bpSystolic: features.bpSystolic,
     bpDiastolic: features.bpDiastolic,
+    medicationCount: toNumber(features.medicationCount),
     highRiskMedicationCount: toNumber(features.highRiskMedicationCount),
     icuStayDays: toNumber(features.icuStayDays),
     phoneAccess: features.phoneAccess,
     transportationDifficulty: features.transportationDifficulty,
-    livesAlone: features.livesAlone
+    livesAlone: features.livesAlone,
+    hasHeartFailure: Boolean(features.hasHeartFailure),
+    hasDiabetes: Boolean(features.hasDiabetes),
+    hasCkd: Boolean(features.hasCkd)
   };
 }
 

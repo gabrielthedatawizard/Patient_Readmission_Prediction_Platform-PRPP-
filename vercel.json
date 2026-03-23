@@ -1,11 +1,16 @@
 {
   "version": 2,
   "name": "trip-platform",
-  "buildCommand": "npm run build",
+  "installCommand": "npm install && npm run vercel:install",
+  "buildCommand": "npm run vercel:build",
   "outputDirectory": "build",
   "functions": {
     "api/index.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": [
+        "backend/node_modules/.prisma/**",
+        "backend/node_modules/@prisma/client/**"
+      ]
     }
   },
   "routes": [
@@ -34,6 +39,7 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "/api"
+    "VITE_API_URL": "/api",
+    "VITE_DISABLE_WEBSOCKETS": "true"
   }
 }

@@ -1,14 +1,15 @@
-import { getWebSocketBaseUrl } from "./runtimeConfig";
+import { getWebSocketBaseUrl, isWebSocketEnabled } from "./runtimeConfig";
 
 class WebSocketClient {
   constructor() {
     this.ws = null;
     this.listeners = new Map();
     this.reconnectTimer = null;
+    this.disabled = !isWebSocketEnabled();
   }
 
   connect({ userId, token }) {
-    if (!userId) {
+    if (!userId || this.disabled) {
       return;
     }
 
@@ -52,6 +53,9 @@ class WebSocketClient {
   }
 
   disconnect() {
+    if (this.disabled) {
+      return;
+    }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -78,6 +82,9 @@ class WebSocketClient {
   }
 
   send(type, payload) {
+    if (this.disabled) {
+      return;
+    }
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }));
     }

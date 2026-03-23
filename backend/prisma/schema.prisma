@@ -130,6 +130,12 @@ model Visit {
   admissionDate DateTime
   dischargeDate DateTime?
   diagnosis     String
+  diagnoses     Json?
+  medications   Json?
+  labResults    Json?
+  vitalSigns    Json?
+  socialFactors Json?
+  dischargeDisposition String?
   ward          String
   lengthOfStay  Int?
   prediction    Prediction?
@@ -152,6 +158,7 @@ model Prediction {
   generatedBy      User?      @relation("PredictionGeneratedBy", fields: [generatedById], references: [id])
   generatedById    String?
   score            Int
+  probability      Float?
   tier             RiskTier
   factors          Json
   explanation      String?
@@ -160,8 +167,11 @@ model Prediction {
   confidenceHigh   Int
   modelVersion     String
   modelType        String
+  method           String?
   fallbackUsed     Boolean    @default(false)
   dataQuality      Json?
+  featureSnapshot  Json?
+  analysisSummary  Json?
   overrideTier     RiskTier?
   overrideReason   String?
   overriddenAt     DateTime?

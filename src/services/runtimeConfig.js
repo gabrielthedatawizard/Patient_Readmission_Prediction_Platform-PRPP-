@@ -47,6 +47,10 @@ export function getProtectedDeploymentMessage(rawText) {
   return null;
 }
 
+export function isWebSocketEnabled() {
+  return import.meta.env.VITE_DISABLE_WEBSOCKETS !== "true";
+}
+
 export function getWebSocketBaseUrl() {
   const configured = normalizeBaseUrl(import.meta.env.VITE_WS_URL, "");
   if (configured) {

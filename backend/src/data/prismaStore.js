@@ -74,6 +74,10 @@ function mapPrediction(prediction) {
     visitId: prediction.visitId || null,
     facilityId: prediction.facilityId,
     score: prediction.score,
+    probability:
+      prediction.probability !== null && prediction.probability !== undefined
+        ? prediction.probability
+        : Number((Number(prediction.score || 0) / 100).toFixed(3)),
     tier: prediction.tier,
     confidence: prediction.confidence,
     confidenceInterval: {
@@ -82,10 +86,13 @@ function mapPrediction(prediction) {
     },
     modelVersion: prediction.modelVersion,
     modelType: prediction.modelType,
+    method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
     fallbackUsed: prediction.fallbackUsed,
     factors: prediction.factors || [],
     explanation: prediction.explanation,
     dataQuality: prediction.dataQuality || null,
+    featureSnapshot: prediction.featureSnapshot || null,
+    analysisSummary: prediction.analysisSummary || null,
     createdBy: prediction.generatedById || null,
     generatedAt: toDateIso(prediction.generatedAt),
     override:
@@ -113,6 +120,12 @@ function mapVisit(visit) {
     admissionDate: toDateIso(visit.admissionDate),
     dischargeDate: toDateIso(visit.dischargeDate),
     diagnosis: visit.diagnosis,
+    diagnoses: visit.diagnoses || [],
+    medications: visit.medications || [],
+    labResults: visit.labResults || null,
+    vitalSigns: visit.vitalSigns || null,
+    socialFactors: visit.socialFactors || null,
+    dischargeDisposition: visit.dischargeDisposition || null,
     ward: visit.ward,
     lengthOfStay: visit.lengthOfStay,
     createdAt: toDateIso(visit.createdAt),
@@ -400,6 +413,25 @@ async function getVisitForUser(user, visitId) {
   return visit;
 }
 
+async function listVisitsForPatient(user, patientId) {
+  const patient = await getPatientForUser(user, patientId);
+
+  if (!patient) {
+    return [];
+  }
+
+  const visits = await prisma.visit.findMany({
+    where: {
+      patientId
+    },
+    orderBy: {
+      admissionDate: 'desc'
+    }
+  });
+
+  return visits.map(mapVisit);
+}
+
 async function createPatientForUser(user, payload) {
   const facilityId = payload.facilityId || user.facilityId;
 
@@ -466,6 +498,40 @@ async function updatePatientForUser(user, patientId, payload) {
   return mapPatient(updated);
 }
 
+async function createVisitForUser(user, patientId, payload = {}) {
+  const patient = await getPatientForUser(user, patientId);
+
+  if (!patient) {
+    return null;
+  }
+
+  const facilityId = payload.facilityId || patient.facilityId;
+  if (!(await canAccessFacility(user, facilityId))) {
+    throw new Error('You do not have access to create an encounter in this facility.');
+  }
+
+  const visit = await prisma.visit.create({
+    data: {
+      id: payload.id || undefined,
+      patientId,
+      facilityId,
+      admissionDate: new Date(payload.admissionDate),
+      dischargeDate: payload.dischargeDate ? new Date(payload.dischargeDate) : null,
+      diagnosis: payload.diagnosis,
+      diagnoses: payload.diagnoses || [],
+      medications: payload.medications || [],
+      labResults: payload.labResults || null,
+      vitalSigns: payload.vitalSigns || null,
+      socialFactors: payload.socialFactors || null,
+      dischargeDisposition: payload.dischargeDisposition || null,
+      ward: payload.ward || 'General',
+      lengthOfStay: payload.lengthOfStay ?? null
+    }
+  });
+
+  return mapVisit(visit);
+}
+
 async function createPrediction(entry) {
   const prediction = await prisma.prediction.create({
     data: {
@@ -473,6 +539,7 @@ async function createPrediction(entry) {
       visitId: entry.visitId || null,
       facilityId: entry.facilityId,
       score: entry.score,
+      probability: entry.probability ?? null,
       tier: entry.tier,
       factors: entry.factors || [],
       explanation: entry.explanation || null,
@@ -481,8 +548,11 @@ async function createPrediction(entry) {
       confidenceHigh: entry.confidenceInterval?.high ?? 100,
       modelVersion: entry.modelVersion,
       modelType: entry.modelType,
+      method: entry.method || null,
       fallbackUsed: Boolean(entry.fallbackUsed),
       dataQuality: entry.dataQuality || null,
+      featureSnapshot: entry.featureSnapshot || null,
+      analysisSummary: entry.analysisSummary || null,
       generatedById: entry.createdBy || null
     }
   });
@@ -1085,8 +1155,10 @@ module.exports = {
   getPatientForUser,
   getVisitById,
   getVisitForUser,
+  listVisitsForPatient,
   createPatientForUser,
   updatePatientForUser,
+  createVisitForUser,
   createPrediction,
   getPredictionForUser,
   listPredictionsForPatient,
