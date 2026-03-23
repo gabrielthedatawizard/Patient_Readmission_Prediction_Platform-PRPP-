@@ -24,6 +24,7 @@ const chwRoutes = require('./src/routes/chw');
 const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
+const { buildHealthSnapshot, isPlatformReady } = require('./src/services/systemHealth');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -138,28 +139,34 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    message: 'TRIP Backend API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    services: {
-      auth: 'up',
-      patients: 'up',
-      predictions: 'up',
-      tasks: 'up',
-      alerts: 'up',
-      chw: 'up',
-      analytics: 'up',
-      audit: 'up',
-      sync: 'up'
-    },
-    resilience: {
-      offlineFallbackEnabled: true,
-      localRulesModelEnabled: true
-    }
-  });
+app.get('/api/health', async (req, res, next) => {
+  try {
+    const snapshot = await buildHealthSnapshot();
+
+    return res.json({
+      status: isPlatformReady(snapshot) ? 'OK' : 'DEGRADED',
+      message: 'TRIP Backend API is running',
+      timestamp: new Date().toISOString(),
+      ...snapshot
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/ready', async (req, res, next) => {
+  try {
+    const snapshot = await buildHealthSnapshot();
+    const ready = isPlatformReady(snapshot);
+
+    return res.status(ready ? 200 : 503).json({
+      status: ready ? 'READY' : 'NOT_READY',
+      timestamp: new Date().toISOString(),
+      ...snapshot
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 app.get('/api', (req, res) => {
@@ -169,6 +176,7 @@ app.get('/api', (req, res) => {
     description: 'Tanzania Readmission Intelligence Platform',
     endpoints: {
       health: '/api/health',
+      ready: '/api/ready',
       auth: '/api/auth',
       patients: '/api/patients',
       predictions: '/api/predictions',
