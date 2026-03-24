@@ -196,8 +196,15 @@ router.get('/', requirePermission('patients:read'), asyncHandler(async (req, res
     }
   }
 
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit, 10) || 20);
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+
+  const paginatedPatients = patients.slice(startIndex, endIndex);
+
   const withFacility = await Promise.all(
-    patients.map(async (patient) => {
+    paginatedPatients.map(async (patient) => {
       const [facility, predictions, tasks] = await Promise.all([
         getFacilityById(patient.facilityId),
         include.has('predictions') ? listPredictionsForPatient(req.user, patient.id) : Promise.resolve([]),
@@ -232,8 +239,14 @@ router.get('/', requirePermission('patients:read'), asyncHandler(async (req, res
   });
 
   return res.json({
-    count: withFacility.length,
-    patients: withFacility
+    count: patients.length,
+    patients: withFacility,
+    pagination: {
+      total: patients.length,
+      page,
+      limit,
+      totalPages: Math.ceil(patients.length / limit)
+    }
   });
 }));
 

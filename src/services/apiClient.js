@@ -433,3 +433,9 @@ export async function resolveAlert(alertId, resolutionNote = '') {
 
   return payload?.alert || null;
 }
+
+export async function fetchBatchPredictions(patientIds = []) {
+  if (!patientIds.length) return {};
+  const payload = await request(`/predictions/batch`, { method: 'POST', body: { patientIds } });
+  return payload?.predictions || {};
+}

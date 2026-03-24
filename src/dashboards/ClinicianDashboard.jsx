@@ -6,6 +6,8 @@ import {
   ErrorState,
   KPICard,
   PatientListTable,
+  DashboardLayout,
+  DashboardSection,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useI18n } from "../context/I18nProvider";
@@ -67,47 +69,42 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">
-          {language === "sw" ? "Wagonjwa wangu" : "My patients"}
-        </h1>
-        <p className="mt-1 text-neutral-600">
-          {language === "sw"
-            ? "Msaada wa maamuzi ya kliniki uliopangwa kwa hatari."
-            : "Clinical decision support prioritized by risk."}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <DashboardLayout
+      title={language === "sw" ? "Wagonjwa wangu" : "My patients"}
+      subtitle={language === "sw" ? "Msaada wa maamuzi ya kliniki uliopangwa kwa hatari." : "Clinical decision support prioritized by risk."}
+      kpis={[
         <KPICard
+          key="total"
           title={language === "sw" ? "Wagonjwa wote" : "Total patients"}
           value={myPatients.length}
           icon={Users}
           footer={language === "sw" ? "Waliokabidhiwa kwako sasa" : "Currently assigned to you"}
-        />
+        />,
         <KPICard
+          key="high_risk"
           title={language === "sw" ? "Hatari kubwa" : "High risk"}
           value={highRiskCount}
           icon={AlertTriangle}
           footer={language === "sw" ? "Wanahitaji uangalizi wa haraka" : "Requires immediate attention"}
           onClick={() => setViewFilter("high-risk")}
-        />
+        />,
         <KPICard
+          key="ready_discharge"
           title={language === "sw" ? "Tayari kuondoka" : "Ready for discharge"}
           value={dischargeReadyCount}
           icon={CheckCircle}
           footer={language === "sw" ? "Vigezo vya kliniki vimetimia" : "Clinical criteria met"}
           onClick={() => setViewFilter("discharge-ready")}
-        />
+        />,
         <KPICard
+          key="pending_actions"
           title={language === "sw" ? "Hatua zinazosubiri" : "Pending actions"}
           value={pendingActionsCount}
           icon={Activity}
           footer={language === "sw" ? "Kazi zinazohitaji ukamilishaji" : "Tasks requiring completion"}
         />
-      </div>
-
+      ]}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setViewFilter("all")}
@@ -141,13 +138,15 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
         </button>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          {viewFilter === "high-risk" && (language === "sw" ? "Wagonjwa wa hatari kubwa" : "High-risk patients")}
-          {viewFilter === "discharge-ready" && (language === "sw" ? "Tayari kuondoka" : "Ready for discharge")}
-          {viewFilter === "all" && (language === "sw" ? "Wagonjwa wangu wote" : "All my patients")}
-        </h2>
-
+      <DashboardSection
+        title={
+          viewFilter === "high-risk"
+            ? (language === "sw" ? "Wagonjwa wa hatari kubwa" : "High-risk patients")
+            : viewFilter === "discharge-ready"
+            ? (language === "sw" ? "Tayari kuondoka" : "Ready for discharge")
+            : (language === "sw" ? "Wagonjwa wangu wote" : "All my patients")
+        }
+      >
         {prioritizedPatients.length ? (
           <PatientListTable
             patients={prioritizedPatients}
@@ -157,12 +156,9 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
         ) : (
           <EmptyState message={language === "sw" ? "Hakuna wagonjwa wanaolingana na kichujio hiki." : "No patients match this filter."} />
         )}
-      </div>
+      </DashboardSection>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          {language === "sw" ? "Utabiri wa hatari wa karibuni" : "Recent risk predictions"}
-        </h2>
+      <DashboardSection title={language === "sw" ? "Utabiri wa hatari wa karibuni" : "Recent risk predictions"}>
         <div className="space-y-2">
           {(recentPredictions?.predictions || []).map((prediction) => (
             <div
@@ -191,8 +187,8 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
             </p>
           ) : null}
         </div>
-      </div>
-    </div>
+      </DashboardSection>
+    </DashboardLayout>
   );
 };
 

@@ -8,7 +8,7 @@ from .schemas import HealthResponse, PredictionRequest, PredictionResponse
 
 
 settings = get_settings()
-predictor = TripPredictor(settings.model_artifact_path)
+predictor = TripPredictor(settings.model_dir_path)
 
 app = FastAPI(
     title="TRIP ML Service",

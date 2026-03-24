@@ -40,11 +40,9 @@ function scoreToTier(score) {
   if (score >= 70) {
     return 'High';
   }
-
   if (score >= 40) {
     return 'Medium';
   }
-
   return 'Low';
 }
 
@@ -94,7 +92,6 @@ function safeParseJson(rawValue) {
   if (!rawValue) {
     return null;
   }
-
   try {
     return JSON.parse(rawValue);
   } catch (error) {
@@ -106,27 +103,21 @@ function readRemoteErrorMessage(payload) {
   if (!payload) {
     return null;
   }
-
   if (typeof payload === 'string') {
     return payload;
   }
-
   if (typeof payload.message === 'string') {
     return payload.message;
   }
-
   if (typeof payload.error === 'string') {
     return payload.error;
   }
-
   if (payload.error && typeof payload.error.message === 'string') {
     return payload.error.message;
   }
-
   if (payload.details && typeof payload.details.message === 'string') {
     return payload.details.message;
   }
-
   return null;
 }
 
@@ -163,54 +154,6 @@ async function postJson(url, body, timeoutMs) {
   }
 }
 
-function calculateRuleBasedScore(features = {}) {
-  let score = 0;
-
-  if (features.age > 75) {
-    score += 20;
-  } else if (features.age > 65) {
-    score += 12;
-  } else if (features.age > 50) {
-    score += 5;
-  }
-
-  score += Math.min(toNumber(features.charlsonIndex) * 5, 30);
-
-  if (features.lengthOfStay > 14) {
-    score += 20;
-  } else if (features.lengthOfStay > 7) {
-    score += 10;
-  }
-
-  score += Math.min(toNumber(features.priorAdmissions6mo) * 10, 30);
-  score = Math.min(score, 100);
-
-  const tier = score > 70 ? 'High' : score > 30 ? 'Medium' : 'Low';
-
-  return {
-    score,
-    tier,
-    probability: Number((score / 100).toFixed(3)),
-    confidence: 0.75,
-    confidenceInterval: {
-      low: Math.max(0, score - 14),
-      high: Math.min(100, score + 14)
-    },
-    factors: [
-      { factor: 'Rule-based calculation (ML unavailable)', weight: 1.0 },
-      { factor: `Age: ${features.age}`, weight: 0.2 },
-      { factor: `Charlson Index: ${features.charlsonIndex}`, weight: 0.3 },
-      { factor: `Length of Stay: ${features.lengthOfStay} days`, weight: 0.2 },
-      { factor: `Prior Admissions: ${features.priorAdmissions6mo}`, weight: 0.3 }
-    ],
-    explanation: 'Rule-based fallback used because ML service was unavailable.',
-    modelVersion: 'rules-v1.0',
-    modelType: 'rules_fallback',
-    fallbackUsed: true,
-    method: 'rules'
-  };
-}
-
 async function generatePrediction(visitId, rawFeatures = {}) {
   const features = normalizeInputFeatures(rawFeatures);
 
@@ -227,6 +170,7 @@ async function generatePrediction(visitId, rawFeatures = {}) {
       throw new Error('ML service unavailable and fallback is disabled.');
     }
 
+    // Unified fallback
     const fallbackModel = predictReadmission(
       {
         ...features,
@@ -236,23 +180,24 @@ async function generatePrediction(visitId, rawFeatures = {}) {
       { forcePrimaryFailure: true }
     );
 
-    const ruleBased = calculateRuleBasedScore(features);
-
     return {
-      ...ruleBased,
-      factors: fallbackModel.factors?.length ? fallbackModel.factors : ruleBased.factors,
-      explanation: fallbackModel.explanation || ruleBased.explanation,
-      confidence: fallbackModel.confidence || ruleBased.confidence,
-      confidenceInterval: fallbackModel.confidenceInterval || ruleBased.confidenceInterval,
-      modelVersion: fallbackModel.modelVersion || ruleBased.modelVersion,
-      modelType: fallbackModel.modelType || ruleBased.modelType,
+      score: fallbackModel.score,
+      tier: fallbackModel.tier,
+      probability: fallbackModel.probability,
+      confidence: fallbackModel.confidence,
+      confidenceInterval: fallbackModel.confidenceInterval,
+      factors: fallbackModel.factors || [],
+      explanation: fallbackModel.explanation,
+      modelVersion: fallbackModel.modelVersion || 'rules-v1.0',
+      modelType: fallbackModel.modelType || 'rules_fallback',
       fallbackUsed: true,
-      method: 'rules'
+      method: 'rules',
+      dataQuality: null,
+      analysisSummary: null,
     };
   }
 }
 
 module.exports = {
-  generatePrediction,
-  calculateRuleBasedScore
+  generatePrediction
 };

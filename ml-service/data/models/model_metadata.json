@@ -1,0 +1,117 @@
+{
+  "model_version": "trip-clinical-v2.0",
+  "model_type": "logistic_regression",
+  "trained_at": "2026-03-24T01:46:55.930192+00:00",
+  "dataset_rows": 5000,
+  "readmission_rate": 0.241,
+  "cv_auc_mean": 0.7588,
+  "train_metrics": {
+    "model": "LogisticRegression",
+    "accuracy": 0.7144,
+    "precision": 0.4388,
+    "recall": 0.6631,
+    "f1": 0.5281,
+    "roc_auc": 0.7641
+  },
+  "calibrated_metrics": {
+    "model": "logistic_regression_calibrated",
+    "accuracy": 0.7914,
+    "precision": 0.6702,
+    "recall": 0.2647,
+    "f1": 0.3795,
+    "roc_auc": 0.7673
+  },
+  "features": {
+    "numeric": [
+      "age",
+      "prior_admissions_12m",
+      "length_of_stay_days",
+      "charlson_index",
+      "egfr",
+      "hemoglobin",
+      "hba1c",
+      "bp_systolic",
+      "bp_diastolic",
+      "high_risk_medication_count",
+      "icu_stay_days"
+    ],
+    "binary": [
+      "phone_access",
+      "transportation_difficulty",
+      "lives_alone",
+      "has_heart_failure",
+      "has_diabetes",
+      "has_ckd"
+    ],
+    "categorical": [
+      "gender"
+    ],
+    "all": [
+      "age",
+      "prior_admissions_12m",
+      "length_of_stay_days",
+      "charlson_index",
+      "egfr",
+      "hemoglobin",
+      "hba1c",
+      "bp_systolic",
+      "bp_diastolic",
+      "high_risk_medication_count",
+      "icu_stay_days",
+      "phone_access",
+      "transportation_difficulty",
+      "lives_alone",
+      "has_heart_failure",
+      "has_diabetes",
+      "has_ckd",
+      "gender"
+    ],
+    "transformed_names": [
+      "num__age",
+      "num__prior_admissions_12m",
+      "num__length_of_stay_days",
+      "num__charlson_index",
+      "num__egfr",
+      "num__hemoglobin",
+      "num__hba1c",
+      "num__bp_systolic",
+      "num__bp_diastolic",
+      "num__high_risk_medication_count",
+      "num__icu_stay_days",
+      "bin__phone_access",
+      "bin__transportation_difficulty",
+      "bin__lives_alone",
+      "bin__has_heart_failure",
+      "bin__has_diabetes",
+      "bin__has_ckd",
+      "cat__gender_female",
+      "cat__gender_male"
+    ]
+  },
+  "feature_name_map": {
+    "age": "age",
+    "prior_admissions_12m": "priorAdmissions12m",
+    "length_of_stay_days": "lengthOfStayDays",
+    "charlson_index": "charlsonIndex",
+    "egfr": "egfr",
+    "hemoglobin": "hemoglobin",
+    "hba1c": "hba1c",
+    "bp_systolic": "bpSystolic",
+    "bp_diastolic": "bpDiastolic",
+    "high_risk_medication_count": "highRiskMedicationCount",
+    "icu_stay_days": "icuStayDays",
+    "phone_access": "phoneAccess",
+    "transportation_difficulty": "transportationDifficulty",
+    "lives_alone": "livesAlone",
+    "has_heart_failure": "hasHeartFailure",
+    "has_diabetes": "hasDiabetes",
+    "has_ckd": "hasCkd",
+    "gender": "gender"
+  },
+  "artifacts": {
+    "model": "trip_readmission_model.joblib",
+    "preprocessor": "trip_preprocessor.joblib",
+    "explainer": "trip_shap_explainer.joblib",
+    "metadata": "model_metadata.json"
+  }
+}

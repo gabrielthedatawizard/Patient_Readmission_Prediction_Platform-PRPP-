@@ -76,9 +76,22 @@ router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) =
     }
   });
 
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit, 10) || 20);
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+
+  const paginatedTasks = withPatient.slice(startIndex, endIndex);
+
   return res.json({
     count: withPatient.length,
-    tasks: withPatient
+    tasks: paginatedTasks,
+    pagination: {
+      total: withPatient.length,
+      page,
+      limit,
+      totalPages: Math.ceil(withPatient.length / limit)
+    }
   });
 }));
 

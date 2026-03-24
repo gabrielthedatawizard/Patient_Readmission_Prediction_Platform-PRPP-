@@ -469,4 +469,28 @@ router.post('/:predictionId/override', requirePermission('predictions:override')
   return res.json({ prediction });
 }));
 
+router.post('/batch', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+  const patientIds = req.body.patientIds || [];
+  if (!Array.isArray(patientIds)) {
+    return res.status(400).json({
+      error: 'ValidationError',
+      message: 'patientIds must be an array.'
+    });
+  }
+
+  const results = {};
+  await Promise.all(
+    patientIds.map(async (id) => {
+      try {
+        const predictions = await listPredictionsForPatient(req.user, id);
+        results[id] = predictions[0] || null;
+      } catch (err) {
+        results[id] = null;
+      }
+    })
+  );
+
+  return res.json({ predictions: results });
+}));
+
 module.exports = router;

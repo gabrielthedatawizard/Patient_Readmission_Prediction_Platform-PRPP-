@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+import pandas as pd
+
+try:
+    import joblib
+    HAS_JOBLIB = True
+except ImportError:
+    HAS_JOBLIB = False
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_ARTIFACT = {
     "model_name": "TRIP Clinical Readmission Model",
-    "model_version": "trip-clinical-logit-v1",
+    "model_version": "trip-clinical-logit-fallback-v1",
     "model_type": "logistic_regression_surrogate",
     "artifact_source": "builtin",
     "intercept": -3.2,
@@ -37,43 +48,45 @@ DEFAULT_ARTIFACT = {
 }
 
 FEATURE_LABELS = {
-    "age_scaled": "Age",
-    "prior_admissions_6mo_scaled": "Recent admissions",
-    "prior_admissions_12m_scaled": "Annual admissions",
-    "length_of_stay_scaled": "Length of stay",
-    "charlson_index_scaled": "Comorbidity burden",
-    "egfr_low_severity": "Reduced kidney function",
-    "anemia_severity": "Anemia marker",
-    "hba1c_risk": "Poor glycemic control",
-    "high_bp_flag": "Elevated blood pressure",
-    "high_risk_medication_scaled": "High-risk medications",
-    "icu_stay_scaled": "ICU utilization",
-    "no_phone_access_flag": "No phone access",
-    "transportation_difficulty_flag": "Transport barrier",
-    "lives_alone_flag": "Lives alone",
-    "heart_failure_flag": "Heart failure diagnosis",
-    "diabetes_flag": "Diabetes diagnosis",
-    "ckd_flag": "CKD diagnosis",
+    "age": "Age",
+    "prior_admissions_12m": "Annual admissions",
+    "length_of_stay_days": "Length of stay",
+    "charlson_index": "Comorbidity burden",
+    "egfr": "Kidney function (eGFR)",
+    "hemoglobin": "Hemoglobin",
+    "hba1c": "Glycemic control (HbA1c)",
+    "bp_systolic": "Systolic BP",
+    "bp_diastolic": "Diastolic BP",
+    "high_risk_medication_count": "High-risk medications",
+    "icu_stay_days": "ICU utilization",
+    "phone_access": "Phone access",
+    "transportation_difficulty": "Transport barrier",
+    "lives_alone": "Lives alone",
+    "has_heart_failure": "Heart failure diagnosis",
+    "has_diabetes": "Diabetes diagnosis",
+    "has_ckd": "CKD diagnosis",
+    "gender": "Gender",
 }
 
 FEATURE_IMPACTS = {
-    "age_scaled": "Older age increases the readmission baseline.",
-    "prior_admissions_6mo_scaled": "Recent admissions suggest unstable disease control.",
-    "prior_admissions_12m_scaled": "Frequent yearly admissions indicate sustained utilization risk.",
-    "length_of_stay_scaled": "Longer stays often reflect clinical complexity.",
-    "charlson_index_scaled": "More chronic comorbidity increases risk after discharge.",
-    "egfr_low_severity": "Lower eGFR is associated with higher readmission risk.",
-    "anemia_severity": "Lower hemoglobin increases post-discharge vulnerability.",
-    "hba1c_risk": "Poor glycemic control raises complication and readmission risk.",
-    "high_bp_flag": "Uncontrolled blood pressure raises short-term risk.",
-    "high_risk_medication_scaled": "Polypharmacy and high-risk drugs increase adverse-event risk.",
-    "icu_stay_scaled": "Recent ICU exposure signals higher acuity.",
-    "no_phone_access_flag": "Limited phone access reduces follow-up reliability.",
-    "transportation_difficulty_flag": "Transport barriers reduce ability to attend follow-up.",
-    "lives_alone_flag": "Living alone may reduce post-discharge support.",
-    "heart_failure_flag": "Heart failure is a strong readmission driver.",
-    "diabetes_flag": "Diabetes raises chronic care complexity.",
-    "ckd_flag": "CKD adds renal and medication-management risk.",
+    "age": "Age is a baseline risk factor.",
+    "prior_admissions_12m": "Frequent admissions indicate sustained utilization risk.",
+    "length_of_stay_days": "Longer stays reflect clinical complexity.",
+    "charlson_index": "Chronic comorbidity increases post-discharge risk.",
+    "egfr": "Reduced eGFR is associated with higher readmission risk.",
+    "hemoglobin": "Low hemoglobin increases post-discharge vulnerability.",
+    "hba1c": "Poor glycemic control raises complication risk.",
+    "bp_systolic": "Blood pressure affects short-term risk.",
+    "bp_diastolic": "Blood pressure affects short-term risk.",
+    "high_risk_medication_count": "Polypharmacy increases adverse-event risk.",
+    "icu_stay_days": "Recent ICU exposure signals higher acuity.",
+    "phone_access": "Lack of phone access reduces follow-up reliability.",
+    "transportation_difficulty": "Transport barriers reduce inability to attend follow-up.",
+    "lives_alone": "Living alone may reduce post-discharge support.",
+    "has_heart_failure": "Heart failure is a strong readmission driver.",
+    "has_diabetes": "Diabetes raises chronic care complexity.",
+    "has_ckd": "CKD adds renal and medication-management risk.",
+    "gender": "Gender is a baseline demographic factor.",
 }
 
 CRITICAL_FIELDS = ("egfr", "hemoglobin", "hba1c", "bpSystolic", "bpDiastolic")
@@ -86,22 +99,18 @@ def clamp(value: float, minimum: float, maximum: float) -> float:
 def to_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
-
     try:
         numeric = float(value)
     except (TypeError, ValueError):
         return None
-
     return numeric if math.isfinite(numeric) else None
 
 
 def to_bool(value: Any, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
-
     if value is None:
         return default
-
     normalized = str(value).strip().lower()
     if normalized in {"true", "1", "yes", "y"}:
         return True
@@ -125,10 +134,8 @@ def normalize_string_list(value: Any) -> list[str]:
             text = item.get("code") or item.get("name") or item.get("label")
         else:
             text = item
-
         if text is None:
             continue
-
         stripped = str(text).strip()
         if stripped:
             normalized.append(stripped)
@@ -137,7 +144,7 @@ def normalize_string_list(value: Any) -> list[str]:
 
 
 def sigmoid(value: float) -> float:
-    return 1.0 / (1.0 + math.exp(-value))
+    return 1.0 / (1.0 + math.exp(-max(min(value, 20), -20)))
 
 
 def round_probability(value: float) -> float:
@@ -154,7 +161,7 @@ def score_to_tier(probability: float, thresholds: dict[str, float]) -> str:
 
 def compute_data_quality(normalized: dict[str, Any]) -> dict[str, Any]:
     missing = [field for field in CRITICAL_FIELDS if normalized.get(field) is None]
-    completeness = (len(CRITICAL_FIELDS) - len(missing)) / len(CRITICAL_FIELDS)
+    completeness = (len(CRITICAL_FIELDS) - len(missing)) / max(1, len(CRITICAL_FIELDS))
     return {
         "completeness": round(completeness, 3),
         "missingCriticalFields": missing,
@@ -225,7 +232,31 @@ def normalize_features(raw_features: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def engineer_features(normalized: dict[str, Any]) -> tuple[dict[str, float], dict[str, Any]]:
+def extract_ml_features(normalized: dict[str, Any]) -> dict[str, Any]:
+    # Maps to the pipeline features required by train_model.py
+    return {
+        "age": normalized["age"],
+        "gender": normalized["gender"],
+        "prior_admissions_12m": normalized["priorAdmissions12m"],
+        "length_of_stay_days": normalized["lengthOfStayDays"],
+        "charlson_index": normalized["charlsonIndex"],
+        "egfr": normalized.get("egfr", np.nan),
+        "hemoglobin": normalized.get("hemoglobin", np.nan),
+        "hba1c": normalized.get("hba1c", np.nan),
+        "bp_systolic": normalized.get("bpSystolic", np.nan),
+        "bp_diastolic": normalized.get("bpDiastolic", np.nan),
+        "high_risk_medication_count": normalized["highRiskMedicationCount"],
+        "icu_stay_days": normalized["icuStayDays"],
+        "phone_access": int(normalized["phoneAccess"]),
+        "transportation_difficulty": int(normalized["transportationDifficulty"]),
+        "lives_alone": int(normalized["livesAlone"]),
+        "has_heart_failure": int(normalized["hasHeartFailure"]),
+        "has_diabetes": int(normalized["hasDiabetes"]),
+        "has_ckd": int(normalized["hasCkd"]),
+    }
+
+
+def extract_surrogate_features(normalized: dict[str, Any]) -> tuple[dict[str, float], dict[str, Any]]:
     egfr = normalized.get("egfr")
     hemoglobin = normalized.get("hemoglobin")
     hba1c = normalized.get("hba1c")
@@ -290,26 +321,13 @@ def engineer_features(normalized: dict[str, Any]) -> tuple[dict[str, float], dic
     return engineered, derived
 
 
-def format_factor(feature_name: str, normalized: dict[str, Any]) -> str:
-    if feature_name == "age_scaled":
-        return f"Age {int(round(normalized['age']))} years"
-    if feature_name == "prior_admissions_6mo_scaled":
-        return f"{int(round(normalized['priorAdmissions6mo']))} admission(s) in 6 months"
-    if feature_name == "prior_admissions_12m_scaled":
-        return f"{int(round(normalized['priorAdmissions12m']))} admission(s) in 12 months"
-    if feature_name == "length_of_stay_scaled":
-        return f"Length of stay {int(round(normalized['lengthOfStayDays']))} days"
-    if feature_name == "charlson_index_scaled":
-        return f"Charlson index {int(round(normalized['charlsonIndex']))}"
-    if feature_name == "egfr_low_severity" and normalized.get("egfr") is not None:
-        return f"eGFR {int(round(normalized['egfr']))}"
-    if feature_name == "anemia_severity" and normalized.get("hemoglobin") is not None:
-        return f"Hemoglobin {normalized['hemoglobin']:.1f} g/dL"
-    if feature_name == "hba1c_risk" and normalized.get("hba1c") is not None:
-        return f"HbA1c {normalized['hba1c']:.1f}%"
-    if feature_name == "high_risk_medication_scaled":
-        return f"{int(round(normalized['highRiskMedicationCount']))} high-risk medication(s)"
-    return FEATURE_LABELS.get(feature_name, feature_name)
+def format_factor(feature_name: str, val: Any) -> str:
+    name = FEATURE_LABELS.get(feature_name, feature_name)
+    if pd.isna(val):
+        return name
+    if isinstance(val, float):
+        return f"{name} ({val:.1f})"
+    return f"{name} ({val})"
 
 
 def build_explanation(tier: str, factors: list[dict[str, Any]]) -> str:
@@ -324,72 +342,64 @@ def build_explanation(tier: str, factors: list[dict[str, Any]]) -> str:
     return f"Lower predicted risk; the strongest observed drivers are {lead}."
 
 
-@dataclass
-class ModelArtifact:
-    payload: dict[str, Any]
-    source: str
-
-    @property
-    def model_version(self) -> str:
-        return str(self.payload.get("model_version", "trip-clinical-logit-v1"))
-
-    @property
-    def model_type(self) -> str:
-        return str(self.payload.get("model_type", "logistic_regression_surrogate"))
-
-    @property
-    def intercept(self) -> float:
-        return float(self.payload.get("intercept", -3.2))
-
-    @property
-    def thresholds(self) -> dict[str, float]:
-        return dict(self.payload.get("score_thresholds", {"medium": 0.40, "high": 0.70}))
-
-    @property
-    def interval_width(self) -> float:
-        return float(self.payload.get("confidence_interval_width", 0.12))
-
-    @property
-    def feature_weights(self) -> dict[str, float]:
-        return {
-            key: float(value)
-            for key, value in dict(self.payload.get("feature_weights", {})).items()
-        }
-
-    @classmethod
-    def load(cls, artifact_path: Path) -> "ModelArtifact":
-        if artifact_path.exists():
-            with artifact_path.open("r", encoding="utf-8") as handle:
-                payload = json.load(handle)
-            return cls(payload=payload, source="file")
-
-        return cls(payload=DEFAULT_ARTIFACT, source="builtin")
-
-
 class TripPredictor:
-    def __init__(self, artifact_path: Path) -> None:
-        self.artifact = ModelArtifact.load(artifact_path)
+    def __init__(self, model_dir: Path) -> None:
+        self.model_dir = model_dir
+        self.model = None
+        self.explainer = None
+        self.metadata = DEFAULT_ARTIFACT.copy()
+        self.is_fallback = True
+
+        if HAS_JOBLIB and model_dir.exists():
+            try:
+                model_path = model_dir / "trip_readmission_model.joblib"
+                explainer_path = model_dir / "trip_shap_explainer.joblib"
+                metadata_path = model_dir / "model_metadata.json"
+
+                if model_path.exists():
+                    self.model = joblib.load(model_path)
+                    self.is_fallback = False
+                    logger.info(f"Loaded ML model from {model_path}")
+
+                if explainer_path.exists():
+                    self.explainer = joblib.load(explainer_path)
+                    logger.info(f"Loaded SHAP explainer from {explainer_path}")
+
+                if metadata_path.exists():
+                    with open(metadata_path, "r", encoding="utf-8") as f:
+                        self.metadata = json.load(f)
+                    self.metadata["artifact_source"] = "file"
+            except Exception as e:
+                logger.error(f"Failed to load ML artifacts: {e}")
+                self.is_fallback = True
 
     def health(self) -> dict[str, Any]:
         return {
             "status": "healthy",
-            "model_loaded": True,
-            "explainer_loaded": True,
-            "model_version": self.artifact.model_version,
-            "model_type": self.artifact.model_type,
-            "artifact_source": self.artifact.source,
+            "model_loaded": self.model is not None,
+            "explainer_loaded": self.explainer is not None,
+            "model_version": self.metadata.get("model_version", "unknown"),
+            "model_type": self.metadata.get("model_type", "unknown"),
+            "artifact_source": self.metadata.get("artifact_source", "builtin"),
         }
 
     def predict(self, visit_id: str | None, raw_features: dict[str, Any]) -> dict[str, Any]:
         normalized = normalize_features(raw_features)
         data_quality = compute_data_quality(normalized)
-        engineered, derived = engineer_features(normalized)
 
+        if self.is_fallback:
+            return self._predict_fallback(visit_id, normalized, data_quality)
+
+        return self._predict_ml(visit_id, normalized, data_quality)
+
+    def _predict_fallback(self, visit_id: str | None, normalized: dict[str, Any], data_quality: dict[str, Any]) -> dict[str, Any]:
+        engineered, derived = extract_surrogate_features(normalized)
         weighted_contributions: list[tuple[str, float]] = []
-        logit = self.artifact.intercept
+        logit = self.metadata.get("intercept", -3.2)
+        weights = self.metadata.get("feature_weights", {})
 
         for feature_name, feature_value in engineered.items():
-            weight = self.artifact.feature_weights.get(feature_name, 0.0)
+            weight = weights.get(feature_name, 0.0)
             contribution = weight * feature_value
             logit += contribution
             if abs(contribution) > 0:
@@ -397,30 +407,22 @@ class TripPredictor:
 
         probability = round_probability(sigmoid(logit))
         score = int(round(probability * 100))
-        tier = score_to_tier(probability, self.artifact.thresholds)
+        tier = score_to_tier(probability, self.metadata.get("score_thresholds", {"medium": 0.4, "high": 0.7}))
 
         margin = abs(probability - 0.5) * 2.0
-        confidence = clamp(
-            0.56 + data_quality["completeness"] * 0.24 + margin * 0.15,
-            0.50,
-            0.95,
-        )
+        confidence = clamp(0.56 + data_quality["completeness"] * 0.24 + margin * 0.15, 0.50, 0.95)
         confidence = round(confidence, 3)
 
-        interval_width = self.artifact.interval_width + (
-            (1.0 - data_quality["completeness"]) * 0.10
-        )
+        interval_width = self.metadata.get("confidence_interval_width", 0.12) + ((1.0 - data_quality["completeness"]) * 0.10)
         low_score = int(round(clamp(probability - interval_width, 0.0, 1.0) * 100))
         high_score = int(round(clamp(probability + interval_width, 0.0, 1.0) * 100))
 
         total_abs = sum(abs(item[1]) for item in weighted_contributions) or 1.0
         factors = []
-        for feature_name, contribution in sorted(
-            weighted_contributions, key=lambda item: abs(item[1]), reverse=True
-        )[:5]:
+        for feature_name, contribution in sorted(weighted_contributions, key=lambda item: abs(item[1]), reverse=True)[:5]:
             factors.append(
                 {
-                    "factor": format_factor(feature_name, normalized),
+                    "factor": FEATURE_LABELS.get(feature_name, feature_name),
                     "weight": round(abs(contribution) / total_abs, 3),
                     "contribution": round(contribution, 3),
                     "direction": "increase" if contribution >= 0 else "decrease",
@@ -429,16 +431,12 @@ class TripPredictor:
             )
 
         analysis_summary = {
-            "labAbnormalities": derived["labAbnormalities"],
-            "socialRiskFlags": derived["socialRiskFlags"],
-            "diagnoses": derived["diagnoses"],
+            "labAbnormalities": derived.get("labAbnormalities", []),
+            "socialRiskFlags": derived.get("socialRiskFlags", []),
+            "diagnoses": derived.get("diagnoses", []),
             "missingCriticalFields": data_quality["missingCriticalFields"],
             "utilizationRiskLevel": (
-                "high"
-                if normalized["priorAdmissions12m"] >= 3
-                else "moderate"
-                if normalized["priorAdmissions12m"] >= 1
-                else "low"
+                "high" if normalized["priorAdmissions12m"] >= 3 else "moderate" if normalized["priorAdmissions12m"] >= 1 else "low"
             ),
             "recommendedReview": tier == "High" or data_quality["completeness"] < 0.7,
         }
@@ -452,9 +450,117 @@ class TripPredictor:
             "confidenceInterval": {"low": low_score, "high": high_score},
             "factors": factors,
             "explanation": build_explanation(tier, factors),
-            "modelVersion": self.artifact.model_version,
-            "modelType": self.artifact.model_type,
+            "modelVersion": self.metadata.get("model_version", "unknown"),
+            "modelType": self.metadata.get("model_type", "unknown"),
+            "method": "rules",
+            "fallbackUsed": True,
+            "dataQuality": data_quality,
+            "analysisSummary": analysis_summary,
+        }
+
+    def _predict_ml(self, visit_id: str | None, normalized: dict[str, Any], data_quality: dict[str, Any]) -> dict[str, Any]:
+        ml_features = extract_ml_features(normalized)
+        df = pd.DataFrame([ml_features])
+
+        # Replace None with np.nan for sklearn
+        df.fillna(value=np.nan, inplace=True)
+
+        probability = float(self.model.predict_proba(df)[0, 1])
+        score = int(round(probability * 100))
+        tier = score_to_tier(probability, {"medium": 0.4, "high": 0.7})
+
+        margin = abs(probability - 0.5) * 2.0
+        confidence = clamp(0.70 + data_quality["completeness"] * 0.20 + margin * 0.10, 0.50, 0.95)
+        confidence = round(confidence, 3)
+
+        interval_width = 0.10 + ((1.0 - data_quality["completeness"]) * 0.10)
+        low_score = int(round(clamp(probability - interval_width, 0.0, 1.0) * 100))
+        high_score = int(round(clamp(probability + interval_width, 0.0, 1.0) * 100))
+
+        factors = []
+        if self.explainer is not None:
+            try:
+                # Need to use the preprocessor to transform features for the explainer
+                # unless the explainer uses the untransformed dataframe directly.
+                # In train_model.py, we created the explainer on X_transformed (for non-XGBoost)
+                # or the model natively (for XGBoost).
+                # To be safe, let's just use naive feature importance if explainer fails.
+                
+                # Check if it's TreeExplainer or KernelExplainer
+                if hasattr(self.explainer, "expected_value"):
+                    # For TreeExplainer on XGBoost
+                    if "preprocessor" in self.model.named_steps:
+                        X_trans = self.model.named_steps["preprocessor"].transform(df)
+                        shap_values = self.explainer.shap_values(X_trans)
+                    else:
+                        shap_values = self.explainer.shap_values(df)
+                    
+                    if isinstance(shap_values, list): # For multi-class, though ours is binary
+                        shap_values = shap_values[1]
+                        
+                    shap_vals = shap_values[0]
+                    
+                    try:
+                        feature_names = self.model.named_steps["preprocessor"].get_feature_names_out()
+                    except:
+                        feature_names = df.columns
+
+                    contributions = list(zip(feature_names, shap_vals))
+                    contributions.sort(key=lambda x: abs(x[1]), reverse=True)
+                    
+                    total_abs = sum(abs(item[1]) for item in contributions) or 1.0
+                    
+                    for fname, contrib in contributions[:5]:
+                        # Strip standard prefixes from feature names if present (e.g. num__, cat__)
+                        clean_fname = fname.split("__")[-1] if "__" in fname else fname
+                        
+                        original_val = ml_features.get(clean_fname, "")
+                        direction = "increase" if contrib >= 0 else "decrease"
+                        factors.append({
+                            "factor": format_factor(clean_fname, original_val),
+                            "weight": round(abs(contrib) / total_abs, 3),
+                            "contribution": round(contrib, 3),
+                            "direction": direction,
+                            "impact": FEATURE_IMPACTS.get(clean_fname, f"Model impact: {direction} risk."),
+                        })
+            except Exception as e:
+                logger.error(f"SHAP explanation failed: {e}")
+                
+        # If SHAP failed or no explainer
+        if not factors:
+            factors.append({
+                "factor": "Risk calculated from clinical profile via ML model",
+                "weight": 1.0,
+                "contribution": 0.0,
+                "direction": "increase",
+                "impact": "Aggregated ML risk score.",
+            })
+
+        _, derived = extract_surrogate_features(normalized)
+        analysis_summary = {
+            "labAbnormalities": derived.get("labAbnormalities", []),
+            "socialRiskFlags": derived.get("socialRiskFlags", []),
+            "diagnoses": derived.get("diagnoses", []),
+            "missingCriticalFields": data_quality["missingCriticalFields"],
+            "utilizationRiskLevel": (
+                "high" if normalized["priorAdmissions12m"] >= 3 else "moderate" if normalized["priorAdmissions12m"] >= 1 else "low"
+            ),
+            "recommendedReview": tier == "High" or data_quality["completeness"] < 0.7,
+        }
+
+        return {
+            "visitId": visit_id,
+            "score": score,
+            "tier": tier,
+            "probability": probability,
+            "confidence": confidence,
+            "confidenceInterval": {"low": low_score, "high": high_score},
+            "factors": factors,
+            "explanation": build_explanation(tier, factors),
+            "modelVersion": self.metadata.get("model_version", "unknown"),
+            "modelType": self.metadata.get("model_type", "unknown"),
             "method": "ml",
+            "fallbackUsed": False,
             "dataQuality": data_quality,
             "analysisSummary": analysis_summary,
         }
