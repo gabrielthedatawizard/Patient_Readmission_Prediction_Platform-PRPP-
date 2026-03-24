@@ -2,6 +2,8 @@ import {
   buildApiUrl,
   getProtectedDeploymentMessage
 } from "./runtimeConfig";
+
+// Clear legacy browser-stored session data, but do not persist JWTs client-side.
 const TOKEN_KEY = 'trip_access_token';
 const USER_KEY = 'trip_session_user';
 
@@ -108,7 +110,7 @@ export function normalizeRoleForUi(role) {
 }
 
 export function getStoredToken() {
-  return getAnyStorageValue(TOKEN_KEY);
+  return null;
 }
 
 export function getStoredUser() {
@@ -129,45 +131,24 @@ export function clearSession() {
   removeStorageValue(USER_KEY);
 }
 
-function persistSession({ accessToken, user }, rememberMe = true) {
+function persistSession({ user }, rememberMe = true) {
   const storage = getStorageFromRememberMe(rememberMe);
 
-  if (!storage) {
+  // Keep only one active persistence location and clear legacy access tokens.
+  clearSession();
+
+  if (!storage || !user) {
     return;
   }
 
-  // Keep only one active persistence location.
-  clearSession();
   try {
-    storage.setItem(TOKEN_KEY, accessToken);
     storage.setItem(USER_KEY, JSON.stringify(user));
   } catch (error) {
     // Storage write failures should not crash authentication flow.
   }
 }
 
-function detectRememberMePreference() {
-  if (!isBrowser()) {
-    return null;
-  }
-
-  try {
-    if (window.localStorage.getItem(USER_KEY)) {
-      return true;
-    }
-
-    if (window.sessionStorage.getItem(USER_KEY)) {
-      return false;
-    }
-  } catch (error) {
-    return null;
-  }
-
-  return null;
-}
-
 async function request(path, { method = 'GET', body, token, headers: extraHeaders } = {}) {
-  const resolvedToken = token || getStoredToken();
   const headers = {
     Accept: 'application/json',
     ...(extraHeaders || {})
@@ -177,8 +158,8 @@ async function request(path, { method = 'GET', body, token, headers: extraHeader
     headers['Content-Type'] = 'application/json';
   }
 
-  if (resolvedToken) {
-    headers.Authorization = `Bearer ${resolvedToken}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(buildApiUrl(path), {
@@ -222,7 +203,6 @@ export async function login({ email, password, rememberMe = true }) {
   });
 
   const session = {
-    accessToken: payload.accessToken,
     user: {
       ...payload.user,
       role: normalizeRoleForUi(payload.user?.role)
@@ -235,25 +215,10 @@ export async function login({ email, password, rememberMe = true }) {
 
 export async function fetchCurrentUser() {
   const payload = await request('/auth/me');
-  const sessionUser = {
+  return {
     ...payload.user,
     role: normalizeRoleForUi(payload.user?.role)
   };
-
-  const rememberMe = detectRememberMePreference();
-  if (rememberMe !== null) {
-    persistSession(
-      {
-        accessToken: getStoredToken(),
-        user: sessionUser
-      },
-      rememberMe
-    );
-  } else {
-    removeStorageValue(TOKEN_KEY);
-  }
-
-  return sessionUser;
 }
 
 export async function logout() {

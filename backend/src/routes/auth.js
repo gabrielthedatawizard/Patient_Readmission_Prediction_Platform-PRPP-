@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const { body } = require('express-validator');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
 const { compareSync } = require('../lib/passwordHash');
 const {
@@ -18,9 +19,27 @@ const {
   consumeLoginAttempt,
   clearLoginAttempts
 } = require('../services/loginThrottle');
+const { authRateLimit } = require('../middleware/rateLimit');
+const { validateRequest } = require('../middleware/validateRequest');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
+
+const loginValidation = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('A valid email address is required.'),
+  body('password')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 256 })
+    .withMessage('Password is required.'),
+  body('rememberMe')
+    .optional()
+    .isBoolean()
+    .withMessage('rememberMe must be a boolean.')
+];
 
 function normalizeLoginEmail(rawEmail) {
   const email = String(rawEmail || '').trim().toLowerCase();
@@ -33,7 +52,7 @@ function normalizeLoginEmail(rawEmail) {
   return email;
 }
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', authRateLimit, loginValidation, validateRequest, asyncHandler(async (req, res) => {
   const email = normalizeLoginEmail(req.body.email);
   const password = String(req.body.password || '');
   const rememberMe = Boolean(req.body.rememberMe);

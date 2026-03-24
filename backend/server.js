@@ -17,7 +17,6 @@ const helmet = require('helmet');
 const pinoHttp = require('pino-http');
 
 const logger = require('./src/utils/logger');
-const { authRateLimit, predictionRateLimit } = require('./src/middleware/rateLimit');
 const authRoutes = require('./src/routes/auth');
 const patientsRoutes = require('./src/routes/patients');
 const predictionsRoutes = require('./src/routes/predictions');

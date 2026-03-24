@@ -17,6 +17,7 @@ const {
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { predictionRateLimit } = require('../middleware/rateLimit');
 const { logAudit } = require('../services/auditService');
 const { generatePrediction } = require('../services/mlService');
 const { dispatchRiskAlert } = require('../services/notificationService');
@@ -113,7 +114,7 @@ function mergeAnalysisSummary(featureAnalysis = {}, modelAnalysis = {}, dataQual
 
 router.use(requireAuth);
 
-router.post('/predict', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
+router.post('/predict', predictionRateLimit, requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
   const patientIdInput = String(req.body.patientId || '').trim();
   const visitIdInput = String(req.body.visitId || '').trim();
 
@@ -366,7 +367,7 @@ router.get('/recent', requirePermission('predictions:read'), asyncHandler(async 
   });
 }));
 
-router.post('/discharge-summary/extract', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
+router.post('/discharge-summary/extract', predictionRateLimit, requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
   const patientId = String(req.body.patientId || '').trim();
   const notes = String(req.body.notes || '').trim();
 
@@ -469,7 +470,7 @@ router.post('/:predictionId/override', requirePermission('predictions:override')
   return res.json({ prediction });
 }));
 
-router.post('/batch', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+router.post('/batch', predictionRateLimit, requirePermission('predictions:read'), asyncHandler(async (req, res) => {
   const patientIds = req.body.patientIds || [];
   if (!Array.isArray(patientIds)) {
     return res.status(400).json({

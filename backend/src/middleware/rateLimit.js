@@ -10,6 +10,9 @@ class RateLimiterStore {
   constructor() {
     this.hits = new Map();
     this.cleanupInterval = setInterval(() => this.cleanup(), 60_000);
+    if (typeof this.cleanupInterval.unref === 'function') {
+      this.cleanupInterval.unref();
+    }
   }
 
   increment(key, windowMs) {

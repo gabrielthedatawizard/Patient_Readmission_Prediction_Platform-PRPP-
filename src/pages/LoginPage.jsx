@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Activity,
   Eye,
@@ -19,16 +22,38 @@ import { login as loginRequest, normalizeRoleForBackend } from "../services/apiC
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
 
+const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Enter a valid email address."),
+  password: z.string().min(1, "Password is required."),
+  rememberMe: z.boolean().default(false),
+});
+
 const LoginPage = ({ onLogin, onBack }) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedRole, setSelectedRole] = useState("facility-manager");
   const [currentStep, setCurrentStep] = useState(1);
   const { language, setLanguage, t } = useI18n();
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
+  });
+  const email = watch("email");
 
   const roles = [
     { id: "moh", labelKey: "mohAdmin", icon: Building },
@@ -55,16 +80,15 @@ const LoginPage = ({ onLogin, onBack }) => {
     window.location.href = `mailto:${SUPPORT_EMAIL}`;
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleLogin = async (values) => {
     setError("");
     setIsLoading(true);
 
     try {
       const session = await loginRequest({
-        email: email.trim().toLowerCase(),
-        password,
-        rememberMe
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        rememberMe: values.rememberMe,
       });
 
       setIsLoading(false);
@@ -86,7 +110,10 @@ const LoginPage = ({ onLogin, onBack }) => {
     setSelectedRole(roleId);
 
     if (!email) {
-      setEmail(`${backendRole}@trip.go.tz`);
+      setValue("email", `${backendRole}@trip.go.tz`, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
     }
   };
 
@@ -272,7 +299,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="animate-fade-in">
+              <form onSubmit={handleSubmit(handleLogin)} className="animate-fade-in">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
                   {t("loginSignInTitle")}
                 </h2>
@@ -299,13 +326,17 @@ const LoginPage = ({ onLogin, onBack }) => {
                       <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none"
+                        {...register("email")}
+                        aria-invalid={errors.email ? "true" : "false"}
+                        className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none ${
+                          errors.email ? "border-red-300 bg-red-50" : "border-gray-100"
+                        }`}
                         placeholder={t("loginEmailPlaceholder")}
-                        required
                       />
                     </div>
+                    {errors.email && (
+                      <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+                    )}
                   </div>
 
                   <div>
@@ -316,11 +347,12 @@ const LoginPage = ({ onLogin, onBack }) => {
                       <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="w-full pl-12 pr-12 py-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none"
+                        {...register("password")}
+                        aria-invalid={errors.password ? "true" : "false"}
+                        className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none ${
+                          errors.password ? "border-red-300 bg-red-50" : "border-gray-100"
+                        }`}
                         placeholder="••••••••"
-                        required
                       />
                       <button
                         type="button"
@@ -334,16 +366,16 @@ const LoginPage = ({ onLogin, onBack }) => {
                         )}
                       </button>
                     </div>
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={rememberMe}
-                        onChange={(event) =>
-                          setRememberMe(event.target.checked)
-                        }
+                        {...register("rememberMe")}
                         className="w-5 h-5 text-teal-600 rounded border-gray-300 focus:ring-teal-500"
                       />
                       <span className="text-sm text-gray-600">
