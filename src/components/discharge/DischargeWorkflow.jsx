@@ -2,24 +2,85 @@ import React, { useState } from 'react';
 import { 
   ArrowLeft, Stethoscope, Pill, MessageSquare, Calendar, 
   Home, FileText, Check, ArrowRight, AlertTriangle,
-  User, Phone, MapPin, Clock, CheckCircle, Save, Loader2, Bot
+  User, Phone, MapPin, Clock, CheckCircle, Save, Loader2, Bot, Plus
 } from 'lucide-react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import { extractDischargeSummary, generatePrediction } from '../../services/mlService';
+import { createPatientEncounter, updatePatient } from '../../services/apiClient';
 
 /**
  * Discharge Workflow Component
  * 6-step discharge process for patient discharge planning
  */
 
+function splitCsv(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function toOptionalNumber(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toDateInputValue(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function parseBloodPressure(value) {
+  const parts = String(value || '')
+    .split('/')
+    .map((entry) => Number(entry.trim()))
+    .filter((entry) => Number.isFinite(entry));
+
+  return {
+    systolic: parts[0] ?? null,
+    diastolic: parts[1] ?? null
+  };
+}
+
+function buildMedicationDraft(medication = {}) {
+  return {
+    name: medication.name || medication.label || '',
+    dose: medication.dose || medication.strength || '',
+    frequency: medication.frequency || '',
+    route: medication.route || '',
+    continue: medication.continue !== false,
+    modified: Boolean(medication.modified),
+    newDose: medication.newDose || '',
+    notes: medication.notes || ''
+  };
+}
+
 const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
+  const patientProfile = patient?.clinicalProfile || {};
+  const initialBloodPressure = parseBloodPressure(patient?.vitals?.bloodPressure);
+  const initialDiagnoses = [
+    patient?.diagnosis?.primary,
+    ...(Array.isArray(patient?.diagnosis?.secondary) ? patient.diagnosis.secondary : [])
+  ].filter(Boolean);
+  const initialMedications = Array.isArray(patient?.medications)
+    ? patient.medications.map((medication) => buildMedicationDraft(medication))
+    : [];
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isExtractingSummary, setIsExtractingSummary] = useState(false);
   const [predictionResult, setPredictionResult] = useState(null);
+  const [savedEncounter, setSavedEncounter] = useState(null);
   const [predictionError, setPredictionError] = useState('');
   const [summaryError, setSummaryError] = useState('');
   const [summaryInsights, setSummaryInsights] = useState(null);
@@ -34,12 +95,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       teamApproval: false
     },
     // Step 1: Medication
-    medications: patient?.medications?.map(med => ({
-      ...med,
-      continue: true,
-      modified: false,
-      newDose: ''
-    })) || [],
+    medications: initialMedications.length ? initialMedications : [buildMedicationDraft()],
     // Step 2: Education
     educationTopics: {
       warningSigns: false,
@@ -55,7 +111,9 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       day14Call: patient?.riskTier === 'High' || patient?.riskTier === 'Medium',
       day30Call: patient?.riskTier === 'High',
       homeVisit: false,
-      clinicVisit: true
+      clinicVisit: true,
+      clinicVisitDate: '',
+      alternateContactNumber: ''
     },
     // Step 4: Referral
     referrals: {
@@ -64,23 +122,167 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       physiotherapy: false,
       socialWork: patient?.socialHistory?.phoneAccess === false
     },
+    encounterData: {
+      admissionDate: toDateInputValue(patient?.admissionDate),
+      dischargeDate: toDateInputValue(new Date()),
+      ward: patient?.ward || '',
+      diagnosesText: initialDiagnoses.join(', '),
+      dischargeDisposition: 'home',
+      lengthOfStay: Number(patient?.lengthOfStay || patientProfile.lengthOfStayDays || 0) || '',
+      egfr: patient?.labs?.egfr ?? patientProfile.egfr ?? '',
+      hemoglobin: patient?.labs?.hemoglobin ?? patientProfile.hemoglobin ?? '',
+      hba1c: patient?.labs?.hba1c ?? patientProfile.hba1c ?? '',
+      bpSystolic: initialBloodPressure.systolic ?? patientProfile.bpSystolic ?? '',
+      bpDiastolic: initialBloodPressure.diastolic ?? patientProfile.bpDiastolic ?? '',
+      icuStayDays: patientProfile.icuStayDays ?? '',
+      phoneAccess: patient?.socialHistory?.phoneAccess !== false,
+      transportationDifficulty:
+        patient?.socialHistory?.transportation === 'Limited' ||
+        Boolean(patientProfile.transportationDifficulty),
+      livesAlone:
+        patient?.socialHistory?.livingSituation === 'Lives alone' || Boolean(patientProfile.livesAlone),
+      address: patient?.address || '',
+      primaryContactNumber: patient?.phone || ''
+    },
     // Step 5: Summary
     dischargeNotes: ''
   });
 
-  const buildPredictionFeatures = () => {
-    const profile = patient?.clinicalProfile || {};
-    const diagnosis = patient?.diagnosis?.primary || profile.primaryDiagnosis || 'Unknown';
+  const updateEncounterData = (patch) => {
+    setFormData((previous) => ({
+      ...previous,
+      encounterData: {
+        ...previous.encounterData,
+        ...patch
+      }
+    }));
+  };
+
+  const updateMedicationAt = (index, patch) => {
+    setFormData((previous) => ({
+      ...previous,
+      medications: previous.medications.map((medication, medicationIndex) =>
+        medicationIndex === index
+          ? {
+              ...medication,
+              ...patch
+            }
+          : medication
+      )
+    }));
+  };
+
+  const addMedicationRow = () => {
+    setFormData((previous) => ({
+      ...previous,
+      medications: [...previous.medications, buildMedicationDraft()]
+    }));
+  };
+
+  const removeMedicationRow = (index) => {
+    setFormData((previous) => ({
+      ...previous,
+      medications:
+        previous.medications.length > 1
+          ? previous.medications.filter((_, medicationIndex) => medicationIndex !== index)
+          : [buildMedicationDraft()]
+    }));
+  };
+
+  const buildEncounterPayload = () => {
+    const diagnoses = splitCsv(formData.encounterData.diagnosesText);
+    const fallbackDiagnoses = Array.isArray(summaryInsights?.entities?.diagnoses)
+      ? summaryInsights.entities.diagnoses
+      : [];
+    const finalDiagnoses = diagnoses.length ? diagnoses : fallbackDiagnoses;
+    const medications = formData.medications
+      .filter((medication) => String(medication.name || '').trim())
+      .map((medication) => ({
+        name: String(medication.name || '').trim(),
+        dose: String(medication.newDose || medication.dose || '').trim(),
+        frequency: String(medication.frequency || '').trim(),
+        route: String(medication.route || '').trim(),
+        continue: medication.continue !== false,
+        notes: String(medication.notes || '').trim()
+      }));
+
+    const summaryMedications = Array.isArray(summaryInsights?.entities?.medications)
+      ? summaryInsights.entities.medications.map((medication) => ({ name: medication }))
+      : [];
+    const finalMedications = medications.length ? medications : summaryMedications;
 
     return {
-      age: Number(patient?.age || profile.age || 0),
-      gender: patient?.gender || profile.gender || 'Unknown',
-      diagnosis,
-      lengthOfStay: Number(patient?.lengthOfStay || profile.lengthOfStayDays || 0),
-      priorAdmissions6mo: Number(patient?.priorAdmissions || profile.priorAdmissions12m || 0),
-      charlsonIndex: Number(profile.charlsonIndex || 0),
+      admissionDate: formData.encounterData.admissionDate || toDateInputValue(new Date()),
+      dischargeDate: formData.encounterData.dischargeDate || undefined,
+      diagnosis:
+        finalDiagnoses[0] ||
+        patient?.diagnosis?.primary ||
+        patientProfile.primaryDiagnosis ||
+        'Unknown',
+      diagnoses: finalDiagnoses,
+      medications: finalMedications,
+      labResults: {
+        egfr: toOptionalNumber(formData.encounterData.egfr),
+        hemoglobin: toOptionalNumber(formData.encounterData.hemoglobin),
+        hba1c: toOptionalNumber(formData.encounterData.hba1c)
+      },
+      vitalSigns: {
+        bpSystolic: toOptionalNumber(formData.encounterData.bpSystolic),
+        bpDiastolic: toOptionalNumber(formData.encounterData.bpDiastolic)
+      },
+      socialFactors: {
+        phoneAccess: Boolean(formData.encounterData.phoneAccess),
+        transportationDifficulty: Boolean(formData.encounterData.transportationDifficulty),
+        livesAlone: Boolean(formData.encounterData.livesAlone),
+        icuStayDays: toOptionalNumber(formData.encounterData.icuStayDays)
+      },
+      dischargeDisposition: formData.encounterData.dischargeDisposition || 'home',
+      ward: formData.encounterData.ward || patient?.ward || 'General',
+      lengthOfStay: toOptionalNumber(formData.encounterData.lengthOfStay) ?? 0
     };
   };
+
+  const buildPredictionFeatures = (encounterPayload = buildEncounterPayload()) => ({
+    age: Number(patient?.age || patientProfile.age || 0),
+    gender: patient?.gender || patientProfile.gender || 'unknown',
+    diagnosis: encounterPayload.diagnosis,
+    diagnoses: encounterPayload.diagnoses,
+    medications: encounterPayload.medications,
+    lengthOfStay: Number(encounterPayload.lengthOfStay || 0),
+    lengthOfStayDays: Number(encounterPayload.lengthOfStay || 0),
+    priorAdmissions6mo: Number(patient?.priorAdmissions || patientProfile.priorAdmissions12m || 0),
+    priorAdmissions12m: Number(patient?.priorAdmissions || patientProfile.priorAdmissions12m || 0),
+    charlsonIndex: Number(patientProfile.charlsonIndex || 0),
+    egfr: encounterPayload.labResults?.egfr ?? null,
+    hemoglobin: encounterPayload.labResults?.hemoglobin ?? null,
+    hba1c: encounterPayload.labResults?.hba1c ?? null,
+    bpSystolic: encounterPayload.vitalSigns?.bpSystolic ?? null,
+    bpDiastolic: encounterPayload.vitalSigns?.bpDiastolic ?? null,
+    phoneAccess: encounterPayload.socialFactors?.phoneAccess,
+    transportationDifficulty: encounterPayload.socialFactors?.transportationDifficulty,
+    livesAlone: encounterPayload.socialFactors?.livesAlone,
+    icuStayDays: encounterPayload.socialFactors?.icuStayDays ?? null
+  });
+
+  const buildPatientPatch = (encounterPayload) => ({
+    phone: formData.encounterData.primaryContactNumber || patient?.phone || undefined,
+    address: formData.encounterData.address || patient?.address || undefined,
+    clinicalProfile: {
+      ...patientProfile,
+      primaryDiagnosis: encounterPayload.diagnosis,
+      lengthOfStayDays: encounterPayload.lengthOfStay,
+      egfr: encounterPayload.labResults?.egfr ?? undefined,
+      hemoglobin: encounterPayload.labResults?.hemoglobin ?? undefined,
+      hba1c: encounterPayload.labResults?.hba1c ?? undefined,
+      bpSystolic: encounterPayload.vitalSigns?.bpSystolic ?? undefined,
+      bpDiastolic: encounterPayload.vitalSigns?.bpDiastolic ?? undefined,
+      icuStayDays: encounterPayload.socialFactors?.icuStayDays ?? undefined,
+      phoneAccess: encounterPayload.socialFactors?.phoneAccess,
+      transportationDifficulty: encounterPayload.socialFactors?.transportationDifficulty,
+      livesAlone: encounterPayload.socialFactors?.livesAlone,
+      medications: encounterPayload.medications
+    }
+  });
 
   const handleExtractSummary = async () => {
     if (!patient?.id || !String(formData.dischargeNotes || '').trim()) {
@@ -198,6 +400,41 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           ))}
         </div>
 
+        <div className="p-4 bg-white border-2 border-gray-200 rounded-lg space-y-4">
+          <div>
+            <p className="font-semibold text-gray-900">Clinical Signal Capture</p>
+            <p className="text-sm text-gray-600">
+              Capture the minimum structured data used by the predictive model before discharge.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[
+              { key: 'egfr', label: 'eGFR', step: '0.1', placeholder: '60' },
+              { key: 'hemoglobin', label: 'Hemoglobin', step: '0.1', placeholder: '11.2' },
+              { key: 'hba1c', label: 'HbA1c', step: '0.1', placeholder: '7.4' },
+              { key: 'bpSystolic', label: 'BP Systolic', step: '1', placeholder: '138' },
+              { key: 'bpDiastolic', label: 'BP Diastolic', step: '1', placeholder: '82' },
+              { key: 'icuStayDays', label: 'ICU Stay Days', step: '1', placeholder: '0' }
+            ].map((field) => (
+              <label key={field.key} className="block">
+                <span className="block text-sm font-semibold text-gray-700 mb-2">
+                  {field.label}
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step={field.step}
+                  placeholder={field.placeholder}
+                  value={formData.encounterData[field.key]}
+                  onChange={(e) => updateEncounterData({ [field.key]: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
         {!allChecked && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-700">
@@ -229,26 +466,51 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
               <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Frequency</th>
               <th className="text-center text-sm font-semibold text-gray-700 py-3 px-4">Continue</th>
               <th className="text-left text-sm font-semibold text-gray-700 py-3 px-4">Notes</th>
+              <th className="text-right text-sm font-semibold text-gray-700 py-3 px-4">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {formData.medications.map((med, idx) => (
               <tr key={idx} className={med.continue ? '' : 'bg-gray-50'}>
                 <td className="py-3 px-4">
-                  <p className="font-medium text-gray-900">{med.name}</p>
-                  <p className="text-xs text-gray-500">{med.route}</p>
+                  <input
+                    type="text"
+                    value={med.name}
+                    onChange={(e) => updateMedicationAt(idx, { name: e.target.value })}
+                    placeholder="Medication name"
+                    className="w-full text-sm border border-gray-200 rounded px-2 py-1"
+                  />
+                  <input
+                    type="text"
+                    value={med.route || ''}
+                    onChange={(e) => updateMedicationAt(idx, { route: e.target.value })}
+                    placeholder="Route"
+                    className="w-full mt-2 text-xs border border-gray-200 rounded px-2 py-1"
+                  />
                 </td>
-                <td className="py-3 px-4 text-sm text-gray-700">{med.dose}</td>
-                <td className="py-3 px-4 text-sm text-gray-700">{med.frequency}</td>
+                <td className="py-3 px-4">
+                  <input
+                    type="text"
+                    value={med.newDose || med.dose || ''}
+                    onChange={(e) => updateMedicationAt(idx, { newDose: e.target.value, modified: true })}
+                    placeholder="Dose"
+                    className="w-full text-sm border border-gray-200 rounded px-2 py-1"
+                  />
+                </td>
+                <td className="py-3 px-4">
+                  <input
+                    type="text"
+                    value={med.frequency || ''}
+                    onChange={(e) => updateMedicationAt(idx, { frequency: e.target.value })}
+                    placeholder="Frequency"
+                    className="w-full text-sm border border-gray-200 rounded px-2 py-1"
+                  />
+                </td>
                 <td className="py-3 px-4 text-center">
                   <input
                     type="checkbox"
                     checked={med.continue}
-                    onChange={(e) => {
-                      const newMeds = [...formData.medications];
-                      newMeds[idx].continue = e.target.checked;
-                      setFormData({ ...formData, medications: newMeds });
-                    }}
+                    onChange={(e) => updateMedicationAt(idx, { continue: e.target.checked })}
                     className="w-4 h-4 text-teal-600 rounded"
                   />
                 </td>
@@ -257,13 +519,18 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
                     type="text"
                     placeholder="Add notes..."
                     value={med.notes || ''}
-                    onChange={(e) => {
-                      const newMeds = [...formData.medications];
-                      newMeds[idx].notes = e.target.value;
-                      setFormData({ ...formData, medications: newMeds });
-                    }}
+                    onChange={(e) => updateMedicationAt(idx, { notes: e.target.value })}
                     className="w-full text-sm border border-gray-200 rounded px-2 py-1"
                   />
+                </td>
+                <td className="py-3 px-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => removeMedicationRow(idx)}
+                    className="text-sm font-medium text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
                 </td>
               </tr>
             ))}
@@ -292,8 +559,8 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         </div>
       )}
 
-      <Button variant="secondary" className="w-full">
-        + Add New Medication
+      <Button variant="secondary" className="w-full" icon={<Plus className="w-4 h-4" />} onClick={addMedicationRow}>
+        Add New Medication
       </Button>
     </div>
   );
@@ -437,17 +704,61 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
             <input
               type="tel"
               placeholder="Phone number for follow-up calls"
-              defaultValue={patient?.socialHistory?.phoneAccess ? '' : ''}
+              value={formData.encounterData.primaryContactNumber}
+              onChange={(e) => updateEncounterData({ primaryContactNumber: e.target.value })}
               className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none"
             />
           </div>
         </div>
-        {!patient?.socialHistory?.phoneAccess && (
+        {!formData.encounterData.phoneAccess && (
           <p className="text-xs text-amber-600 mt-2">
             <AlertTriangle className="w-3 h-3 inline mr-1" />
             Patient has no phone access. Consider home visit or alternate contact.
           </p>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 bg-white rounded-lg border border-gray-200">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Alternate Contact Number
+          </label>
+          <input
+            type="tel"
+            value={formData.followupPlan.alternateContactNumber}
+            onChange={(e) =>
+              setFormData((previous) => ({
+                ...previous,
+                followupPlan: {
+                  ...previous.followupPlan,
+                  alternateContactNumber: e.target.value
+                }
+              }))
+            }
+            placeholder="Caregiver or family contact"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none"
+          />
+        </div>
+
+        <div className="p-4 bg-white rounded-lg border border-gray-200">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Clinic Follow-up Date
+          </label>
+          <input
+            type="date"
+            value={formData.followupPlan.clinicVisitDate}
+            onChange={(e) =>
+              setFormData((previous) => ({
+                ...previous,
+                followupPlan: {
+                  ...previous.followupPlan,
+                  clinicVisitDate: e.target.value
+                }
+              }))
+            }
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none"
+          />
+        </div>
       </div>
     </div>
   );
@@ -528,6 +839,46 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         ))}
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          {
+            key: 'phoneAccess',
+            label: 'Phone Access Available',
+            description: 'Supports remote follow-up and adherence reminders.'
+          },
+          {
+            key: 'transportationDifficulty',
+            label: 'Transportation Difficulty',
+            description: 'Patient may struggle to attend clinic reviews.'
+          },
+          {
+            key: 'livesAlone',
+            label: 'Lives Alone',
+            description: 'Lower home support after discharge.'
+          }
+        ].map((item) => (
+          <label
+            key={item.key}
+            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              formData.encounterData[item.key]
+                ? 'bg-emerald-50 border-emerald-300'
+                : 'bg-white border-gray-200 hover:border-emerald-200'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.encounterData[item.key])}
+                onChange={(e) => updateEncounterData({ [item.key]: e.target.checked })}
+                className="w-4 h-4 text-emerald-600 rounded"
+              />
+              <span className="font-medium text-gray-900">{item.label}</span>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">{item.description}</p>
+          </label>
+        ))}
+      </div>
+
       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           Patient Address / Location
@@ -537,6 +888,8 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           <input
             type="text"
             placeholder="Enter address for home visits"
+            value={formData.encounterData.address}
+            onChange={(e) => updateEncounterData({ address: e.target.value })}
             className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:border-emerald-500 outline-none"
           />
         </div>
@@ -565,6 +918,80 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
           <p className="text-xs text-gray-500 mb-1">Risk Level</p>
           <Badge variant={patient?.riskTier?.toLowerCase()}>{patient?.riskTier} Risk</Badge>
           <p className="text-sm text-gray-600 mt-1">Score: {patient?.riskScore}</p>
+        </div>
+      </div>
+
+      <div className="p-4 bg-white border-2 border-gray-200 rounded-lg space-y-4">
+        <div>
+          <p className="font-semibold text-gray-900">Structured Prediction Dataset</p>
+          <p className="text-sm text-gray-600">
+            This encounter record is what gets persisted and scored by the ML service.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Admission Date</span>
+            <input
+              type="date"
+              value={formData.encounterData.admissionDate}
+              onChange={(e) => updateEncounterData({ admissionDate: e.target.value })}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Discharge Date</span>
+            <input
+              type="date"
+              value={formData.encounterData.dischargeDate}
+              onChange={(e) => updateEncounterData({ dischargeDate: e.target.value })}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Ward</span>
+            <input
+              type="text"
+              value={formData.encounterData.ward}
+              onChange={(e) => updateEncounterData({ ward: e.target.value })}
+              placeholder="Medical Ward"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            />
+          </label>
+          <label className="block xl:col-span-2">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Diagnoses</span>
+            <input
+              type="text"
+              value={formData.encounterData.diagnosesText}
+              onChange={(e) => updateEncounterData({ diagnosesText: e.target.value })}
+              placeholder="I50.9, E11.9, N18.3"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Discharge Disposition</span>
+            <select
+              value={formData.encounterData.dischargeDisposition}
+              onChange={(e) => updateEncounterData({ dischargeDisposition: e.target.value })}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            >
+              <option value="home">Home</option>
+              <option value="home_with_support">Home With Support</option>
+              <option value="transfer">Transfer</option>
+              <option value="rehabilitation">Rehabilitation</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-gray-700 mb-2">Length of Stay (Days)</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formData.encounterData.lengthOfStay}
+              onChange={(e) => updateEncounterData({ lengthOfStay: e.target.value })}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
+            />
+          </label>
         </div>
       </div>
 
@@ -659,22 +1086,144 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         </div>
       )}
 
+      {savedEncounter && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
+          <p className="text-sm font-semibold text-emerald-900">Encounter Saved</p>
+          <div className="flex flex-wrap gap-2 text-sm text-emerald-800">
+            <Badge variant="success">Visit {savedEncounter.id}</Badge>
+            <span>{savedEncounter.ward || 'General'} Ward</span>
+            <span>LOS: {savedEncounter.lengthOfStay ?? '--'} days</span>
+          </div>
+        </div>
+      )}
+
       {predictionResult && (
-        <div className="p-4 bg-teal-50 border-2 border-teal-200 rounded-lg">
-          <p className="text-sm font-semibold text-teal-900">Latest Predicted Risk</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant={String(predictionResult.tier || '').toLowerCase() || 'default'}>
-              {predictionResult.tier || 'Unknown'} Risk
-            </Badge>
-            <span className="text-sm text-teal-800">
-              Score: {predictionResult.score ?? '--'}
-            </span>
-            {predictionResult.confidence !== undefined && (
-              <span className="text-sm text-teal-700">
-                Confidence: {(Number(predictionResult.confidence) * 100).toFixed(0)}%
+        <div className="p-4 bg-teal-50 border-2 border-teal-200 rounded-lg space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-teal-900">Latest Predicted Risk</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant={String(predictionResult.tier || '').toLowerCase() || 'default'}>
+                {predictionResult.tier || 'Unknown'} Risk
+              </Badge>
+              <span className="text-sm text-teal-800">
+                Score: {predictionResult.score ?? '--'}
               </span>
+              {predictionResult.probability !== undefined && (
+                <span className="text-sm text-teal-700">
+                  Probability: {(Number(predictionResult.probability) * 100).toFixed(1)}%
+                </span>
+              )}
+              {predictionResult.confidence !== undefined && (
+                <span className="text-sm text-teal-700">
+                  Confidence: {(Number(predictionResult.confidence) * 100).toFixed(0)}%
+                </span>
+              )}
+              {predictionResult.method && (
+                <Badge variant={predictionResult.method === 'ml' ? 'info' : 'warning'}>
+                  {String(predictionResult.method).toUpperCase()}
+                </Badge>
+              )}
+              {predictionResult.modelVersion && (
+                <Badge variant="default">{predictionResult.modelVersion}</Badge>
+              )}
+            </div>
+            {predictionResult.confidenceInterval && (
+              <p className="mt-2 text-sm text-teal-800">
+                Confidence interval: {predictionResult.confidenceInterval.low} - {predictionResult.confidenceInterval.high}
+              </p>
+            )}
+            {predictionResult.explanation && (
+              <p className="mt-3 text-sm text-teal-900">{predictionResult.explanation}</p>
             )}
           </div>
+
+          {predictionResult.factors?.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-teal-900 mb-2">Top Drivers</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {predictionResult.factors.map((factor, index) => (
+                  <div key={`${factor.factor || factor.label || index}-${index}`} className="p-3 bg-white rounded-lg border border-teal-100">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {factor.factor || factor.label || 'Unknown factor'}
+                      </p>
+                      <Badge variant={factor.direction === 'decrease' ? 'success' : 'danger'} size="sm">
+                        {factor.direction || 'increase'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">
+                      Weight {(Number(factor.weight || 0) * 100).toFixed(0)}%
+                    </p>
+                    {factor.impact && (
+                      <p className="text-xs text-gray-500 mt-1">{factor.impact}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-3 bg-white rounded-lg border border-teal-100">
+              <p className="text-sm font-semibold text-gray-900">Clinical Analysis</p>
+              <p className="text-sm text-gray-600 mt-2">
+                Lab abnormalities:{' '}
+                {predictionResult.analysisSummary?.labAbnormalities?.length
+                  ? predictionResult.analysisSummary.labAbnormalities.join(', ')
+                  : 'None flagged'}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Social risk factors:{' '}
+                {predictionResult.analysisSummary?.socialRiskFactors?.length
+                  ? predictionResult.analysisSummary.socialRiskFactors.join(', ')
+                  : 'No major barrier flagged'}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Utilization risk:{' '}
+                {predictionResult.analysisSummary?.utilizationRiskLevel ||
+                  predictionResult.analysisSummary?.utilizationRiskProfile ||
+                  'Not available'}
+              </p>
+            </div>
+
+            <div className="p-3 bg-white rounded-lg border border-teal-100">
+              <p className="text-sm font-semibold text-gray-900">Data Quality</p>
+              <p className="text-sm text-gray-600 mt-2">
+                Completeness:{' '}
+                {predictionResult.dataQuality?.completeness !== undefined
+                  ? `${Math.round(Number(predictionResult.dataQuality.completeness) * 100)}%`
+                  : 'Unknown'}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Missing critical fields:{' '}
+                {predictionResult.analysisSummary?.missingData?.length
+                  ? predictionResult.analysisSummary.missingData.join(', ')
+                  : 'None'}
+              </p>
+              {predictionResult.escalationRequired && (
+                <p className="text-sm text-amber-700 mt-2">
+                  Escalation review recommended before discharge closeout.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {predictionResult.tasks?.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-teal-900 mb-2">Auto-Generated Tasks</p>
+              <div className="space-y-2">
+                {predictionResult.tasks.map((task) => (
+                  <div key={task.id || `${task.title}-${task.category}`} className="p-3 bg-white rounded-lg border border-teal-100 flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-gray-900">{task.title}</span>
+                    <Badge variant={task.priority === 'high' ? 'danger' : 'warning'} size="sm">
+                      {task.priority || 'medium'}
+                    </Badge>
+                    <span className="text-sm text-gray-500">{task.category}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -708,20 +1257,37 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
   const handleCompleteDischarge = async () => {
     markStepComplete(currentStep);
     setPredictionError('');
+    setSavedEncounter(null);
     setIsCompleting(true);
 
+    let encounter = null;
     let prediction = null;
     try {
-      prediction = await generatePrediction(patient?.id, buildPredictionFeatures());
+      const encounterPayload = buildEncounterPayload();
+      await updatePatient(patient?.id, buildPatientPatch(encounterPayload));
+      encounter = await createPatientEncounter(patient?.id, encounterPayload);
+      setSavedEncounter(encounter);
+      prediction = await generatePrediction(
+        patient?.id,
+        buildPredictionFeatures(encounterPayload),
+        { visitId: encounter?.id }
+      );
       setPredictionResult(prediction);
     } catch (error) {
-      setPredictionError(error?.message || 'Prediction generation failed. Discharge can still proceed.');
+      setPredictionError(
+        error?.message || 'Encounter save or prediction generation failed. Please review the structured data and try again.'
+      );
     } finally {
       setIsCompleting(false);
     }
 
+    if (!encounter || !prediction) {
+      return;
+    }
+
     onComplete?.({
       workflow: formData,
+      encounter,
       prediction,
       summaryInsights,
     });

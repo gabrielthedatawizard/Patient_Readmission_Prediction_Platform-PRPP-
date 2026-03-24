@@ -71,6 +71,46 @@ function buildInterventionTasks({ patient, prediction, userId }) {
   ];
 }
 
+function mergeUniqueStrings(...collections) {
+  return Array.from(
+    new Set(
+      collections
+        .flat()
+        .filter((entry) => entry !== undefined && entry !== null && String(entry).trim() !== '')
+        .map((entry) => String(entry).trim())
+    )
+  );
+}
+
+function mergeAnalysisSummary(featureAnalysis = {}, modelAnalysis = {}, dataQuality = null) {
+  return {
+    ...featureAnalysis,
+    ...modelAnalysis,
+    labAbnormalities: mergeUniqueStrings(
+      featureAnalysis.labAbnormalities || [],
+      modelAnalysis.labAbnormalities || []
+    ),
+    socialRiskFactors: mergeUniqueStrings(
+      featureAnalysis.socialRiskFactors || [],
+      modelAnalysis.socialRiskFlags || [],
+      modelAnalysis.socialRiskFactors || []
+    ),
+    diagnoses: mergeUniqueStrings(modelAnalysis.diagnoses || []),
+    missingData: mergeUniqueStrings(
+      featureAnalysis.missingData || [],
+      modelAnalysis.missingCriticalFields || []
+    ),
+    featureCompleteness:
+      dataQuality && Number.isFinite(Number(dataQuality.completeness))
+        ? Number(dataQuality.completeness)
+        : undefined,
+    recommendedReview:
+      modelAnalysis.recommendedReview !== undefined
+        ? Boolean(modelAnalysis.recommendedReview)
+        : undefined
+  };
+}
+
 router.use(requireAuth);
 
 router.post('/predict', requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
@@ -116,6 +156,11 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
   });
 
   const result = await generatePrediction(visit?.id || patient.id, modelFeatures);
+  const mergedAnalysisSummary = mergeAnalysisSummary(
+    analysisSummary,
+    result.analysisSummary,
+    result.dataQuality
+  );
 
   const prediction = await createPrediction({
     patientId: patient.id,
@@ -134,7 +179,7 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
     explanation: result.explanation,
     dataQuality: result.dataQuality,
     featureSnapshot,
-    analysisSummary,
+    analysisSummary: mergedAnalysisSummary,
     createdBy: req.user.id
   });
   const responsePrediction = {
@@ -145,7 +190,7 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
         ? prediction.probability
         : Number((Number(prediction.score || 0) / 100).toFixed(3)),
     featureSnapshot,
-    analysisSummary
+    analysisSummary: mergedAnalysisSummary
   };
 
   const tasksToCreate = buildInterventionTasks({
@@ -167,7 +212,7 @@ router.post('/predict', requirePermission('predictions:generate'), asyncHandler(
       fallbackUsed: prediction.fallbackUsed,
       method: responsePrediction.method,
       probability: responsePrediction.probability,
-      analysisSummary
+      analysisSummary: mergedAnalysisSummary
     }
   });
 

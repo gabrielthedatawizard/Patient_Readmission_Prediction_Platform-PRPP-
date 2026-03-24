@@ -1937,6 +1937,7 @@ const App = () => {
                       }
                       onComplete={(result) => {
                         const prediction = result?.prediction || null;
+                        const generatedTasks = normalizeTaskCollection(result?.prediction?.tasks || []);
                         if (prediction && (selectedPatient || patients[0])) {
                           const patientId = (selectedPatient || patients[0]).id;
                           setPatients((previous) =>
@@ -1979,6 +1980,16 @@ const App = () => {
                                 }
                               : previous,
                           );
+                        }
+
+                        if (generatedTasks.length > 0) {
+                          setTasks((previous) => {
+                            const byId = new Map(previous.map((task) => [task.id, task]));
+                            generatedTasks.forEach((task) => {
+                              byId.set(task.id, task);
+                            });
+                            return Array.from(byId.values());
+                          });
                         }
 
                         pushNotification({

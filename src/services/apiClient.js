@@ -279,6 +279,24 @@ export async function fetchPatients(filters = {}) {
   return payload?.patients || [];
 }
 
+export async function createPatientEncounter(patientId, encounter = {}) {
+  const payload = await request(`/patients/${patientId}/encounters`, {
+    method: 'POST',
+    body: encounter
+  });
+
+  return payload?.encounter || null;
+}
+
+export async function updatePatient(patientId, patch = {}) {
+  const payload = await request(`/patients/${patientId}`, {
+    method: 'PUT',
+    body: patch
+  });
+
+  return payload?.patient || null;
+}
+
 export async function fetchTasks(filters = {}) {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
