@@ -70,3 +70,19 @@ curl -X POST http://localhost:5001/api/v1/predict \
 cd ml-service
 python3 -m unittest discover -s tests -t .
 ```
+
+## Calibrate From Real Exports
+
+Once the backend is running with real encounter data, export a labelled training set from:
+
+- `/api/analytics/ml/training-dataset?labelledOnly=true`
+
+Then build a refreshed artifact:
+
+```bash
+cd ml-service
+python3 scripts/build_artifact_from_export.py /path/to/training-dataset.json
+```
+
+This writes a calibrated artifact to `data/models/trip_clinical_model_calibrated.json` using the
+real exported feature/outcome distribution as a lightweight interim retraining step.

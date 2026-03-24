@@ -18,6 +18,12 @@ const {
   getBedForecast,
   getAutomationSummary
 } = require('../services/analyticsService');
+const {
+  buildModelMonitoringSnapshot,
+  buildTrainingDataset,
+  ensureMlExportAccess,
+  serializeRowsToCsv
+} = require('../services/mlDatasetService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -79,6 +85,14 @@ function applyLocationFilters(facilities = [], query = {}) {
 
     return true;
   });
+}
+
+function ensureDatasetExportEnabled() {
+  if (process.env.ENABLE_DATA_EXPORT === 'false') {
+    const error = new Error('Dataset export is disabled in this environment.');
+    error.statusCode = 403;
+    throw error;
+  }
 }
 
 router.get('/dashboard', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
@@ -273,6 +287,59 @@ router.get('/automation-summary', requirePermission('analytics:read'), asyncHand
   });
 
   return res.json(summary);
+}));
+
+router.get('/ml/training-dataset', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDatasetExportEnabled();
+  ensureMlExportAccess(req.user);
+
+  const dataset = await buildTrainingDataset(req.user, req.query);
+  const format = String(req.query.format || 'json').trim().toLowerCase();
+
+  await logAudit(req, {
+    action: 'analytics_ml_training_dataset_exported',
+    resource: 'analytics:ml:training_dataset',
+    details: {
+      format,
+      count: dataset.count,
+      patientCount: dataset.patientCount,
+      labelledOnly: dataset.options.labelledOnly,
+      facilityId: dataset.options.facilityId || null
+    }
+  });
+
+  if (format === 'csv') {
+    const csv = serializeRowsToCsv(dataset.rows);
+    const stamp = dataset.generatedAt.slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="trip-training-dataset-${stamp}.csv"`
+    );
+
+    return res.send(csv);
+  }
+
+  return res.json(dataset);
+}));
+
+router.get('/ml/monitoring', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDatasetExportEnabled();
+  ensureMlExportAccess(req.user);
+
+  const monitoring = await buildModelMonitoringSnapshot(req.user, req.query);
+
+  await logAudit(req, {
+    action: 'analytics_ml_monitoring_viewed',
+    resource: 'analytics:ml:monitoring',
+    details: {
+      visitCount: monitoring.visitCount,
+      readmissionRate30d: monitoring.readmissionRate30d,
+      fallbackRate: monitoring.fallbackRate
+    }
+  });
+
+  return res.json(monitoring);
 }));
 
 router.get('/quality', requirePermission('analytics:read'), asyncHandler(async (req, res) => {

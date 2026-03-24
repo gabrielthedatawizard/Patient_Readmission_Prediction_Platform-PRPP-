@@ -184,6 +184,8 @@ app.get('/api', (req, res) => {
       alerts: '/api/alerts',
       chw: '/api/chw',
       analytics: '/api/analytics',
+      mlTrainingDataset: '/api/analytics/ml/training-dataset',
+      mlMonitoring: '/api/analytics/ml/monitoring',
       audit: '/api/audit',
       sync: '/api/sync'
     }
