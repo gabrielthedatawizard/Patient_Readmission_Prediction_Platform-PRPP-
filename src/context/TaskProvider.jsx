@@ -214,10 +214,10 @@ export const TaskProvider = ({ children }) => {
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
 };
 
-export const useTasks = () => {
+export const useTask = () => {
   const context = useContext(TaskContext);
   if (!context) {
-    throw new Error("useTasks must be used within TaskProvider");
+    throw new Error("useTask must be used within TaskProvider");
   }
   return context;
 };

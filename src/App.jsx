@@ -22,6 +22,7 @@ import RecentActivity from "./components/dashboard/RecentActivity";
 import PatientsList from "./components/patient/PatientsList";
 import Tasks from "./components/dashboard/Tasks";
 import PageTransition from "./components/PageTransition";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Grid from "./design-system/layout/Grid";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
 import Card from "./components/common/Card";
