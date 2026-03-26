@@ -10,6 +10,35 @@ let activeProviderName = 'memory';
 let providerStatus = REQUESTED_DATA_PROVIDER === 'memory' ? 'ready' : 'fallback';
 let providerError = null;
 
+function createProviderUnavailableError() {
+  const error = new Error(
+    providerError
+      ? `Configured ${REQUESTED_DATA_PROVIDER} data provider is unavailable: ${providerError}`
+      : `Configured ${REQUESTED_DATA_PROVIDER} data provider is unavailable.`
+  );
+  error.code = 'DATA_PROVIDER_UNAVAILABLE';
+  error.statusCode = 503;
+  error.publicMessage = 'The configured data service is not available.';
+  return error;
+}
+
+function createUnavailableStore() {
+  return Object.fromEntries(
+    Object.entries(memoryStore).map(([key, value]) => {
+      if (typeof value === 'function') {
+        return [
+          key,
+          () => {
+            throw createProviderUnavailableError();
+          }
+        ];
+      }
+
+      return [key, null];
+    })
+  );
+}
+
 if (REQUESTED_DATA_PROVIDER === 'prisma') {
   try {
     providerStore = require('./prismaStore');
@@ -20,25 +49,26 @@ if (REQUESTED_DATA_PROVIDER === 'prisma') {
     providerError = conciseError;
 
     if (STRICT_DATA_PROVIDER) {
-      throw new Error(
-        `Failed to load Prisma store (${conciseError}). ` +
-          'Fix Prisma generation / database configuration or switch to TRIP_DATA_PROVIDER=memory for demo mode.'
+      providerStore = createUnavailableStore();
+      activeProviderName = 'unavailable';
+      providerStatus = 'error';
+    } else {
+      console.warn(
+        `Failed to load Prisma store (${conciseError}). Falling back to memory store. ` +
+          'Set TRIP_STRICT_DATA_PROVIDER=true to fail fast outside demo mode.'
       );
     }
-
-    console.warn(
-      `Failed to load Prisma store (${conciseError}). Falling back to memory store. ` +
-        'Set TRIP_STRICT_DATA_PROVIDER=true to fail fast outside demo mode.'
-    );
   }
 } else if (REQUESTED_DATA_PROVIDER !== 'memory') {
   providerError = `Unknown data provider: ${REQUESTED_DATA_PROVIDER}`;
 
   if (STRICT_DATA_PROVIDER) {
-    throw new Error(providerError);
+    providerStore = createUnavailableStore();
+    activeProviderName = 'unavailable';
+    providerStatus = 'error';
+  } else {
+    console.warn(`${providerError}. Falling back to memory store.`);
   }
-
-  console.warn(`${providerError}. Falling back to memory store.`);
 }
 
 module.exports = {

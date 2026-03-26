@@ -222,12 +222,16 @@ app.use((err, req, res, next) => {
         : 500;
 
   console.error(`[${req.requestId || 'unknown-request'}]`, err.stack || err);
-  return res.status(statusCode).json({
-    error: statusCode >= 500 ? 'Internal Server Error' : 'Request Failed',
-    message:
-      statusCode >= 500 && IS_PRODUCTION
+  const publicMessage =
+    typeof err.publicMessage === 'string' && err.publicMessage.trim()
+      ? err.publicMessage.trim()
+      : statusCode >= 500 && IS_PRODUCTION
         ? 'An unexpected server error occurred.'
-        : err.message,
+        : err.message;
+
+  return res.status(statusCode).json({
+    error: err.code || (statusCode >= 500 ? 'Internal Server Error' : 'Request Failed'),
+    message: publicMessage,
     requestId: req.requestId || null
   });
 });

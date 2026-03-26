@@ -90,6 +90,11 @@ Progress update on 2026-03-26:
 - Verified `docker compose config` passes.
 - Full stack boot verification is still pending because the Docker daemon was not running in the current environment.
 
+Progress update on 2026-03-27:
+- Hardened backend boot behavior so production auth/data-provider misconfiguration does not crash the entire API at import time.
+- Added clearer 503 responses plus health/readiness visibility for missing `JWT_SECRET` or unavailable strict Prisma data-provider configuration.
+- This specifically improves diagnosis of deployed login failures where the previous symptom was only a generic server error.
+
 Done when:
 - We can boot PostgreSQL-backed local dev reliably.
 - `npm run phase2:verify` can be run against a local database.

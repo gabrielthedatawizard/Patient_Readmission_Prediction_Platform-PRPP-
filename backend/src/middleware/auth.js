@@ -28,11 +28,29 @@ function assertAuthConfig() {
       jwtSecret === DEFAULT_JWT_SECRET ||
       jwtSecret.trim().length < 32)
   ) {
-    throw new Error('JWT_SECRET must be set to a strong value in production.');
+    const error = new Error('JWT_SECRET must be set to a strong value in production.');
+    error.code = 'AUTH_CONFIG_INVALID';
+    error.statusCode = 503;
+    error.publicMessage = 'Authentication service is not configured.';
+    throw error;
   }
 }
 
-assertAuthConfig();
+function getAuthConfigStatus() {
+  try {
+    assertAuthConfig();
+    return {
+      status: 'up',
+      configured: !getIsProduction() || Boolean(process.env.JWT_SECRET)
+    };
+  } catch (error) {
+    return {
+      status: 'down',
+      configured: false,
+      message: error.message
+    };
+  }
+}
 
 function parseDurationToMs(rawValue) {
   if (typeof rawValue === 'number' && Number.isFinite(rawValue) && rawValue > 0) {
@@ -137,6 +155,7 @@ function resolveAccessTokenFromHeaders(headers = {}) {
 }
 
 function verifyAccessToken(token) {
+  assertAuthConfig();
   return jwt.verify(token, getJwtSecret(), {
     algorithms: ['HS256'],
     issuer: 'trip-backend'
@@ -144,6 +163,7 @@ function verifyAccessToken(token) {
 }
 
 function signAccessToken(user) {
+  assertAuthConfig();
   return jwt.sign(
     {
       sub: user.id,
@@ -186,6 +206,10 @@ async function requireAuth(req, res, next) {
 
     return next();
   } catch (error) {
+    if (error.code === 'AUTH_CONFIG_INVALID') {
+      return next(error);
+    }
+
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid or expired token.'
@@ -197,6 +221,7 @@ module.exports = {
   ACCESS_TOKEN_COOKIE_NAME: getAccessTokenCookieName(),
   clearAccessTokenCookie,
   getAccessTokenCookieOptions,
+  getAuthConfigStatus,
   parseCookies,
   resolveAccessTokenFromHeaders,
   signAccessToken,
