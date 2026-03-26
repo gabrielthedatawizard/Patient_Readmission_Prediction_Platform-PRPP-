@@ -1,0 +1,98 @@
+name: trip-local
+
+services:
+  trip-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: trip_db
+      POSTGRES_USER: trip_user
+      POSTGRES_PASSWORD: trip_local_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - trip_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trip_user -d trip_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  trip-ml:
+    build:
+      context: ./ml-service
+    environment:
+      MODEL_DIR_PATH: /app/data/models
+      ML_SERVICE_VERSION: 2.0.0-local
+      ML_REQUEST_TIMEOUT_MS: 5000
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  trip-backend:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      TRIP_DATA_PROVIDER: prisma
+      TRIP_STRICT_DATA_PROVIDER: "true"
+      DATABASE_URL: postgresql://trip_user:trip_local_pass@trip-db:5432/trip_db?schema=public
+      DIRECT_URL: postgresql://trip_user:trip_local_pass@trip-db:5432/trip_db?schema=public
+      JWT_SECRET: local-dev-secret-minimum-32-characters
+      JWT_EXPIRES_IN: 8h
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+      LOG_LEVEL: debug
+      ENABLE_ML_PREDICTIONS: "true"
+      ML_API_URL: http://trip-ml:5001
+      ML_TIMEOUT_MS: 5000
+      ML_HEALTH_TIMEOUT_MS: 2000
+      ML_FALLBACK_ENABLED: "true"
+    command: >
+      sh -c "npm run prisma:generate &&
+             npm run prisma:migrate:deploy &&
+             npm run prisma:seed &&
+             npm start"
+    depends_on:
+      trip-db:
+        condition: service_healthy
+      trip-ml:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - trip_backend_node_modules:/app/node_modules
+
+  trip-frontend:
+    image: node:20.19-bookworm-slim
+    working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+      VITE_WS_URL: ws://localhost:5000
+      PORT: 3000
+      CHOKIDAR_USEPOLLING: "true"
+    command: >
+      sh -c "npm install &&
+             npm run dev -- --host 0.0.0.0 --port 3000"
+    depends_on:
+      trip-backend:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - trip_frontend_node_modules:/app/node_modules
+
+volumes:
+  trip_pgdata:
+  trip_backend_node_modules:
+  trip_frontend_node_modules:

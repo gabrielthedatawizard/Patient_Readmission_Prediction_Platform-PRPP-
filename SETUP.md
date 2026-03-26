@@ -73,6 +73,73 @@ DATABASE_URL=postgresql://trip_user:trip_password@localhost:5432/trip_platform?s
 TRIP_DATA_PROVIDER=prisma
 ```
 
+## Local Setup Paths
+
+### Option A: Fast Demo Mode
+
+Use this when you want the quickest UI walkthrough with seeded demo data.
+
+Backend settings:
+
+```env
+TRIP_DATA_PROVIDER=memory
+TRIP_STRICT_DATA_PROVIDER=false
+```
+
+Run:
+
+```bash
+npm start
+cd backend
+npm start
+```
+
+Use this path for:
+
+- Role walkthroughs
+- Basic UI review
+- Translation and dashboard shell review
+
+Avoid using this path for:
+
+- Prisma verification
+- ML service integration checks
+- Persistence-sensitive workflows
+
+### Option B: Recommended Full Local Stack
+
+Use this when validating the real MVP execution path with database-backed APIs and the ML service.
+
+Run:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:5000`
+- Backend health: `http://localhost:5000/api/health`
+- Backend readiness: `http://localhost:5000/api/ready`
+- ML service: `http://localhost:5001`
+- ML health: `http://localhost:5001/health`
+- PostgreSQL: `localhost:5432`
+
+Compose behavior:
+
+- Backend runs in Prisma mode with strict provider enforcement
+- Database migrations are applied automatically
+- Seed data is loaded automatically
+- Frontend points at the backend and WebSocket endpoints on localhost
+
+Use this path for:
+
+- End-to-end route verification
+- Prisma-backed development
+- ML service integration and fallback testing
+- Phase 2 verification and future Step 2 frontend data wiring work
+
 ## Running the App
 
 Terminal 1:
@@ -117,6 +184,13 @@ cd backend
 npm run phase2:verify
 ```
 
+With Docker Compose running, you can also verify service readiness manually:
+
+```bash
+curl http://localhost:5000/api/ready
+curl http://localhost:5001/health
+```
+
 ## Current Project Structure
 
 ```text
@@ -151,10 +225,23 @@ npm run dev -- --port 3001
 
 Make sure `DATABASE_URL` is set and points to a reachable PostgreSQL instance before running Prisma migrations or e2e tests.
 
+### The frontend loads but API requests fail in Docker
+
+Make sure you started the root `docker compose` stack rather than only the frontend service. The compose file points the browser to `http://localhost:5000/api`, which requires the backend container to be running and published on port `5000`.
+
+### The backend starts but Prisma stays unavailable
+
+Check that the PostgreSQL container is healthy and that `DIRECT_URL` and `DATABASE_URL` both point to the same local database in compose mode.
+
+### Docker Compose validates but will not start containers
+
+Make sure Docker Desktop or the Docker daemon is running. A missing daemon typically shows an error about connecting to `dockerDesktopLinuxEngine` on Windows.
+
 ## Notes
 
 - Root `npm test` is still a placeholder; frontend automated tests are not configured yet.
 - Memory mode is the simplest local setup and includes seeded demo users and patients.
+- The Compose stack is the best local baseline for upcoming MVP work because it exercises the persistent database and ML service together.
 - The backend accepts both `JWT_EXPIRES_IN` and the legacy `JWT_EXPIRY`, but `JWT_EXPIRES_IN` is the preferred setting going forward.
 
 ## Getting Help

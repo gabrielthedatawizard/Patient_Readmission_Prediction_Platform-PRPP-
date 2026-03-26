@@ -16,6 +16,11 @@ TRIP is the Tanzania Readmission Intelligence Platform: a full-stack healthcare 
 
 ## Get Started in 3 Steps
 
+Choose one of the two local paths below:
+
+- Fastest demo path: frontend + backend in memory mode
+- Recommended engineering path: full Docker Compose stack with PostgreSQL + ML service
+
 ### 1. Install dependencies
 
 ```bash
@@ -30,11 +35,16 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-The default local setup uses:
+For the simplest demo path, edit `backend/.env` to use:
+
+- `TRIP_DATA_PROVIDER=memory`
+- `TRIP_STRICT_DATA_PROVIDER=false`
+
+That demo setup uses:
 
 - Frontend on `http://localhost:3000`
 - Backend on `http://localhost:5000`
-- `TRIP_DATA_PROVIDER=memory` for demo data and seeded users
+- In-memory demo data and seeded demo users
 
 ### 3. Run the app
 
@@ -52,6 +62,34 @@ npm start
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Recommended Local Full Stack
+
+For end-to-end backend, Prisma, and ML verification, use Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+- Frontend on `http://localhost:3000`
+- Backend on `http://localhost:5000`
+- ML service on `http://localhost:5001`
+- PostgreSQL on `localhost:5432`
+
+The Compose stack uses Prisma mode by default and runs:
+
+- `npm run prisma:generate`
+- `npm run prisma:migrate:deploy`
+- `npm run prisma:seed`
+
+Use this path when validating:
+
+- Prisma-backed data access
+- ML API integration and fallback behavior
+- Role-based routes against a persistent database
+- The Phase 2 verification flow
 
 ## Demo Accounts
 
@@ -129,8 +167,10 @@ npm run test:e2e:prisma
 ## Notes
 
 - `npm test` at the repo root is still a placeholder; frontend automated tests are not configured yet.
-- Prisma mode requires `DATABASE_URL` and `TRIP_DATA_PROVIDER=prisma` in `backend/.env`.
+- Prisma mode requires `DATABASE_URL`, `DIRECT_URL`, and `TRIP_DATA_PROVIDER=prisma`.
 - The backend health check is available at `http://localhost:5000/api/health`.
+- The backend readiness check is available at `http://localhost:5000/api/ready`.
+- The ML service health check is available at `http://localhost:5001/health`.
 
 *Reducing readmissions through intelligent technology*
 

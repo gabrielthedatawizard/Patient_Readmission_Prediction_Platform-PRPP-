@@ -1,0 +1,326 @@
+# TRIP MVP Implementation Plan
+
+Last updated: 2026-03-26
+Source of truth: `TRIP_Blueprint_v2_SourceVerified.docx` plus direct repo audit of the linked PRPP repository.
+
+## Working Rules
+
+- Implement one vertical slice at a time and verify the current file state before editing.
+- Keep clinical safety, data protection, and role-based access control ahead of convenience features.
+- Treat the current model as non-clinical until synthetic artifacts are replaced with real de-identified training data.
+- Separate `code-ready now` work from `externally blocked` work so progress does not stall.
+
+## Workflow Guides We Will Use
+
+These are the most relevant local workflow references from `everything-claude-code`. We will adapt their principles to this Codex environment as we implement each slice.
+
+- Planning standard: `everything-claude-code/docs/tr/commands/plan.md`
+  - Use before each major slice to restate scope, risks, dependencies, and acceptance criteria before editing.
+- Verification standard: `everything-claude-code/docs/tr/commands/verify.md`
+  - Use after each meaningful slice for build, lint, tests, security checks, console log checks, and git diff review.
+- Continuous quality loop: `everything-claude-code/docs/tr/skills/verification-loop/SKILL.md`
+  - Treat verification as an every-slice gate, not a one-time end-of-project step.
+- Frontend quality standard: `everything-claude-code/docs/tr/skills/frontend-patterns/SKILL.md`
+  - Apply composition-first React patterns, consistent loading/error states, responsive layouts, accessibility, and selective performance optimization.
+- Frontend workflow standard: `everything-claude-code/docs/tr/commands/multi-frontend.md`
+  - Use the workflow shape more than the exact multi-model tooling: research, ideation, plan, execute, optimize, review.
+- Python and ML code standard: `everything-claude-code/docs/tr/skills/python-patterns/SKILL.md`
+  - Apply readable data-pipeline code, explicit error handling, type-aware design, generator/context-manager patterns where useful, and minimal surprise in training scripts.
+- Deployment standard: `everything-claude-code/docs/tr/skills/deployment-patterns/SKILL.md`
+  - Use for Dockerfiles, `docker-compose.yml`, health checks, readiness checks, environment validation, rollback thinking, and production readiness.
+- E2E standard: `everything-claude-code/docs/tr/skills/e2e-testing/SKILL.md`
+  - Use once the frontend data layer is stabilized to validate login, prediction, task, and alert workflows end to end.
+- Eval-driven model/change standard: `everything-claude-code/docs/tr/skills/eval-harness/SKILL.md`
+  - Define pass/fail criteria before model-pipeline or inference changes, especially for feature engineering, training methodology, and regression safety.
+
+## Repo Snapshot
+
+### Verified already in the repo
+
+- Backend/API foundation is real and usable: auth, RBAC, audit, alerts, analytics, sync, and health routes are wired in `backend/server.js`.
+- Prisma/PostgreSQL groundwork exists: schema, migrations, seed, Prisma store, and `phase2:verify` script already exist under `backend/prisma/` and `backend/src/data/`.
+- Offline-first contracts are partially implemented: `/api/sync/pull` and `/api/sync/push` exist, and the frontend already has offline queue helpers in `src/services/offlineStorage.js` and `src/services/syncService.js`.
+- Frontend application shell is real: auth/session handling, providers, dashboards, SHAP component, i18n, and service worker are already present.
+- ML export and monitoring foundations exist: `backend/src/routes/analytics.js` exposes training dataset and monitoring endpoints.
+
+### Verified gaps or partial areas
+
+- Frontend data layer is only partially modernized. `src/services/apiClient.js`, `src/context/PatientProvider.jsx`, and `src/context/TaskProvider.jsx` make direct calls, but React Query is not installed or wired.
+- Notifications are only partially complete. `backend/src/services/notificationService.js` creates/persists alerts and broadcasts by WebSocket, but there is no real SMS provider integration yet.
+- PII encryption is missing. `backend/prisma/schema.prisma` still stores `Patient.name`, `Patient.phone`, and `Patient.address` in plaintext, and `backend/src/lib/prisma.js` has no encryption middleware.
+- JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
+- Tanzania-specific disease features are missing. `backend/src/services/predictionFeatureBuilder.js` and `ml-service/scripts/train_model.py` still focus on generic NCD-oriented features.
+- Training methodology still uses random CV. `ml-service/scripts/train_model.py` still uses `StratifiedKFold`, and the default training file is still `ml-service/data/synthetic_readmission_data.csv`.
+- DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
+- Local full-stack containerization is incomplete. The repo has `ml-service/Dockerfile`, but no root `docker-compose.yml` and no backend Dockerfile.
+
+### External blockers that code alone cannot solve
+
+- Real model validity depends on pilot-facility de-identified admissions data. The current committed artifacts are trained on synthetic data.
+- DHIS2 rollout depends on MoH credentials, field mapping, and org-unit sync decisions.
+- Clinical deployment cannot proceed until real-data retraining, calibration review, and validation are complete.
+
+## Ordered MVP Sequence
+
+## 1. Baseline Verification and Local Runbook
+
+Status: `partial`
+
+Why this comes first:
+- Every later slice needs a repeatable backend + database + ML runtime.
+- The repo already has most of the pieces, so this is a fast unblocker.
+
+Current repo state:
+- `backend/package.json` already contains `phase2:verify`.
+- `backend/src/data/index.js` already supports strict Prisma mode.
+- There is no root `docker-compose.yml`.
+- There is no backend Dockerfile.
+
+Deliverables:
+- Add `docker-compose.yml` for frontend, backend, database, and ML service.
+- Add or verify `backend/Dockerfile`.
+- Document one-command local startup and verification steps.
+
+Progress update on 2026-03-26:
+- Added `docker-compose.yml` at the repo root.
+- Added `backend/Dockerfile`.
+- Added Docker ignore files for backend and ML service build hygiene.
+- Updated `QUICK_START.md` and `SETUP.md` to separate demo mode from the recommended Prisma + ML local stack.
+- Verified `docker compose config` passes.
+- Full stack boot verification is still pending because the Docker daemon was not running in the current environment.
+
+Done when:
+- We can boot PostgreSQL-backed local dev reliably.
+- `npm run phase2:verify` can be run against a local database.
+- `/api/ready` reports healthy with Prisma enabled.
+
+## 2. Frontend API Wiring Stabilization
+
+Status: `next`
+
+Why this is early:
+- It is high-value, code-ready, and not blocked on external data access.
+- The UI already has the right screens; it mainly needs a stronger data layer.
+
+Current repo state:
+- `src/services/apiClient.js` already exposes auth, patients, tasks, predictions, alerts, and audit calls.
+- `src/context/PatientProvider.jsx` and `src/context/TaskProvider.jsx` already fetch and normalize live data.
+- `src/main.jsx` does not wrap the app in TanStack Query.
+- `package.json` does not include `@tanstack/react-query`.
+
+Deliverables:
+- Install TanStack Query and add a shared `QueryClient`.
+- Create `src/hooks/useTrip.js` for the highest-priority queries and mutations.
+- Migrate the first dashboards/views away from ad hoc fetch flows to query hooks.
+- Keep existing offline behavior where it already adds value.
+
+Done when:
+- Patients, alerts, tasks, and latest prediction flows use shared query hooks.
+- Loading, error, and retry behavior is standardized.
+- The highest-priority dashboards no longer depend on scattered one-off fetch logic.
+
+## 3. Notification Gateway Completion
+
+Status: `next`
+
+Why this is early:
+- The alert pipeline already exists, so this is a contained completion task.
+- It adds real operational value without changing the core model.
+
+Current repo state:
+- `backend/src/services/notificationService.js` already persists alerts and records SMS/email channel metadata.
+- SMS is still only marked as `queued` or `skipped_missing_phone`; no external provider call is made.
+
+Deliverables:
+- Add an SMS provider abstraction.
+- Implement an Africa's Talking adapter first.
+- Audit outbound delivery attempts and failures.
+- Keep in-app/WebSocket alerts as fallback behavior.
+
+Done when:
+- High-risk alerts trigger both persisted in-app alerts and real SMS dispatch attempts.
+- Delivery failures are visible in logs and audit history.
+
+## 4. PII Encryption and Production Security Hardening
+
+Status: `next`
+
+Why this must happen before real data:
+- It is the biggest legal/safety gap for any non-demo deployment.
+- It is self-contained enough to implement before real-data ingestion.
+
+Current repo state:
+- `backend/prisma/schema.prisma` stores patient PII in plaintext columns.
+- `backend/src/lib/prisma.js` only initializes Prisma; it does not transform or protect PII.
+- `backend/src/middleware/auth.js` already blocks weak production secrets but still uses `HS256`.
+
+Deliverables:
+- Add `backend/src/lib/encryption.js` using AES-256-GCM.
+- Add Prisma middleware for transparent encrypt-on-write and decrypt-on-read.
+- Update Prisma schema and create the migration path.
+- Enforce presence/validity of `ENCRYPTION_KEY` in non-demo production-like modes.
+- Review whether to keep hardened `HS256` for MVP or move to `RS256` in a later hardening slice.
+
+Done when:
+- New patient writes are encrypted at rest.
+- Reads return decrypted values to the app layer.
+- Production startup fails fast if encryption config is unsafe.
+
+## 5. Tanzania-Specific Feature Expansion
+
+Status: `next`
+
+Why it comes before real retraining:
+- We can prepare the feature pipeline now even before pilot data arrives.
+- It addresses one of the largest blueprint validity gaps.
+
+Current repo state:
+- `backend/src/services/predictionFeatureBuilder.js` only covers heart failure, diabetes, CKD, COPD, stroke, IHD, and cancer groups.
+- `ml-service/scripts/train_model.py` still uses a generic feature list with no Tanzania-priority disease fields.
+
+Deliverables:
+- Extend backend feature extraction for malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk flags where data is available.
+- Extend training features and predictor expectations to match.
+- Keep backward compatibility for demo/sample records that do not yet contain all new fields.
+
+Done when:
+- New Tanzania-specific features appear in exported training rows.
+- Predictor input, training metadata, and explanation output understand those features.
+
+## 6. Temporal Holdout Training Upgrade
+
+Status: `next`
+
+Why it is still worth doing before real data arrives:
+- The code can be corrected now, even if the final metrics must wait on real data.
+- It removes a known methodology flaw from the training path.
+
+Current repo state:
+- `ml-service/scripts/train_model.py` still uses `StratifiedKFold`.
+- The default training data file is still the synthetic dataset.
+
+Deliverables:
+- Replace random-fold evaluation with date-based train/validation/test splitting.
+- Emit validation/test metrics into model metadata.
+- Preserve calibration and model artifact generation.
+
+Done when:
+- Training runs on time-ordered data and reports temporal metrics.
+- The script no longer depends on random K-fold as its primary evaluation path.
+
+## 7. Real Data Ingestion Pipeline
+
+Status: `blocked on external data`
+
+Why this is still in the MVP plan:
+- It is the central clinical blocker and must remain visible.
+- The code work can begin, but execution depends on pilot data access.
+
+Current repo state:
+- Dataset export already exists in the backend.
+- There is no `ml-service/scripts/ingest_real_data.py`.
+- The committed model artifacts still reflect synthetic training data.
+
+Deliverables:
+- Add a real-data ingestion and normalization script.
+- Validate required columns, dates, labels, and diagnosis mappings.
+- Produce training-ready rows for the temporal holdout pipeline.
+
+Done when:
+- A pilot-facility extract can be converted into a clean training dataset.
+
+External dependency:
+- Requires de-identified admissions/discharge data from at least one pilot facility.
+
+## 8. DHIS2 Integration
+
+Status: `blocked on credentials and mapping decisions`
+
+Why it is after the earlier slices:
+- It is important, but not required to complete the immediate app-hardening and model-prep work.
+- It depends on external system access and mapping choices.
+
+Current repo state:
+- Documentation references DHIS2.
+- There is no implemented DHIS2 client or sync route in the backend code.
+
+Deliverables:
+- Add `backend/src/integrations/dhis2Client.js`.
+- Implement org-unit sync and facility import flow.
+- Add admin-facing sync trigger or scheduled job entry point.
+
+Done when:
+- Facility hierarchy can be refreshed from DHIS2 into Prisma-backed storage.
+
+External dependency:
+- Requires MoH DHIS2 service credentials and org-unit field mapping.
+
+## 9. Monitoring, Calibration, and Drift
+
+Status: `partial`
+
+Why this follows the earlier model-prep work:
+- Some monitoring already exists, but the clinically important metrics are still incomplete.
+- The value increases once the feature set and training flow are corrected.
+
+Current repo state:
+- `backend/src/routes/analytics.js` already exposes `/ml/training-dataset` and `/ml/monitoring`.
+- `backend/src/services/mlDatasetService.js` already computes part of the monitoring snapshot.
+
+Deliverables:
+- Add calibration metrics, cohort slicing, drift indicators, and disease-specific coverage checks.
+- Expose thresholds that can trigger operational review.
+
+Done when:
+- Monitoring answers fallback rate, calibration quality, missingness, drift, and Tanzania-feature coverage in one place.
+
+## 10. Real-Data Retraining and Clinical Validation
+
+Status: `blocked on completed slices 4-8 plus external data`
+
+Why this is the final MVP gate:
+- It is the point where the platform becomes clinically defensible instead of just technically functional.
+
+Current repo state:
+- Training code exists, but committed artifacts are synthetic-data artifacts.
+
+Deliverables:
+- Retrain on de-identified real admissions.
+- Validate on temporal holdout.
+- Review calibration and safety thresholds before any clinical rollout.
+
+Done when:
+- Synthetic artifacts are replaced.
+- Temporal evaluation on real data meets the agreed clinical threshold.
+- Pilot validation sign-off is documented.
+
+## Recommended First Build Slice
+
+Start with Step 1, then Step 2.
+
+Reason:
+- Step 1 gives us a stable verification environment for every later backend change.
+- Step 2 gives fast visible progress in the product without waiting on external stakeholders.
+- Step 4 should follow immediately after those because it is the most important safety gap for any real-data path.
+
+## Implementation Cadence
+
+For every slice we implement:
+
+1. Re-read the target files and confirm the repo state has not changed.
+2. Make the smallest complete change that delivers one usable capability.
+3. Run the narrowest verification available.
+4. Update this file with `done`, `partial`, or `blocked` before moving to the next slice.
+
+## How These Workflow Guides Map to TRIP
+
+- For UI/UX work:
+  - Use `frontend-patterns` plus the `multi-frontend` phase structure.
+  - Default goals: responsive layouts, accessible interactions, meaningful loading/error states, and lean client-side data fetching.
+- For model/training work:
+  - Use `python-patterns` for code quality and `eval-harness` for measurable pass/fail gates before and after training changes.
+  - Default goals: reproducible scripts, explicit metadata, safe fallbacks, and regression visibility.
+- For release and environment work:
+  - Use `deployment-patterns` to shape Docker, health checks, env validation, and rollout readiness.
+- For every completed slice:
+  - Use `verify` plus `verification-loop` before moving to the next slice.
