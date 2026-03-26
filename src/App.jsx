@@ -1,6 +1,7 @@
-import React, { Suspense, lazy, useState, useRef } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { Activity, Menu, Globe, Bell, ChevronRight, Settings, LogOut } from "lucide-react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
+import { Activity, Menu, Globe, Bell, Settings, LogOut } from "lucide-react";
 
 // Context Hooks
 import { useAuth } from "./context/AuthProvider";
@@ -8,7 +9,6 @@ import { usePatient } from "./context/PatientProvider";
 import { useTask } from "./context/TaskProvider";
 import { useAlert } from "./context/AlertProvider";
 import { useI18n } from "./context/I18nProvider";
-import { useTheme } from "./context/ThemeContext";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -16,24 +16,18 @@ import LoginPage from "./pages/LoginPage";
 
 // Components
 import Sidebar from "./components/layout/Sidebar";
-import DashboardHeader from "./components/dashboard/DashboardHeader";
-import QuickActions from "./components/dashboard/QuickActions";
-import RecentActivity from "./components/dashboard/RecentActivity";
 import PatientsList from "./components/patient/PatientsList";
 import Tasks from "./components/dashboard/Tasks";
 import PageTransition from "./components/PageTransition";
 import ErrorBoundary from "./components/ErrorBoundary";
-import Grid from "./design-system/layout/Grid";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
 import Card from "./components/common/Card";
-import Button from "./components/common/Button";
 
 // Data
 import { SAMPLE_FACILITIES } from "./data/facilities";
 
 // Lazy Loaded Dashboards & Views
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
-const DataQualityDashboard = lazy(() => import("./components/analytics/DataQualityDashboard"));
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
 const MoHNationalDashboard = lazy(() => import("./dashboards/MoHNationalDashboard"));
@@ -52,6 +46,10 @@ const DEFAULT_FACILITY = SAMPLE_FACILITIES[0] || {
   region: "Unknown",
   district: "Unknown",
 };
+
+const resolveRoutePatient = (patientId, patients, selectedPatient) =>
+  patients.find((patient) => patient.id === patientId) ||
+  (selectedPatient?.id === patientId ? selectedPatient : null);
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isBootstrapping } = useAuth();
@@ -77,6 +75,7 @@ const ProtectedRoute = ({ children }) => {
 
 const RoleDashboard = () => {
   const { userRole, currentUser } = useAuth();
+  const { setSelectedPatient } = usePatient();
   const navigate = useNavigate();
 
   switch (userRole) {
@@ -94,11 +93,13 @@ const RoleDashboard = () => {
           clinicianId={currentUser?.id}
           onOpenPatient={(patient) => {
             if (patient) {
+              setSelectedPatient(patient);
               navigate(`/patients/${patient.id}`);
             }
           }}
           onStartDischarge={(patient) => {
             if (patient) {
+              setSelectedPatient(patient);
               navigate(`/discharge/${patient.id}`);
             }
           }}
@@ -128,8 +129,6 @@ const RoleDashboard = () => {
 const Layout = ({ children }) => {
   const { currentUser, userRole, handleLogout } = useAuth();
   const { language, setLanguage, t } = useI18n();
-  const { patients } = usePatient();
-  const { tasks, urgentTasks } = useTask();
   const { riskAlerts, notifications, showNotifications, setShowNotifications } = useAlert();
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -288,27 +287,164 @@ const Layout = ({ children }) => {
   );
 };
 
-const PatientDetailWrapper = () => {
-  const { patients, selectedPatient, setSelectedPatient } = usePatient();
+const LandingRoute = () => {
   const navigate = useNavigate();
 
-  // Very simplified route handler for PatientDetail
-  return selectedPatient ? (
+  return <LandingPage onLogin={() => navigate("/login")} />;
+};
+
+const PatientsRoute = () => {
+  const { patients, isDataLoading, dataError, setSelectedPatient } = usePatient();
+  const navigate = useNavigate();
+
+  if (isDataLoading && !patients.length) {
+    return <PatientCardSkeleton />;
+  }
+
+  if (dataError && !patients.length) {
+    return <Card className="p-8"><p>{dataError}</p></Card>;
+  }
+
+  return (
+    <PatientsList
+      patients={patients}
+      onPatientSelect={(patient) => {
+        setSelectedPatient(patient);
+        navigate(`/patients/${patient.id}`);
+      }}
+    />
+  );
+};
+
+const TasksRoute = () => {
+  const { patients, setSelectedPatient } = usePatient();
+  const { tasks, handleTaskUpdate, isTasksLoading, taskError } = useTask();
+  const navigate = useNavigate();
+
+  if (isTasksLoading && !tasks.length) {
+    return <PatientCardSkeleton />;
+  }
+
+  if (taskError && !tasks.length) {
+    return <Card className="p-8"><p>{taskError}</p></Card>;
+  }
+
+  return (
+    <Tasks
+      tasks={tasks}
+      patients={patients}
+      onTaskUpdate={handleTaskUpdate}
+      onPatientSelect={(patient) => {
+        if (!patient) {
+          return;
+        }
+
+        setSelectedPatient(patient);
+        navigate(`/patients/${patient.id}`);
+      }}
+    />
+  );
+};
+
+const PatientDetailWrapper = () => {
+  const { id = "" } = useParams();
+  const {
+    patients,
+    selectedPatient,
+    setSelectedPatient,
+    isDataLoading,
+    dataError,
+    updatePatientPrediction,
+  } = usePatient();
+  const navigate = useNavigate();
+
+  const routePatient = resolveRoutePatient(id, patients, selectedPatient);
+
+  useEffect(() => {
+    if (routePatient?.id && routePatient.id !== selectedPatient?.id) {
+      setSelectedPatient(routePatient);
+    }
+  }, [routePatient, selectedPatient?.id, setSelectedPatient]);
+
+  if (isDataLoading && !routePatient) {
+    return <PatientCardSkeleton />;
+  }
+
+  if (dataError && !routePatient) {
+    return <Card className="p-8"><p>{dataError}</p></Card>;
+  }
+
+  return routePatient ? (
     <PatientDetail
-      patient={selectedPatient}
+      patient={routePatient}
       onBack={() => navigate("/patients")}
-      onStartDischarge={() => navigate(`/discharge/${selectedPatient.id}`)}
+      onStartDischarge={() => navigate(`/discharge/${routePatient.id}`)}
       canOverridePrediction={true}
+      onPredictionOverridden={(prediction) =>
+        updatePatientPrediction(routePatient.id, prediction)
+      }
     />
   ) : (
-    <Card className="p-8 text-center"><p>Select a patient</p></Card>
+    <Card className="p-8 text-center"><p>Patient not found.</p></Card>
+  );
+};
+
+const DischargeRoute = () => {
+  const { id = "" } = useParams();
+  const queryClient = useQueryClient();
+  const {
+    patients,
+    selectedPatient,
+    setSelectedPatient,
+    isDataLoading,
+    dataError,
+    updatePatientPrediction,
+  } = usePatient();
+  const navigate = useNavigate();
+  const routePatient = resolveRoutePatient(id, patients, selectedPatient);
+
+  useEffect(() => {
+    if (routePatient?.id && routePatient.id !== selectedPatient?.id) {
+      setSelectedPatient(routePatient);
+    }
+  }, [routePatient, selectedPatient?.id, setSelectedPatient]);
+
+  if (isDataLoading && !routePatient) {
+    return <PatientCardSkeleton />;
+  }
+
+  if (dataError && !routePatient) {
+    return <Card className="p-8"><p>{dataError}</p></Card>;
+  }
+
+  return routePatient ? (
+    <DischargeWorkflow
+      patient={routePatient}
+      onBack={() => navigate(`/patients/${routePatient.id}`)}
+      onComplete={async ({ prediction } = {}) => {
+        if (prediction) {
+          updatePatientPrediction(routePatient.id, prediction);
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["trip", "patients"] }),
+          queryClient.invalidateQueries({ queryKey: ["trip", "tasks"] }),
+          queryClient.invalidateQueries({ queryKey: ["trip", "predictions"] }),
+          queryClient.invalidateQueries({ queryKey: ["trip", "dashboard"] }),
+        ]);
+
+        navigate(`/patients/${routePatient.id}`);
+      }}
+    />
+  ) : (
+    <Card className="p-8 text-center"><p>Patient not found.</p></Card>
   );
 };
 
 const App = () => {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
       
       <Route
@@ -318,9 +454,10 @@ const App = () => {
             <Layout>
               <Routes>
                 <Route path="/dashboard" element={<RoleDashboard />} />
-                <Route path="/patients" element={<PatientsList patients={[]} onPatientSelect={() => {}} />} />
+                <Route path="/patients" element={<PatientsRoute />} />
                 <Route path="/patients/:id" element={<PatientDetailWrapper />} />
-                <Route path="/tasks" element={<Tasks tasks={[]} patients={[]} />} />
+                <Route path="/discharge/:id" element={<DischargeRoute />} />
+                <Route path="/tasks" element={<TasksRoute />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Card className="p-8"><p>Settings Page</p></Card>} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

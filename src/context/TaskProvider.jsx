@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
-import { fetchTasks, updateTask } from "../services/apiClient";
+import { usePatient } from "./PatientProvider";
 import { mapApiTasksToUiTasks } from "../services/uiMappers";
 import {
   getOfflineTasks,
@@ -17,14 +17,21 @@ import {
 import { flushSyncQueue, queueTaskStatusUpdate } from "../services/syncService";
 import { trackEvent } from "../services/analytics";
 import { useI18n } from "./I18nProvider";
+import { useTasksQuery, useUpdateTaskMutation } from "../hooks/useTrip";
 
 const TaskContext = createContext(null);
 
 export const TaskProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const { patients } = usePatient();
   const { t } = useI18n();
   const [tasks, setTasks] = useState([]);
+  const [isTasksLoading, setIsTasksLoading] = useState(false);
+  const [taskError, setTaskError] = useState("");
+  const [isUsingOfflineTasks, setIsUsingOfflineTasks] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const tasksQuery = useTasksQuery({}, { enabled: isAuthenticated });
+  const updateTaskMutation = useUpdateTaskMutation();
 
   const normalizeTaskDueDate = useCallback((rawDueDate) => {
     if (rawDueDate instanceof Date && !Number.isNaN(rawDueDate.getTime())) {
@@ -47,35 +54,93 @@ export const TaskProvider = ({ children }) => {
     [normalizeTaskRecord],
   );
 
-  const loadTasks = useCallback(async (mappedPatients = []) => {
-    try {
-      const apiTasks = await fetchTasks();
-      const mappedTasks = mapApiTasksToUiTasks(apiTasks, mappedPatients);
-      const normalizedTasks = normalizeTaskCollection(mappedTasks);
-      setTasks(normalizedTasks);
+  const liveTasks = useMemo(
+    () =>
+      normalizeTaskCollection(
+        mapApiTasksToUiTasks(tasksQuery.data || [], patients),
+      ),
+    [normalizeTaskCollection, patients, tasksQuery.data],
+  );
 
-      try {
-        await saveTasksOffline(normalizedTasks);
-      } catch (offlineError) {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setTasks([]);
+      setIsTasksLoading(false);
+      setTaskError("");
+      setIsUsingOfflineTasks(false);
+      return;
+    }
+
+    setIsTasksLoading((tasksQuery.isLoading || tasksQuery.isFetching) && !tasks.length);
+
+    if (tasksQuery.isSuccess) {
+      setTasks(liveTasks);
+      setIsTasksLoading(false);
+      setTaskError("");
+      setIsUsingOfflineTasks(false);
+      saveTasksOffline(liveTasks).catch((offlineError) => {
         console.warn("Failed to persist offline task snapshot:", offlineError);
-      }
+      });
+    }
+  }, [
+    isAuthenticated,
+    liveTasks,
+    tasks.length,
+    tasksQuery.isFetching,
+    tasksQuery.isLoading,
+    tasksQuery.isSuccess,
+  ]);
 
-      return normalizedTasks;
-    } catch (error) {
+  useEffect(() => {
+    if (!isAuthenticated || !tasksQuery.error || tasksQuery.isSuccess) {
+      return;
+    }
+
+    let disposed = false;
+
+    const loadOfflineSnapshot = async () => {
       try {
         const offlineTasks = await getOfflineTasks();
+        if (disposed) {
+          return;
+        }
+
         if (offlineTasks.length) {
-          const normalizedOfflineTasks = normalizeTaskCollection(offlineTasks);
-          setTasks(normalizedOfflineTasks);
-          return normalizedOfflineTasks;
+          setTasks(normalizeTaskCollection(offlineTasks));
+          setTaskError(
+            `Live task data unavailable (${tasksQuery.error?.message || "request failed"}). Showing the latest offline snapshot.`,
+          );
+          setIsUsingOfflineTasks(true);
+          setIsTasksLoading(false);
+          return;
         }
       } catch (offlineError) {
         // Offline cache may not be available
       }
-      setTasks([]);
-      return [];
-    }
-  }, [normalizeTaskCollection]);
+
+      if (!disposed) {
+        setTasks([]);
+        setTaskError(tasksQuery.error?.message || "Unable to load operational tasks.");
+        setIsUsingOfflineTasks(false);
+        setIsTasksLoading(false);
+      }
+    };
+
+    loadOfflineSnapshot();
+
+    return () => {
+      disposed = true;
+    };
+  }, [isAuthenticated, normalizeTaskCollection, tasksQuery.error, tasksQuery.isSuccess]);
+
+  const loadTasks = useCallback(async () => {
+    const result = await tasksQuery.refetch();
+    const refreshed = normalizeTaskCollection(
+      mapApiTasksToUiTasks(result.data || [], patients),
+    );
+    setTasks(refreshed);
+    return refreshed;
+  }, [normalizeTaskCollection, patients, tasksQuery]);
 
   const handleTaskUpdate = useCallback(
     async (task, status, pushNotification) => {
@@ -90,7 +155,10 @@ export const TaskProvider = ({ children }) => {
           throw new Error("offline");
         }
 
-        const updated = await updateTask(task.id, { status });
+        const updated = await updateTaskMutation.mutateAsync({
+          taskId: task.id,
+          patch: { status },
+        });
         if (!updated) return;
 
         setTasks((prev) =>
@@ -106,6 +174,7 @@ export const TaskProvider = ({ children }) => {
               : entry,
           ),
         );
+        setTaskError("");
 
         trackEvent("Task", "StatusUpdate", `${updated.id}:${updated.status}`);
       } catch (error) {
@@ -124,7 +193,7 @@ export const TaskProvider = ({ children }) => {
         }
       }
     },
-    [t],
+    [t, updateTaskMutation],
   );
 
   // Replay offline sync queue on reconnect
@@ -189,6 +258,9 @@ export const TaskProvider = ({ children }) => {
       tasks,
       setTasks,
       urgentTasks,
+      isTasksLoading,
+      taskError,
+      isUsingOfflineTasks,
       pendingSyncCount,
       setPendingSyncCount,
       loadTasks,
@@ -201,6 +273,9 @@ export const TaskProvider = ({ children }) => {
     [
       tasks,
       urgentTasks,
+      isTasksLoading,
+      taskError,
+      isUsingOfflineTasks,
       pendingSyncCount,
       loadTasks,
       handleTaskUpdate,

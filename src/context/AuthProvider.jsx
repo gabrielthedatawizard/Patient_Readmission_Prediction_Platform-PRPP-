@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   clearSession,
   fetchCurrentUser,
@@ -15,6 +16,7 @@ import { trackEvent } from "../services/analytics";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -42,7 +44,8 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(session.user);
     setUserRole(session.user.role);
     setIsAuthenticated(true);
-  }, []);
+    queryClient.invalidateQueries({ queryKey: ["trip"] });
+  }, [queryClient]);
 
   const handleLogout = useCallback(async () => {
     trackEvent("Session", "Logout", currentUser?.role || "unknown");
@@ -54,8 +57,9 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setUserRole(null);
       setCurrentUser(null);
+      queryClient.removeQueries({ queryKey: ["trip"] });
     }
-  }, [currentUser?.role]);
+  }, [currentUser?.role, queryClient]);
 
   const value = React.useMemo(
     () => ({

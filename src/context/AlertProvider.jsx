@@ -8,12 +8,12 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
-import {
-  fetchAlerts,
-  acknowledgeAlert,
-  resolveAlert,
-} from "../services/apiClient";
 import { useI18n } from "./I18nProvider";
+import {
+  useAcknowledgeAlertMutation,
+  useAlertsQuery,
+  useResolveAlertMutation,
+} from "../hooks/useTrip";
 
 const AlertContext = createContext(null);
 
@@ -40,7 +40,7 @@ const initialNotifications = [
 
 export const AlertProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const { t, language } = useI18n();
+  const { t } = useI18n();
 
   const [riskAlerts, setRiskAlerts] = useState([]);
   const [isAlertsLoading, setIsAlertsLoading] = useState(false);
@@ -50,6 +50,15 @@ export const AlertProvider = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationPanelRef = useRef(null);
   const notificationButtonRef = useRef(null);
+  const alertsQuery = useAlertsQuery(
+    { limit: 30 },
+    {
+      enabled: isAuthenticated,
+      refetchInterval: isAuthenticated ? 60 * 1000 : false,
+    },
+  );
+  const acknowledgeAlertMutation = useAcknowledgeAlertMutation();
+  const resolveAlertMutation = useResolveAlertMutation();
 
   const fillTemplate = useCallback((template, values = {}) => {
     return Object.entries(values).reduce(
@@ -118,33 +127,15 @@ export const AlertProvider = ({ children }) => {
 
   const loadRiskAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
-    setIsAlertsLoading(true);
-    setAlertsError("");
-    try {
-      const alerts = await fetchAlerts({ limit: 30 });
-      setRiskAlerts(
-        (alerts || [])
-          .map((a) => normalizeAlertRecord(a))
-          .filter((a) => a.status !== "resolved"),
-      );
-    } catch (error) {
-      if (error?.status === 403) {
-        setRiskAlerts([]);
-        setAlertsError("");
-        return;
-      }
-      setAlertsError(error?.message || t("unableToLoadRiskAlerts"));
-    } finally {
-      setIsAlertsLoading(false);
-    }
-  }, [isAuthenticated, normalizeAlertRecord, t]);
+    await alertsQuery.refetch();
+  }, [alertsQuery, isAuthenticated]);
 
   const handleAcknowledgeAlert = useCallback(
     async (alertId) => {
       setAlertActionId(`ack:${alertId}`);
       setAlertsError("");
       try {
-        const updated = await acknowledgeAlert(alertId);
+        const updated = await acknowledgeAlertMutation.mutateAsync(alertId);
         if (updated) upsertRiskAlert(updated);
         pushNotification({
           tone: "blue",
@@ -157,7 +148,7 @@ export const AlertProvider = ({ children }) => {
         setAlertActionId(null);
       }
     },
-    [pushNotification, t, translateTemplate, upsertRiskAlert],
+    [acknowledgeAlertMutation, pushNotification, t, translateTemplate, upsertRiskAlert],
   );
 
   const handleResolveAlert = useCallback(
@@ -165,7 +156,7 @@ export const AlertProvider = ({ children }) => {
       setAlertActionId(`resolve:${alertId}`);
       setAlertsError("");
       try {
-        const updated = await resolveAlert(alertId);
+        const updated = await resolveAlertMutation.mutateAsync(alertId);
         if (updated?.id) {
           setRiskAlerts((prev) => prev.filter((a) => a.id !== updated.id));
         }
@@ -180,23 +171,47 @@ export const AlertProvider = ({ children }) => {
         setAlertActionId(null);
       }
     },
-    [pushNotification, t, translateTemplate],
+    [pushNotification, resolveAlertMutation, t, translateTemplate],
   );
 
-  // Load alerts when authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       setRiskAlerts([]);
+      setIsAlertsLoading(false);
+      setAlertsError("");
       return;
     }
-    loadRiskAlerts();
-  }, [isAuthenticated, loadRiskAlerts]);
 
-  // Reload alerts when notification panel opens
-  useEffect(() => {
-    if (!isAuthenticated || !showNotifications) return;
-    loadRiskAlerts();
-  }, [isAuthenticated, showNotifications, loadRiskAlerts]);
+    setIsAlertsLoading(alertsQuery.isLoading || alertsQuery.isFetching);
+
+    if (alertsQuery.error?.status === 403) {
+      setRiskAlerts([]);
+      setAlertsError("");
+      return;
+    }
+
+    if (alertsQuery.error) {
+      setAlertsError(alertsQuery.error?.message || t("unableToLoadRiskAlerts"));
+      return;
+    }
+
+    if (alertsQuery.data) {
+      setRiskAlerts(
+        (alertsQuery.data || [])
+          .map((alert) => normalizeAlertRecord(alert))
+          .filter((alert) => alert.status !== "resolved"),
+      );
+      setAlertsError("");
+    }
+  }, [
+    alertsQuery.data,
+    alertsQuery.error,
+    alertsQuery.isFetching,
+    alertsQuery.isLoading,
+    isAuthenticated,
+    normalizeAlertRecord,
+    t,
+  ]);
 
   // Close notification panel on click outside or Escape key
   useEffect(() => {

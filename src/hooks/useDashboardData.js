@@ -1,16 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { buildApiUrl } from "../services/runtimeConfig";
+import { tripQueryKeys } from "./useTrip";
 
 export function useDashboardData(endpoint, refreshInterval = 300000) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-
-    try {
+  const query = useQuery({
+    queryKey: tripQueryKeys.dashboardData(endpoint),
+    queryFn: async () => {
       const response = await fetch(buildApiUrl(endpoint), {
         credentials: "include",
         headers: {
@@ -22,34 +17,19 @@ export function useDashboardData(endpoint, refreshInterval = 300000) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const result = await response.json();
-      setData(result);
-      setError(null);
-      setLastRefresh(new Date());
-    } catch (err) {
-      setError(err?.message || "Request failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint]);
-
-  useEffect(() => {
-    fetchData();
-
-    if (!refreshInterval || refreshInterval <= 0) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(fetchData, refreshInterval);
-    return () => window.clearInterval(interval);
-  }, [fetchData, refreshInterval]);
+      return response.json();
+    },
+    staleTime: Math.min(refreshInterval || 300000, 300000),
+    refetchInterval:
+      refreshInterval && refreshInterval > 0 ? refreshInterval : false,
+  });
 
   return {
-    data,
-    loading,
-    error,
-    lastRefresh,
-    refresh: fetchData,
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error?.message || null,
+    lastRefresh: query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null,
+    refresh: query.refetch,
   };
 }
 

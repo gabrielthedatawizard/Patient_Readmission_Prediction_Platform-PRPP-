@@ -8,17 +8,17 @@ import React, {
 } from "react";
 import { useAuth } from "./AuthProvider";
 import {
-  fetchPatients,
-  fetchLatestPrediction,
-  fetchBatchPredictions,
-} from "../services/apiClient";
-import {
   mapApiPatientsToUiPatients,
 } from "../services/uiMappers";
 import {
   getOfflinePatients,
   savePatientsOffline,
 } from "../services/offlineStorage";
+import {
+  useBatchPredictionsQuery,
+  usePatientsQuery,
+  useTasksQuery,
+} from "../hooks/useTrip";
 
 const PatientContext = createContext(null);
 
@@ -34,6 +34,15 @@ export const PatientProvider = ({ children }) => {
     region: "Unknown",
     district: "Unknown",
   });
+  const patientsQuery = usePatientsQuery({}, { enabled: isAuthenticated });
+  const tasksQuery = useTasksQuery({}, { enabled: isAuthenticated });
+  const patientIds = useMemo(
+    () => (patientsQuery.data || []).map((patient) => patient.id),
+    [patientsQuery.data],
+  );
+  const predictionsQuery = useBatchPredictionsQuery(patientIds, {
+    enabled: isAuthenticated,
+  });
 
   const toUiRiskFactors = useCallback((factors = []) => {
     if (!Array.isArray(factors) || factors.length === 0) {
@@ -46,77 +55,142 @@ export const PatientProvider = ({ children }) => {
     }));
   }, []);
 
-  const loadPatients = useCallback(async (tasks = []) => {
-    setIsDataLoading(true);
-    setDataError("");
+  const livePatients = useMemo(
+    () =>
+      mapApiPatientsToUiPatients(
+        patientsQuery.data || [],
+        tasksQuery.data || [],
+        predictionsQuery.data || {},
+      ),
+    [patientsQuery.data, predictionsQuery.data, tasksQuery.data],
+  );
 
-    try {
-      const apiPatients = await fetchPatients();
-      const patientIds = apiPatients.map(p => p.id);
+  const liveDataError =
+    patientsQuery.error || tasksQuery.error || predictionsQuery.error;
+  const hasLoadedLiveData =
+    patientsQuery.isSuccess &&
+    tasksQuery.isSuccess &&
+    (!patientIds.length || predictionsQuery.isSuccess);
 
-      const predictionByPatientId = await fetchBatchPredictions(patientIds);
-      const mappedPatients = mapApiPatientsToUiPatients(
-        apiPatients,
-        tasks,
-        predictionByPatientId,
-      );
-
-      setPatients(mappedPatients);
-      setSelectedPatient((previous) => {
-        if (!previous) return null;
-        return mappedPatients.find((p) => p.id === previous.id) || null;
-      });
-
-      if (apiPatients.length > 0) {
-        const facility = apiPatients[0]?.facility || {};
-        setSelectedFacility({
-          name: facility.name || mappedPatients[0]?.facility || "TRIP Facility",
-          region: facility.regionCode || currentUser?.regionCode || "Unknown",
-          district: facility.district || "Unknown",
-        });
-      } else if (currentUser?.facilityId) {
-        setSelectedFacility((prev) => ({
-          ...prev,
-          name: currentUser.facilityId,
-          region: currentUser.regionCode || prev.region,
-        }));
-      }
-
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPatients([]);
+      setSelectedPatient(null);
+      setDataError("");
       setIsUsingOfflineData(false);
-      try {
-        await savePatientsOffline(mappedPatients);
-      } catch (offlineError) {
-        console.warn("Failed to persist offline snapshot:", offlineError);
-      }
+      setIsDataLoading(false);
+      return;
+    }
 
-      return mappedPatients;
-    } catch (error) {
+    setIsDataLoading(
+      (patientsQuery.isLoading || tasksQuery.isLoading || predictionsQuery.isLoading) &&
+        !patients.length,
+    );
+  }, [
+    isAuthenticated,
+    patients.length,
+    patientsQuery.isLoading,
+    predictionsQuery.isLoading,
+    tasksQuery.isLoading,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedLiveData) {
+      return;
+    }
+
+    setPatients(livePatients);
+    setSelectedPatient((previous) => {
+      if (!previous) return null;
+      return livePatients.find((patient) => patient.id === previous.id) || null;
+    });
+
+    const sourcePatient = patientsQuery.data?.[0] || null;
+    if (sourcePatient) {
+      const facility = sourcePatient.facility || {};
+      setSelectedFacility({
+        name: facility.name || livePatients[0]?.facility || "TRIP Facility",
+        region: facility.regionCode || currentUser?.regionCode || "Unknown",
+        district: facility.district || "Unknown",
+      });
+    } else if (currentUser?.facilityId) {
+      setSelectedFacility((previous) => ({
+        ...previous,
+        name: currentUser.facilityId,
+        region: currentUser.regionCode || previous.region,
+      }));
+    }
+
+    setIsUsingOfflineData(false);
+    setDataError("");
+    setIsDataLoading(false);
+
+    savePatientsOffline(livePatients).catch((offlineError) => {
+      console.warn("Failed to persist offline snapshot:", offlineError);
+    });
+  }, [
+    currentUser?.facilityId,
+    currentUser?.regionCode,
+    hasLoadedLiveData,
+    isAuthenticated,
+    livePatients,
+    patientsQuery.data,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !liveDataError || hasLoadedLiveData) {
+      return;
+    }
+
+    let disposed = false;
+
+    const loadOfflineSnapshot = async () => {
       try {
         const offlinePatients = await getOfflinePatients();
+        if (disposed) {
+          return;
+        }
+
         if (offlinePatients.length) {
           setPatients(offlinePatients);
           setSelectedPatient((previous) => {
             if (!previous) return null;
-            return offlinePatients.find((p) => p.id === previous.id) || null;
+            return offlinePatients.find((patient) => patient.id === previous.id) || null;
           });
           setIsUsingOfflineData(true);
           setDataError(
-            `Live data unavailable (${error?.message || "request failed"}). Showing the latest offline snapshot.`,
+            `Live data unavailable (${liveDataError?.message || "request failed"}). Showing the latest offline snapshot.`,
           );
-          return offlinePatients;
+          setIsDataLoading(false);
+          return;
         }
       } catch (offlineError) {
         // Offline cache may not be available
       }
 
-      setDataError(error?.message || "Unable to load operational data.");
-      setPatients([]);
-      setIsUsingOfflineData(false);
-      return [];
-    } finally {
-      setIsDataLoading(false);
-    }
-  }, [currentUser]);
+      if (!disposed) {
+        setPatients([]);
+        setIsUsingOfflineData(false);
+        setDataError(liveDataError?.message || "Unable to load operational data.");
+        setIsDataLoading(false);
+      }
+    };
+
+    loadOfflineSnapshot();
+
+    return () => {
+      disposed = true;
+    };
+  }, [hasLoadedLiveData, isAuthenticated, liveDataError]);
+
+  const loadPatients = useCallback(async () => {
+    await Promise.all([
+      patientsQuery.refetch(),
+      tasksQuery.refetch(),
+      patientIds.length ? predictionsQuery.refetch() : Promise.resolve(),
+    ]);
+    return patients;
+  }, [patientIds.length, patients, patientsQuery, predictionsQuery, tasksQuery]);
 
   const updatePatientPrediction = useCallback(
     (patientId, prediction) => {

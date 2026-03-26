@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { AlertCircle, Clock } from "lucide-react";
 import Badge from "../common/Badge";
 import Button from "../common/Button";
 import {
-  fetchPredictionHistory,
-  overridePrediction,
-} from "../../services/apiClient";
+  useOverridePredictionMutation,
+  usePredictionHistoryQuery,
+} from "../../hooks/useTrip";
 
 const TIERS = ["Low", "Medium", "High"];
 
@@ -14,38 +14,17 @@ const PredictionHistory = ({
   canOverride = false,
   onPredictionOverridden,
 }) => {
-  const [predictions, setPredictions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [activeOverrideId, setActiveOverrideId] = useState(null);
   const [overrideTier, setOverrideTier] = useState("Medium");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideError, setOverrideError] = useState("");
   const [overrideSuccess, setOverrideSuccess] = useState("");
-  const [submittingOverrideId, setSubmittingOverrideId] = useState(null);
-
-  const loadHistory = useCallback(async () => {
-    if (!patientId) {
-      setPredictions([]);
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const rows = await fetchPredictionHistory(patientId);
-      setPredictions(rows);
-    } catch (requestError) {
-      setError(requestError?.message || "Unable to load prediction history.");
-    } finally {
-      setLoading(false);
-    }
-  }, [patientId]);
-
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  const historyQuery = usePredictionHistoryQuery(patientId);
+  const overrideMutation = useOverridePredictionMutation();
+  const predictions = historyQuery.data || [];
+  const loading = historyQuery.isLoading;
+  const error = historyQuery.error?.message || "";
+  const submittingOverrideId = overrideMutation.variables?.predictionId || null;
 
   const openOverrideForm = (prediction) => {
     setActiveOverrideId(prediction.id);
@@ -73,16 +52,17 @@ const PredictionHistory = ({
       return;
     }
 
-    setSubmittingOverrideId(prediction.id);
     setOverrideError("");
     setOverrideSuccess("");
 
     try {
-      const updated = await overridePrediction(prediction.id, {
-        newTier: overrideTier,
-        reason,
+      const updated = await overrideMutation.mutateAsync({
+        predictionId: prediction.id,
+        payload: {
+          newTier: overrideTier,
+          reason,
+        },
       });
-      await loadHistory();
       setOverrideSuccess("Risk tier override saved.");
       setActiveOverrideId(null);
       if (updated && typeof onPredictionOverridden === "function") {
@@ -92,8 +72,6 @@ const PredictionHistory = ({
       setOverrideError(
         requestError?.message || "Unable to save prediction override.",
       );
-    } finally {
-      setSubmittingOverrideId(null);
     }
   };
 
@@ -176,7 +154,7 @@ const PredictionHistory = ({
             {prediction.method === "rules" && (
               <div className="mt-2 text-xs text-amber-700 flex items-start gap-1">
                 <AlertCircle className="w-3 h-3 mt-0.5" />
-                ML service unavailable — rule-based fallback used
+                ML service unavailable - rule-based fallback used
               </div>
             )}
 

@@ -42,17 +42,18 @@ These are the most relevant local workflow references from `everything-claude-co
 - Offline-first contracts are partially implemented: `/api/sync/pull` and `/api/sync/push` exist, and the frontend already has offline queue helpers in `src/services/offlineStorage.js` and `src/services/syncService.js`.
 - Frontend application shell is real: auth/session handling, providers, dashboards, SHAP component, i18n, and service worker are already present.
 - ML export and monitoring foundations exist: `backend/src/routes/analytics.js` exposes training dataset and monitoring endpoints.
+- Local full-stack container baseline now exists: the repo has a root `docker-compose.yml`, `backend/Dockerfile`, and updated setup docs for the Prisma + ML local stack.
 
 ### Verified gaps or partial areas
 
-- Frontend data layer is only partially modernized. `src/services/apiClient.js`, `src/context/PatientProvider.jsx`, and `src/context/TaskProvider.jsx` make direct calls, but React Query is not installed or wired.
+- Frontend data layer is now partially modernized. React Query is installed and wired for the main patient, task, alert, and prediction flows, but some dashboard/API surfaces still need migration and end-to-end verification.
 - Notifications are only partially complete. `backend/src/services/notificationService.js` creates/persists alerts and broadcasts by WebSocket, but there is no real SMS provider integration yet.
 - PII encryption is missing. `backend/prisma/schema.prisma` still stores `Patient.name`, `Patient.phone`, and `Patient.address` in plaintext, and `backend/src/lib/prisma.js` has no encryption middleware.
 - JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
 - Tanzania-specific disease features are missing. `backend/src/services/predictionFeatureBuilder.js` and `ml-service/scripts/train_model.py` still focus on generic NCD-oriented features.
 - Training methodology still uses random CV. `ml-service/scripts/train_model.py` still uses `StratifiedKFold`, and the default training file is still `ml-service/data/synthetic_readmission_data.csv`.
 - DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
-- Local full-stack containerization is incomplete. The repo has `ml-service/Dockerfile`, but no root `docker-compose.yml` and no backend Dockerfile.
+- Local verification in this shell is still partially blocked by environment issues: the Docker daemon was unavailable for Step 1, so full containerized verification still remains pending.
 
 ### External blockers that code alone cannot solve
 
@@ -73,8 +74,8 @@ Why this comes first:
 Current repo state:
 - `backend/package.json` already contains `phase2:verify`.
 - `backend/src/data/index.js` already supports strict Prisma mode.
-- There is no root `docker-compose.yml`.
-- There is no backend Dockerfile.
+- A root `docker-compose.yml` now exists for frontend, backend, PostgreSQL, and the ML service.
+- A `backend/Dockerfile` now exists and is wired into the local stack docs.
 
 Deliverables:
 - Add `docker-compose.yml` for frontend, backend, database, and ML service.
@@ -96,7 +97,7 @@ Done when:
 
 ## 2. Frontend API Wiring Stabilization
 
-Status: `next`
+Status: `partial`
 
 Why this is early:
 - It is high-value, code-ready, and not blocked on external data access.
@@ -105,14 +106,27 @@ Why this is early:
 Current repo state:
 - `src/services/apiClient.js` already exposes auth, patients, tasks, predictions, alerts, and audit calls.
 - `src/context/PatientProvider.jsx` and `src/context/TaskProvider.jsx` already fetch and normalize live data.
-- `src/main.jsx` does not wrap the app in TanStack Query.
-- `package.json` does not include `@tanstack/react-query`.
+- `src/main.jsx` now wraps the app in TanStack Query.
+- `package.json` now includes `@tanstack/react-query`.
+- Shared query hooks now exist in `src/hooks/useTrip.js`.
 
 Deliverables:
 - Install TanStack Query and add a shared `QueryClient`.
 - Create `src/hooks/useTrip.js` for the highest-priority queries and mutations.
 - Migrate the first dashboards/views away from ad hoc fetch flows to query hooks.
 - Keep existing offline behavior where it already adds value.
+
+Progress update on 2026-03-26:
+- Added TanStack Query dependency plus a shared `QueryClient` in `src/services/queryClient.js`.
+- Added `src/hooks/useTrip.js` for patients, tasks, alerts, batch predictions, prediction history, and the highest-priority mutations.
+- Wrapped the app with `QueryClientProvider` and connected auth lifecycle events to query invalidation/reset.
+- Updated `PatientProvider`, `TaskProvider`, and `AlertProvider` to hydrate from shared queries while preserving offline fallbacks.
+- Fixed previously empty `/patients` and `/tasks` views by wiring them to provider-backed data instead of hard-coded empty arrays.
+- Fixed patient-detail routing to resolve patients by URL param rather than relying only on in-memory selection.
+- Restored the missing `/discharge/:id` route and wired discharge completion plus prediction overrides back into patient state and query invalidation.
+- Verification status:
+  - `eslint` now passes with no errors and only four pre-existing warnings in `src/dashboards/MLEngineerDashboard.jsx`.
+  - `vite build` now succeeds after a clean reinstall under Node `20.20.2` and npm `10.9.7`.
 
 Done when:
 - Patients, alerts, tasks, and latest prediction flows use shared query hooks.
