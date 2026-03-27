@@ -148,7 +148,7 @@ function persistSession({ user }, rememberMe = true) {
   }
 }
 
-async function request(path, { method = 'GET', body, token, headers: extraHeaders } = {}) {
+async function performRequest(path, { method = 'GET', body, token, headers: extraHeaders } = {}) {
   const headers = {
     Accept: 'application/json',
     ...(extraHeaders || {})
@@ -169,23 +169,53 @@ async function request(path, { method = 'GET', body, token, headers: extraHeader
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
 
+  return response;
+}
+
+function buildRequestError(response, payload, text) {
+  const message =
+    parseErrorMessage(payload) ||
+    getProtectedDeploymentMessage(text) ||
+    `Request failed with status ${response.status}`;
+  const error = new Error(message);
+  error.status = response.status;
+  error.payload = payload;
+  error.responseText = text;
+  return error;
+}
+
+export async function requestJson(path, options = {}) {
+  const response = await performRequest(path, options);
+
   const text = await response.text();
   const contentType = response.headers.get('content-type') || '';
   const payload = contentType.includes('application/json') && text ? safeParseJson(text) : null;
 
   if (!response.ok) {
-    const message =
-      parseErrorMessage(payload) ||
-      getProtectedDeploymentMessage(text) ||
-      `Request failed with status ${response.status}`;
-    const error = new Error(message);
-    error.status = response.status;
-    error.payload = payload;
-    error.responseText = text;
-    throw error;
+    throw buildRequestError(response, payload, text);
   }
 
   return payload;
+}
+
+export async function requestBlob(path, options = {}) {
+  const response = await performRequest(path, options);
+
+  if (!response.ok) {
+    const text = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json') && text ? safeParseJson(text) : null;
+    throw buildRequestError(response, payload, text);
+  }
+
+  return {
+    blob: await response.blob(),
+    contentType: response.headers.get('content-type') || ''
+  };
+}
+
+async function request(path, options = {}) {
+  return requestJson(path, options);
 }
 
 function safeParseJson(value) {

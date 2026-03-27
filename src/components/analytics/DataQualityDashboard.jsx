@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   Activity,
   AlertCircle,
@@ -11,10 +11,7 @@ import Card from "../common/Card";
 import Badge from "../common/Badge";
 import Button from "../common/Button";
 import KPICard from "../common/KPICard";
-import {
-  fetchFairnessSnapshot,
-  fetchQualitySnapshot,
-} from "../../services/analyticsDataService";
+import { useQualityFairnessQuery } from "../../hooks/useAnalytics";
 import { useI18n } from "../../context/I18nProvider";
 
 const QUALITY_THRESHOLD = 0.7;
@@ -44,49 +41,17 @@ function formatDateTime(value, locale = "en-US") {
 const DataQualityDashboard = ({ onBack }) => {
   const { language, t } = useI18n();
   const locale = language === "sw" ? "sw-TZ" : "en-US";
-
-  const [qualitySnapshot, setQualitySnapshot] = useState(null);
-  const [fairnessSnapshot, setFairnessSnapshot] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [isRestricted, setIsRestricted] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(null);
-
-  const loadSnapshots = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-    setIsRestricted(false);
-
-    try {
-      const [qualityResponse, fairnessResponse] = await Promise.all([
-        fetchQualitySnapshot({}),
-        fetchFairnessSnapshot({}),
-      ]);
-
-      setQualitySnapshot(qualityResponse?.quality || null);
-      setFairnessSnapshot(fairnessResponse?.fairness || null);
-      setLastRefresh(new Date());
-    } catch (requestError) {
-      if (requestError?.status === 403) {
-        setIsRestricted(true);
-        return;
-      }
-
-      setError(
-        requestError?.message ||
-          t(
-            "dataQualityRefreshFailed",
-            "Unable to refresh data quality analytics.",
-          ),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    loadSnapshots();
-  }, [loadSnapshots]);
+  const query = useQualityFairnessQuery();
+  const qualitySnapshot = query.data?.quality?.quality || null;
+  const fairnessSnapshot = query.data?.fairness?.fairness || null;
+  const isLoading = query.isLoading || query.isFetching;
+  const isRestricted = query.error?.status === 403;
+  const error =
+    !isRestricted
+      ? query.error?.message ||
+        ""
+      : "";
+  const lastRefresh = query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null;
 
   const qualityCompleteness = Number(
     qualitySnapshot?.criticalFieldCompleteness || 0,
@@ -185,7 +150,7 @@ const DataQualityDashboard = ({ onBack }) => {
           )}
           <Button
             variant="primary"
-            onClick={loadSnapshots}
+            onClick={() => query.refetch()}
             loading={isLoading}
             leftIcon={<RefreshCw className="w-4 h-4" />}
           >

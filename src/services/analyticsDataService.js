@@ -1,18 +1,4 @@
-import { buildApiUrl } from "./runtimeConfig";
-
-async function request(path) {
-  const response = await fetch(buildApiUrl(path), {
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    const error = new Error(`Analytics request failed (${response.status}).`);
-    error.status = response.status;
-    throw error;
-  }
-
-  return response.json();
-}
+import { requestBlob, requestJson } from "./apiClient";
 
 export async function fetchDashboardKPIs({ facilityId, days = 30 } = {}) {
   const query = new URLSearchParams();
@@ -21,13 +7,13 @@ export async function fetchDashboardKPIs({ facilityId, days = 30 } = {}) {
   }
   query.set("days", String(days));
 
-  return request(`/analytics/dashboard?${query.toString()}`);
+  return requestJson(`/analytics/dashboard?${query.toString()}`);
 }
 
 export async function fetchFacilityComparison({ days = 30 } = {}) {
   const query = new URLSearchParams();
   query.set("days", String(days));
-  const payload = await request(`/analytics/facilities?${query.toString()}`);
+  const payload = await requestJson(`/analytics/facilities?${query.toString()}`);
   return payload?.facilities || [];
 }
 
@@ -37,7 +23,7 @@ export async function fetchAnomalies({ facilityId } = {}) {
     query.set("facilityId", facilityId);
   }
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  const payload = await request(`/analytics/anomalies${suffix}`);
+  const payload = await requestJson(`/analytics/anomalies${suffix}`);
   return payload?.anomalies || [];
 }
 
@@ -48,7 +34,7 @@ export async function fetchBedForecast({ facilityId, days = 7 } = {}) {
   }
   query.set("days", String(days));
 
-  return request(`/analytics/bed-forecast?${query.toString()}`);
+  return requestJson(`/analytics/bed-forecast?${query.toString()}`);
 }
 
 export async function fetchAutomationSummary({ facilityId, days = 30 } = {}) {
@@ -58,7 +44,7 @@ export async function fetchAutomationSummary({ facilityId, days = 30 } = {}) {
   }
   query.set("days", String(days));
 
-  return request(`/analytics/automation-summary?${query.toString()}`);
+  return requestJson(`/analytics/automation-summary?${query.toString()}`);
 }
 
 export async function fetchQualitySnapshot({ facilityId } = {}) {
@@ -68,7 +54,7 @@ export async function fetchQualitySnapshot({ facilityId } = {}) {
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return request(`/analytics/quality${suffix}`);
+  return requestJson(`/analytics/quality${suffix}`);
 }
 
 export async function fetchFairnessSnapshot({ facilityId } = {}) {
@@ -78,5 +64,25 @@ export async function fetchFairnessSnapshot({ facilityId } = {}) {
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return request(`/analytics/fairness${suffix}`);
+  return requestJson(`/analytics/fairness${suffix}`);
+}
+
+export async function fetchMlMonitoring() {
+  return requestJson("/analytics/ml/monitoring");
+}
+
+export async function exportTrainingDataset({
+  format = "csv",
+  labelledOnly = true,
+} = {}) {
+  const query = new URLSearchParams({
+    format,
+    labelledOnly: String(labelledOnly),
+  });
+
+  return requestBlob(`/analytics/ml/training-dataset?${query.toString()}`, {
+    headers: {
+      Accept: format === "csv" ? "text/csv" : "application/json",
+    },
+  });
 }

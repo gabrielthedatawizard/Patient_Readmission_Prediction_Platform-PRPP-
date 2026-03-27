@@ -1,27 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { buildApiUrl } from "../services/runtimeConfig";
+import { requestJson } from "../services/apiClient";
 import { tripQueryKeys } from "./useTrip";
 
 export function useDashboardData(endpoint, refreshInterval = 300000) {
   const query = useQuery({
     queryKey: tripQueryKeys.dashboardData(endpoint),
-    queryFn: async () => {
-      const response = await fetch(buildApiUrl(endpoint), {
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      return response.json();
-    },
+    queryFn: () => requestJson(endpoint),
     staleTime: Math.min(refreshInterval || 300000, 300000),
     refetchInterval:
       refreshInterval && refreshInterval > 0 ? refreshInterval : false,
+    placeholderData: (previousData) => previousData,
   });
 
   return {

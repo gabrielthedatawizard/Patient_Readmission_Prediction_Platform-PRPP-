@@ -1,6 +1,6 @@
 # TRIP MVP Implementation Plan
 
-Last updated: 2026-03-26
+Last updated: 2026-03-27
 Source of truth: `TRIP_Blueprint_v2_SourceVerified.docx` plus direct repo audit of the linked PRPP repository.
 
 ## Working Rules
@@ -46,7 +46,7 @@ These are the most relevant local workflow references from `everything-claude-co
 
 ### Verified gaps or partial areas
 
-- Frontend data layer is now partially modernized. React Query is installed and wired for the main patient, task, alert, and prediction flows, but some dashboard/API surfaces still need migration and end-to-end verification.
+- Frontend data layer is now more broadly modernized. React Query is installed and wired for the main patient, task, alert, prediction, analytics, audit, and ML-monitoring flows, but end-to-end verification and some lower-priority dashboard surfaces still remain.
 - Notifications are partially complete. `backend/src/services/notificationService.js` now supports an Africa's Talking SMS gateway path and alert-channel persistence, but live provider verification is still pending.
 - PII/security hardening is partially complete. Patient PII encryption now exists in the Prisma path, but full production migration and operational key-rotation processes still need completion and live validation.
 - JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
@@ -133,6 +133,14 @@ Progress update on 2026-03-26:
 - Verification status:
   - `eslint` now passes with no errors and only four pre-existing warnings in `src/dashboards/MLEngineerDashboard.jsx`.
   - `vite build` now succeeds after a clean reinstall under Node `20.20.2` and npm `10.9.7`.
+
+Progress update on 2026-03-27:
+- Added `src/hooks/useAnalytics.js` so analytics overview, audit logs, quality/fairness snapshots, ML monitoring, and training-dataset export all use the shared React Query layer.
+- Refactored `src/components/analytics/Analytics.jsx`, `src/components/analytics/DataQualityDashboard.jsx`, and `src/dashboards/MLEngineerDashboard.jsx` away from manual fetch orchestration and onto query-driven loading, refresh, stale-data, and retry behavior.
+- Upgraded `src/hooks/useDashboardData.js` and the analytics service/client path so dashboard reads now get the same protected error parsing as the rest of the app and keep previous data during background refresh.
+- Verification status:
+  - `eslint` passes with no warnings.
+  - `vite build` passes under Node `20.20.2`.
 
 Done when:
 - Patients, alerts, tasks, and latest prediction flows use shared query hooks.
@@ -339,7 +347,7 @@ Why this follows the earlier model-prep work:
 Current repo state:
 - `backend/src/routes/analytics.js` already exposes `/ml/training-dataset` and `/ml/monitoring`.
 - `backend/src/services/mlDatasetService.js` now computes calibration, drift, missingness, cohort, and Tanzania-priority coverage sections in the monitoring snapshot.
-- The monitoring math is implemented, but the most meaningful calibration and drift interpretation still depends on real pilot-facility data replacing the current synthetic artifacts.
+- The monitoring math is implemented, and the frontend monitoring views now consume it through the shared query layer instead of manual fetch orchestration, but the most meaningful calibration and drift interpretation still depends on real pilot-facility data replacing the current synthetic artifacts.
 
 Deliverables:
 - Add calibration metrics, cohort slicing, drift indicators, and disease-specific coverage checks.

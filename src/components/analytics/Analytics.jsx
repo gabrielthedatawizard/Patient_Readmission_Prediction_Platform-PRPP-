@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -25,17 +25,11 @@ import {
   exportAnalyticsPdf,
   exportFacilitiesCsv,
 } from "../../services/exportService";
-import { fetchAuditLogs } from "../../services/apiClient";
 import { isFeatureEnabled } from "../../services/featureFlags";
 import {
-  fetchAnomalies,
-  fetchAutomationSummary,
-  fetchBedForecast,
-  fetchDashboardKPIs,
-  fetchFairnessSnapshot,
-  fetchFacilityComparison,
-  fetchQualitySnapshot,
-} from "../../services/analyticsDataService";
+  useAnalyticsOverviewQuery,
+  useAuditLogsQuery,
+} from "../../hooks/useAnalytics";
 
 const DAYS_LOOKUP = {
   "7d": 7,
@@ -53,23 +47,64 @@ const Analytics = () => {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
   const [isExportingReport, setIsExportingReport] = useState(false);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [isAuditLoading, setIsAuditLoading] = useState(false);
-  const [auditError, setAuditError] = useState("");
-  const [auditRestricted, setAuditRestricted] = useState(false);
-  const [hasLoadedAudit, setHasLoadedAudit] = useState(false);
-  const [dashboardKPIs, setDashboardKPIs] = useState(null);
-  const [facilityData, setFacilityData] = useState([]);
-  const [liveAnomalies, setLiveAnomalies] = useState([]);
-  const [bedForecast, setBedForecast] = useState([]);
-  const [automationSummary, setAutomationSummary] = useState(null);
-  const [qualitySnapshot, setQualitySnapshot] = useState(null);
-  const [fairnessSnapshot, setFairnessSnapshot] = useState(null);
-  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
-  const [analyticsError, setAnalyticsError] = useState("");
-  const [lastRefresh, setLastRefresh] = useState(null);
   const auditTrailEnabled = isFeatureEnabled("analyticsAuditTrail");
   const pdfExportEnabled = isFeatureEnabled("analyticsPdfExport");
+  const days = DAYS_LOOKUP[dateRange] || 30;
+
+  const analyticsQuery = useAnalyticsOverviewQuery({ days });
+  const auditQuery = useAuditLogsQuery(
+    { limit: 50 },
+    {
+      enabled: auditTrailEnabled && activeTab === "audit",
+    },
+  );
+
+  const dashboardKPIs = analyticsQuery.data?.kpis || null;
+  const liveAnomalies = analyticsQuery.data?.anomalies || [];
+  const bedForecast = Array.isArray(analyticsQuery.data?.forecast?.network)
+    ? analyticsQuery.data.forecast.network
+    : [];
+  const automationSummary = analyticsQuery.data?.automation || null;
+  const qualitySnapshot = analyticsQuery.data?.quality || null;
+  const fairnessSnapshot = analyticsQuery.data?.fairness || null;
+  const analyticsError = analyticsQuery.error?.message || "";
+  const lastRefresh = analyticsQuery.dataUpdatedAt
+    ? new Date(analyticsQuery.dataUpdatedAt)
+    : null;
+
+  const facilityData = useMemo(() => {
+    const facilities = analyticsQuery.data?.facilities || [];
+    if (!facilities.length) {
+      return [];
+    }
+
+    return facilities.map((facility) => {
+      const highRiskShare = facility.totalPatients
+        ? (facility.highRiskCount / facility.totalPatients) * 100
+        : 0;
+      const trend = facility.readmissionRate <= 10 ? "down" : "up";
+
+      return {
+        id: facility.facilityId,
+        name: facility.facilityName,
+        region: facility.region || "Unknown",
+        readmissionRate: Number(facility.readmissionRate || 0),
+        highRisk: Number(highRiskShare.toFixed(1)),
+        intervention: Number(dashboardKPIs?.interventionRate || 0),
+        trend,
+        beds: Number(facility.totalPatients || 0),
+        avgRiskScore: Number(facility.avgRiskScore || 0),
+      };
+    });
+  }, [analyticsQuery.data?.facilities, dashboardKPIs?.interventionRate]);
+
+  const auditLogs = auditQuery.data || [];
+  const isAuditLoading = auditQuery.isLoading || auditQuery.isFetching;
+  const auditRestricted = auditQuery.error?.status === 403;
+  const auditError =
+    !auditRestricted && activeTab === "audit"
+      ? auditQuery.error?.message || ""
+      : "";
 
   const regions = useMemo(
     () => ["all", ...Array.from(new Set(facilityData.map((facility) => facility.region)))],
@@ -210,104 +245,6 @@ const Analytics = () => {
     }
   };
 
-  const loadLiveAnalytics = useCallback(async () => {
-    setIsAnalyticsLoading(true);
-    setAnalyticsError("");
-
-    try {
-      const days = DAYS_LOOKUP[dateRange] || 30;
-      const [kpis, facilities, anomalies, forecast, automation, qualityData, fairnessData] = await Promise.all([
-        fetchDashboardKPIs({ days }),
-        fetchFacilityComparison({ days }),
-        fetchAnomalies({}),
-        fetchBedForecast({ days: 7 }),
-        fetchAutomationSummary({ days }),
-        fetchQualitySnapshot({}),
-        fetchFairnessSnapshot({}),
-      ]);
-
-      setDashboardKPIs(kpis);
-      setLiveAnomalies(anomalies);
-      setBedForecast(Array.isArray(forecast?.network) ? forecast.network : []);
-      setAutomationSummary(automation || null);
-      setQualitySnapshot(qualityData || null);
-      setFairnessSnapshot(fairnessData || null);
-      setLastRefresh(new Date());
-
-      if (facilities.length > 0) {
-        const normalized = facilities.map((facility) => {
-          const highRiskShare = facility.totalPatients
-            ? (facility.highRiskCount / facility.totalPatients) * 100
-            : 0;
-          const trend = facility.readmissionRate <= 10 ? "down" : "up";
-
-          return {
-            id: facility.facilityId,
-            name: facility.facilityName,
-            region: facility.region || "Unknown",
-            readmissionRate: Number(facility.readmissionRate || 0),
-            highRisk: Number(highRiskShare.toFixed(1)),
-            intervention: Number(kpis?.interventionRate || 0),
-            trend,
-            beds: Number(facility.totalPatients || 0),
-            avgRiskScore: Number(facility.avgRiskScore || 0),
-          };
-        });
-        setFacilityData(normalized);
-      } else {
-        setFacilityData([]);
-      }
-    } catch (error) {
-      setAnalyticsError(error?.message || "Failed to load live analytics.");
-    } finally {
-      setIsAnalyticsLoading(false);
-    }
-  }, [dateRange]);
-
-  useEffect(() => {
-    loadLiveAnalytics();
-    const timer = window.setInterval(loadLiveAnalytics, 5 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [loadLiveAnalytics]);
-
-  const loadAuditTrail = useCallback(async () => {
-    if (!auditTrailEnabled) {
-      return;
-    }
-
-    setIsAuditLoading(true);
-    setAuditError("");
-    setAuditRestricted(false);
-
-    try {
-      const logs = await fetchAuditLogs({ limit: 50 });
-      setAuditLogs(logs);
-    } catch (error) {
-      if (error?.status === 403) {
-        setAuditRestricted(true);
-        return;
-      }
-
-      setAuditError(error?.message || "Unable to load audit trail.");
-    } finally {
-      setIsAuditLoading(false);
-      setHasLoadedAudit(true);
-    }
-  }, [auditTrailEnabled]);
-
-  useEffect(() => {
-    if (
-      activeTab !== "audit" ||
-      !auditTrailEnabled ||
-      isAuditLoading ||
-      hasLoadedAudit
-    ) {
-      return;
-    }
-
-    loadAuditTrail();
-  }, [activeTab, auditTrailEnabled, hasLoadedAudit, isAuditLoading, loadAuditTrail]);
-
   const formatAuditDetails = (details) => {
     if (!details) {
       return "No additional details";
@@ -340,6 +277,19 @@ const Analytics = () => {
     }
     return "default";
   };
+
+  if (analyticsQuery.isLoading && !analyticsQuery.data) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[0, 1, 2, 3].map((index) => (
+            <Card key={index} className="p-6 h-32 bg-gray-50 border-gray-200" hover={false} />
+          ))}
+        </div>
+        <Card className="p-6 h-80 bg-gray-50 border-gray-200" hover={false} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -492,9 +442,9 @@ const Analytics = () => {
         <Button
           variant="ghost"
           size="sm"
-          icon={<RefreshCw className={`w-4 h-4 ${isAnalyticsLoading ? "animate-spin" : ""}`} />}
-          onClick={loadLiveAnalytics}
-          loading={isAnalyticsLoading}
+          icon={<RefreshCw className={`w-4 h-4 ${analyticsQuery.isFetching ? "animate-spin" : ""}`} />}
+          onClick={() => analyticsQuery.refetch()}
+          loading={analyticsQuery.isFetching}
         >
           Refresh
         </Button>
@@ -786,7 +736,7 @@ const Analytics = () => {
             <Button
               variant="ghost"
               icon={<Download className="w-4 h-4" />}
-              onClick={loadAuditTrail}
+              onClick={() => auditQuery.refetch()}
               loading={isAuditLoading}
             >
               Refresh

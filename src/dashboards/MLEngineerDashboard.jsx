@@ -17,9 +17,11 @@ import {
   KPICard,
   PolicyRecommendation,
 } from "../components/dashboards";
-import { useDashboardData } from "../hooks/useDashboardData";
+import {
+  useMlMonitoringBundleQuery,
+  useTrainingDatasetExportMutation,
+} from "../hooks/useAnalytics";
 import { trackEvent } from "../services/analytics";
-import { buildApiUrl } from "../services/runtimeConfig";
 
 function formatPercent(value, digits = 1) {
   return `${(Number(value || 0) * 100).toFixed(digits)}%`;
@@ -131,22 +133,25 @@ function downloadBlob(blob, filename) {
 }
 
 export const MLEngineerDashboard = () => {
-  const {
-    data: monitoringData,
-    loading: monitoringLoading,
-    error: monitoringError,
-    refresh: refreshMonitoring,
-  } = useDashboardData("/analytics/ml/monitoring", 120000);
-  const { data: qualityData, refresh: refreshQuality } = useDashboardData("/analytics/quality", 120000);
-  const { data: fairnessData, refresh: refreshFairness } = useDashboardData("/analytics/fairness", 120000);
-  const { data: anomaliesData, refresh: refreshAnomalies } = useDashboardData("/analytics/anomalies", 120000);
+  const monitoringQuery = useMlMonitoringBundleQuery();
   const [isExporting, setIsExporting] = useState("");
   const [exportError, setExportError] = useState("");
+  const exportMutation = useTrainingDatasetExportMutation();
 
-  const monitoring = monitoringData || {};
-  const quality = qualityData?.quality || {};
-  const fairness = fairnessData?.fairness || {};
-  const anomalies = anomaliesData?.anomalies || [];
+  const monitoringData = monitoringQuery.data?.monitoring || null;
+  const monitoring = useMemo(() => monitoringData || {}, [monitoringData]);
+  const quality = useMemo(
+    () => monitoringQuery.data?.quality?.quality || {},
+    [monitoringQuery.data?.quality?.quality],
+  );
+  const fairness = useMemo(
+    () => monitoringQuery.data?.fairness?.fairness || {},
+    [monitoringQuery.data?.fairness?.fairness],
+  );
+  const anomalies = useMemo(
+    () => monitoringQuery.data?.anomalies || [],
+    [monitoringQuery.data?.anomalies],
+  );
   const runtime = runtimeStatus(monitoring);
   const modelVersions = sortBreakdownEntries(monitoring.modelVersionBreakdown);
   const methods = sortBreakdownEntries(monitoring.methodBreakdown);
@@ -157,12 +162,7 @@ export const MLEngineerDashboard = () => {
     [anomalies, monitoring, quality, fairness],
   );
 
-  const refreshAll = () => {
-    refreshMonitoring();
-    refreshQuality();
-    refreshFairness();
-    refreshAnomalies();
-  };
+  const refreshAll = () => monitoringQuery.refetch();
 
   const handleExport = async ({ format, labelledOnly }) => {
     const exportKey = `${format}:${labelledOnly ? "labelled" : "all"}`;
@@ -170,22 +170,7 @@ export const MLEngineerDashboard = () => {
     setExportError("");
 
     try {
-      const query = new URLSearchParams({
-        format,
-        labelledOnly: String(labelledOnly),
-      });
-      const response = await fetch(buildApiUrl(`/analytics/ml/training-dataset?${query.toString()}`), {
-        credentials: "include",
-        headers: {
-          Accept: format === "csv" ? "text/csv" : "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Dataset export failed (${response.status})`);
-      }
-
-      const blob = await response.blob();
+      const { blob } = await exportMutation.mutateAsync({ format, labelledOnly });
       const stamp = new Date().toISOString().slice(0, 10);
       const suffix = labelledOnly ? "labelled" : "all";
       downloadBlob(blob, `trip-training-dataset-${suffix}-${stamp}.${format}`);
@@ -197,12 +182,12 @@ export const MLEngineerDashboard = () => {
     }
   };
 
-  if (monitoringLoading && !monitoringData) {
+  if (monitoringQuery.isLoading && !monitoringData) {
     return <DashboardSkeleton cards={5} />;
   }
 
-  if (monitoringError && !monitoringData) {
-    return <ErrorState error={monitoringError} onRetry={refreshAll} />;
+  if (monitoringQuery.error && !monitoringData) {
+    return <ErrorState error={monitoringQuery.error.message} onRetry={refreshAll} />;
   }
 
   return (
@@ -215,7 +200,12 @@ export const MLEngineerDashboard = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="ghost" icon={<RefreshCw className="w-4 h-4" />} onClick={refreshAll}>
+          <Button
+            variant="ghost"
+            icon={<RefreshCw className={`w-4 h-4 ${monitoringQuery.isFetching ? "animate-spin" : ""}`} />}
+            onClick={refreshAll}
+            loading={monitoringQuery.isFetching}
+          >
             Refresh
           </Button>
           <Button
