@@ -7,6 +7,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const { createAuditLog, getUserByEmail, toPublicUser } = require('../data');
 const { compareSync } = require('../lib/passwordHash');
+const logger = require('../utils/logger');
 const {
   ACCESS_TOKEN_COOKIE_NAME,
   clearAccessTokenCookie,
@@ -52,6 +53,44 @@ function normalizeLoginEmail(rawEmail) {
   return email;
 }
 
+function createAuthStoreUnavailableError(message) {
+  const error = new Error(message || 'Authentication data store is not available.');
+  error.code = 'AUTH_STORE_UNAVAILABLE';
+  error.statusCode = 503;
+  error.publicMessage = 'Authentication data store is not available.';
+  return error;
+}
+
+async function resolveUserForLogin(email) {
+  try {
+    return await getUserByEmail(email);
+  } catch (error) {
+    if (error?.statusCode || error?.status || error?.publicMessage) {
+      throw error;
+    }
+
+    throw createAuthStoreUnavailableError(
+      `Unable to load authentication data for ${email}: ${error.message || 'Unknown error'}`
+    );
+  }
+}
+
+async function recordAuthAuditEvent(entry, requestId) {
+  try {
+    await createAuditLog(entry);
+  } catch (error) {
+    logger.warn(
+      {
+        requestId: requestId || null,
+        action: entry?.action || 'auth_audit',
+        userId: entry?.userId || null,
+        error: error.message || String(error)
+      },
+      'Auth audit log write failed'
+    );
+  }
+}
+
 router.post('/login', authRateLimit, loginValidation, validateRequest, asyncHandler(async (req, res) => {
   const email = normalizeLoginEmail(req.body.email);
   const password = String(req.body.password || '');
@@ -77,7 +116,7 @@ router.post('/login', authRateLimit, loginValidation, validateRequest, asyncHand
     });
   }
 
-  const user = await getUserByEmail(email);
+  const user = await resolveUserForLogin(email);
 
   if (!user || !compareSync(password, user.passwordHash || '')) {
     return res.status(401).json({
@@ -95,7 +134,7 @@ router.post('/login', authRateLimit, loginValidation, validateRequest, asyncHand
     getAccessTokenCookieOptions({ rememberMe })
   );
 
-  await createAuditLog({
+  await recordAuthAuditEvent({
     userId: publicUser.id,
     userRole: publicUser.role,
     facilityId: publicUser.facilityId,
@@ -103,7 +142,7 @@ router.post('/login', authRateLimit, loginValidation, validateRequest, asyncHand
     ipAddress: req.ip,
     action: 'login',
     resource: `user:${publicUser.id}`
-  });
+  }, req.requestId);
 
   return res.json({
     accessToken,
@@ -121,7 +160,7 @@ router.get('/me', requireAuth, (req, res) => {
 router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
   clearAccessTokenCookie(res);
 
-  await createAuditLog({
+  await recordAuthAuditEvent({
     userId: req.user.id,
     userRole: req.user.role,
     facilityId: req.user.facilityId,
@@ -129,7 +168,7 @@ router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
     ipAddress: req.ip,
     action: 'logout',
     resource: `user:${req.user.id}`
-  });
+  }, req.requestId);
 
   return res.json({
     message: 'Logout recorded.',
