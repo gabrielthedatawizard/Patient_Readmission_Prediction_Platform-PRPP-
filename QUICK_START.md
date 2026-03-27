@@ -84,6 +84,8 @@ The Compose stack uses Prisma mode by default and runs:
 - `npm run prisma:migrate:deploy`
 - `npm run prisma:seed`
 
+For persistent Prisma mode, also set a stable backend `ENCRYPTION_KEY` with at least 32 characters. Development and test mode can use an internal fallback key, but a real environment should always set its own secret before writing patient data.
+
 Use this path when validating:
 
 - Prisma-backed data access
@@ -168,6 +170,7 @@ npm run test:e2e:prisma
 
 - `npm test` at the repo root is still a placeholder; frontend automated tests are not configured yet.
 - Prisma mode requires `DATABASE_URL`, `DIRECT_URL`, and `TRIP_DATA_PROVIDER=prisma`.
+- Production-like Prisma mode also requires a valid `ENCRYPTION_KEY` for patient PII at-rest protection.
 - The backend health check is available at `http://localhost:5000/api/health`.
 - The backend readiness check is available at `http://localhost:5000/api/ready`.
 - The ML service health check is available at `http://localhost:5001/health`.

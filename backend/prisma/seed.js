@@ -1,8 +1,7 @@
-const { PrismaClient, RiskTier, Priority, TaskStatus } = require('@prisma/client');
+const { RiskTier, Priority, TaskStatus } = require('@prisma/client');
 const { ROLE_PERMISSIONS } = require('../src/config/roles');
 const { hash } = require('../src/lib/passwordHash');
-
-const prisma = new PrismaClient();
+const { prisma } = require('../src/lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';
 

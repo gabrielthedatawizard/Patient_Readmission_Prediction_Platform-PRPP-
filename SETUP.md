@@ -61,6 +61,7 @@ NODE_ENV=development
 PORT=5000
 TRIP_DATA_PROVIDER=memory
 JWT_SECRET=change-me-for-production
+ENCRYPTION_KEY=change-me-to-a-stable-32-plus-character-secret
 JWT_EXPIRES_IN=8h
 FRONTEND_URL=http://localhost:3000
 CORS_ORIGIN=http://localhost:3000
@@ -71,7 +72,10 @@ If you want persistent data instead of demo memory mode, also set:
 ```env
 DATABASE_URL=postgresql://trip_user:trip_password@localhost:5432/trip_platform?schema=public
 TRIP_DATA_PROVIDER=prisma
+ENCRYPTION_KEY=trip-local-dev-encryption-key-2026-change-me
 ```
+
+For Prisma mode, set `ENCRYPTION_KEY` before you rely on persistent local data. Development and test mode can fall back to a built-in dev key, but using your own stable key avoids unreadable ciphertext after environment changes.
 
 ## Local Setup Paths
 
@@ -129,6 +133,7 @@ Services:
 Compose behavior:
 
 - Backend runs in Prisma mode with strict provider enforcement
+- Backend enforces patient PII encryption metadata and expects a valid `ENCRYPTION_KEY` in production-like persistent deployments
 - Database migrations are applied automatically
 - Seed data is loaded automatically
 - Frontend points at the backend and WebSocket endpoints on localhost
@@ -232,6 +237,10 @@ Make sure you started the root `docker compose` stack rather than only the front
 ### The backend starts but Prisma stays unavailable
 
 Check that the PostgreSQL container is healthy and that `DIRECT_URL` and `DATABASE_URL` both point to the same local database in compose mode.
+
+### Prisma mode starts but patient reads fail after an environment change
+
+Make sure `ENCRYPTION_KEY` is set to the same stable value that was used when the patient rows were written. Changing the encryption key without re-encrypting data will make existing ciphertext unreadable.
 
 ### Docker Compose validates but will not start containers
 

@@ -162,7 +162,7 @@ Done when:
 
 ## 4. PII Encryption and Production Security Hardening
 
-Status: `next`
+Status: `partial`
 
 Why this must happen before real data:
 - It is the biggest legal/safety gap for any non-demo deployment.
@@ -179,6 +179,19 @@ Deliverables:
 - Update Prisma schema and create the migration path.
 - Enforce presence/validity of `ENCRYPTION_KEY` in non-demo production-like modes.
 - Review whether to keep hardened `HS256` for MVP or move to `RS256` in a later hardening slice.
+
+Progress update on 2026-03-27:
+- Added `backend/src/lib/encryption.js` with AES-256-GCM helpers, config validation, and health-status reporting.
+- Updated `backend/src/lib/prisma.js` so patient `create`, `update`, `upsert`, and read queries transparently encrypt and decrypt `name`, `phone`, and `address`.
+- Added patient encryption metadata to the Prisma schema and a manual migration for `piiVersion` and `piiEncryptedAt`.
+- Updated `backend/prisma/seed.js` to go through the protected Prisma client so seeded Prisma records follow the same encryption path as the app.
+- Preserved backward compatibility for existing plaintext rows by only decrypting values with the encryption prefix.
+- Moved patient-name search to in-memory filtering after facility scoping so encrypted-at-rest names do not break the patient list UX.
+- Closed two access-control gaps while touching the same scope layer:
+  - `listPatientsForUser` no longer allows a caller-supplied `facilityId` to override accessible facility scope.
+  - `listSyncEventsForUser` no longer allows cross-facility sync pulls by query parameter.
+- Extended `/api/health` and readiness logic to surface encryption status and to report unavailable Prisma mode correctly instead of appearing as demo mode.
+- Pinned `backend/package.json` to `jsonwebtoken@9.0.2` after local verification showed the resolved `9.0.3` package missing an auth-runtime file.
 
 Done when:
 - New patient writes are encrypted at rest.

@@ -204,6 +204,21 @@ function mapPatient(patient) {
   };
 }
 
+function matchesPatientSearch(patient, rawQuery) {
+  const query = String(rawQuery || '')
+    .trim()
+    .toLowerCase();
+
+  if (!query) {
+    return true;
+  }
+
+  return (
+    String(patient.id || '').toLowerCase().includes(query) ||
+    String(patient.name || '').toLowerCase().includes(query)
+  );
+}
+
 async function resolveAccessibleFacilityIds(user) {
   if (!user) {
     return [];
@@ -321,29 +336,15 @@ async function listPatientsForUser(user, filters = {}) {
   };
 
   if (filters.facilityId) {
+    if (!accessibleFacilityIds.includes(filters.facilityId)) {
+      return [];
+    }
+
     where.facilityId = filters.facilityId;
   }
 
   if (filters.status) {
     where.status = filters.status;
-  }
-
-  if (filters.search) {
-    const query = String(filters.search).trim();
-    where.OR = [
-      {
-        id: {
-          contains: query,
-          mode: 'insensitive'
-        }
-      },
-      {
-        name: {
-          contains: query,
-          mode: 'insensitive'
-        }
-      }
-    ];
   }
 
   const patients = await prisma.patient.findMany({
@@ -353,7 +354,13 @@ async function listPatientsForUser(user, filters = {}) {
     }
   });
 
-  return patients.map(mapPatient);
+  const mappedPatients = patients.map(mapPatient);
+
+  if (!filters.search) {
+    return mappedPatients;
+  }
+
+  return mappedPatients.filter((patient) => matchesPatientSearch(patient, filters.search));
 }
 
 async function getPatientById(patientId) {
@@ -1110,6 +1117,11 @@ async function listSyncEventsForUser(user, options = {}) {
   }
 
   if (options.facilityId) {
+    const accessible = await resolveAccessibleFacilityIds(user);
+    if (!accessible.includes(options.facilityId)) {
+      return [];
+    }
+
     where.facilityId = options.facilityId;
   } else if (user.role === 'rhmt' || user.role === 'chmt') {
     const accessible = await resolveAccessibleFacilityIds(user);

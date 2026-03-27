@@ -6,6 +6,7 @@ const {
   STRICT_DATA_PROVIDER
 } = require('../data');
 const { getAuthConfigStatus } = require('../middleware/auth');
+const { getEncryptionConfigStatus } = require('../lib/encryption');
 
 const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
 const ML_HEALTH_TIMEOUT_MS = Number(process.env.ML_HEALTH_TIMEOUT_MS || process.env.ML_TIMEOUT_MS) || 2000;
@@ -15,6 +16,15 @@ function conciseError(error) {
 }
 
 async function buildDatabaseHealth() {
+  if (REQUESTED_DATA_PROVIDER === 'prisma' && DATA_PROVIDER !== 'prisma') {
+    return {
+      status: 'down',
+      configured: Boolean(process.env.DATABASE_URL),
+      provider: DATA_PROVIDER,
+      message: DATA_PROVIDER_ERROR || 'Configured Prisma data provider is unavailable.'
+    };
+  }
+
   if (DATA_PROVIDER !== 'prisma') {
     return {
       status: 'demo',
@@ -98,6 +108,7 @@ async function buildMlHealth() {
 async function buildHealthSnapshot() {
   const [database, ml] = await Promise.all([buildDatabaseHealth(), buildMlHealth()]);
   const auth = getAuthConfigStatus();
+  const encryption = getEncryptionConfigStatus();
 
   return {
     environment: process.env.NODE_ENV || 'development',
@@ -110,6 +121,7 @@ async function buildHealthSnapshot() {
     },
     services: {
       auth,
+      encryption,
       patients: 'up',
       predictions: 'up',
       tasks: 'up',
@@ -130,6 +142,7 @@ async function buildHealthSnapshot() {
 
 function isPlatformReady(snapshot) {
   const authReady = snapshot.services.auth.status === 'up';
+  const encryptionReady = ['up', 'not_required'].includes(snapshot.services.encryption.status);
   const databaseReady =
     snapshot.dataProvider.requested !== 'prisma' || snapshot.services.database.status === 'up';
   const providerReady =
@@ -139,7 +152,7 @@ function isPlatformReady(snapshot) {
     snapshot.services.ml.status === 'up' ||
     snapshot.services.ml.fallbackEnabled;
 
-  return authReady && databaseReady && providerReady && mlReady;
+  return authReady && encryptionReady && databaseReady && providerReady && mlReady;
 }
 
 module.exports = {
