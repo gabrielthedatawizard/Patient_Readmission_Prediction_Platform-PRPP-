@@ -11,10 +11,13 @@ from __future__ import annotations
 import argparse
 import math
 import random
+from datetime import date, timedelta
 from pathlib import Path
 
 FEATURE_COLUMNS = [
     "patient_id",
+    "admission_date",
+    "discharge_date",
     "age",
     "gender",
     "prior_admissions_12m",
@@ -165,9 +168,13 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
 
     prob = sigmoid(log_odds)
     readmitted = 1 if rng.random() < prob else 0
+    admission_date = date(2024, 1, 1) + timedelta(days=patient_index - 1)
+    discharge_date = admission_date + timedelta(days=max(1, los))
 
     return {
         "patient_id": f"SYN-{patient_index:05d}",
+        "admission_date": admission_date.isoformat(),
+        "discharge_date": discharge_date.isoformat(),
         "age": age,
         "gender": gender,
         "prior_admissions_12m": prior_admissions,

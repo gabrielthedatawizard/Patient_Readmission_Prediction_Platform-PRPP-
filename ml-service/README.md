@@ -19,6 +19,30 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload
 ```
 
+## Generate Synthetic Training Data
+
+The bundled training dataset now includes Tanzania-priority clinical features plus
+`admission_date` and `discharge_date` so the trainer can evaluate on time-ordered windows.
+
+```bash
+cd ml-service
+python3 scripts/generate_synthetic_data.py --rows 5000 --output data/synthetic_readmission_data.csv
+```
+
+## Train Temporal Model
+
+```bash
+cd ml-service
+python3 scripts/train_model.py --data-path data/synthetic_readmission_data.csv --output-dir data/models
+```
+
+Notes:
+
+- The trainer uses `discharge_date`, `admission_date`, or other event-date columns to build train, validation, and test windows in chronological order.
+- If no date column is present, the trainer falls back to row order and records that source in `data/models/model_metadata.json`.
+- The saved metadata now includes candidate validation metrics, shipped-artifact validation/test metrics, temporal split windows, and calibration details.
+- Use `--skip-shap` during quick smoke tests if you want to avoid generating the explainer artifact.
+
 ## Example Request
 
 ```bash
@@ -75,6 +99,8 @@ curl -X POST http://localhost:5001/api/v1/predict \
 cd ml-service
 python3 -m unittest discover -s tests -t .
 ```
+
+This covers both predictor behavior and the temporal training helpers.
 
 ## Calibrate From Real Exports
 

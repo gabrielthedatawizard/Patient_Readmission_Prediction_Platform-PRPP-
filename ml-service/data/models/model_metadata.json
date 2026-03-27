@@ -1,25 +1,68 @@
 {
   "model_version": "trip-clinical-v2.0",
   "model_type": "logistic_regression",
-  "trained_at": "2026-03-24T01:46:55.930192+00:00",
+  "trained_at": "2026-03-27T07:16:16.266343+00:00",
   "dataset_rows": 5000,
-  "readmission_rate": 0.241,
-  "cv_auc_mean": 0.7588,
+  "readmission_rate": 0.246,
   "train_metrics": {
-    "model": "LogisticRegression",
-    "accuracy": 0.7144,
-    "precision": 0.4388,
-    "recall": 0.6631,
-    "f1": 0.5281,
-    "roc_auc": 0.7641
+    "model": "logistic_regression_train",
+    "accuracy": 0.7168,
+    "precision": 0.4495,
+    "recall": 0.6632,
+    "f1": 0.5359,
+    "roc_auc": 0.7698
   },
-  "calibrated_metrics": {
-    "model": "logistic_regression_calibrated",
-    "accuracy": 0.7914,
-    "precision": 0.6702,
-    "recall": 0.2647,
-    "f1": 0.3795,
-    "roc_auc": 0.7673
+  "validation_metrics": {
+    "model": "logistic_regression_validation_temporal_final",
+    "accuracy": 0.7923,
+    "precision": 0.619,
+    "recall": 0.2955,
+    "f1": 0.4,
+    "roc_auc": 0.7894
+  },
+  "test_metrics": {
+    "model": "logistic_regression_test_temporal_final",
+    "accuracy": 0.7917,
+    "precision": 0.6548,
+    "recall": 0.3022,
+    "f1": 0.4135,
+    "roc_auc": 0.7772
+  },
+  "candidate_validation_metrics": {
+    "logistic_regression": {
+      "model": "logistic_regression_validation",
+      "accuracy": 0.7164,
+      "precision": 0.4332,
+      "recall": 0.6818,
+      "f1": 0.5298,
+      "roc_auc": 0.7731
+    },
+    "xgboost": {
+      "model": "xgboost_validation",
+      "accuracy": 0.7204,
+      "precision": 0.4124,
+      "recall": 0.4545,
+      "f1": 0.4324,
+      "roc_auc": 0.7126
+    }
+  },
+  "calibration": {
+    "applied": true,
+    "method": "isotonic",
+    "cv_folds": 3,
+    "reason": null
+  },
+  "temporal_split": {
+    "event_date_source": "discharge_date",
+    "train_rows": 3500,
+    "validation_rows": 751,
+    "test_rows": 749,
+    "train_start": "2024-01-04T00:00:00+00:00",
+    "train_end": "2033-08-04T00:00:00+00:00",
+    "validation_start": "2033-08-06T00:00:00+00:00",
+    "validation_end": "2035-08-25T00:00:00+00:00",
+    "test_start": "2035-08-26T00:00:00+00:00",
+    "test_end": "2037-09-19T00:00:00+00:00"
   },
   "features": {
     "numeric": [
@@ -41,7 +84,14 @@
       "lives_alone",
       "has_heart_failure",
       "has_diabetes",
-      "has_ckd"
+      "has_ckd",
+      "has_malaria",
+      "has_hiv",
+      "on_art",
+      "has_tuberculosis",
+      "has_severe_acute_malnutrition",
+      "has_sickle_cell_disease",
+      "neonatal_risk"
     ],
     "categorical": [
       "gender"
@@ -64,6 +114,13 @@
       "has_heart_failure",
       "has_diabetes",
       "has_ckd",
+      "has_malaria",
+      "has_hiv",
+      "on_art",
+      "has_tuberculosis",
+      "has_severe_acute_malnutrition",
+      "has_sickle_cell_disease",
+      "neonatal_risk",
       "gender"
     ],
     "transformed_names": [
@@ -84,6 +141,13 @@
       "bin__has_heart_failure",
       "bin__has_diabetes",
       "bin__has_ckd",
+      "bin__has_malaria",
+      "bin__has_hiv",
+      "bin__on_art",
+      "bin__has_tuberculosis",
+      "bin__has_severe_acute_malnutrition",
+      "bin__has_sickle_cell_disease",
+      "bin__neonatal_risk",
       "cat__gender_female",
       "cat__gender_male"
     ]
@@ -106,6 +170,13 @@
     "has_heart_failure": "hasHeartFailure",
     "has_diabetes": "hasDiabetes",
     "has_ckd": "hasCkd",
+    "has_malaria": "hasMalaria",
+    "has_hiv": "hasHiv",
+    "on_art": "onArt",
+    "has_tuberculosis": "hasTuberculosis",
+    "has_severe_acute_malnutrition": "hasSevereAcuteMalnutrition",
+    "has_sickle_cell_disease": "hasSickleCellDisease",
+    "neonatal_risk": "neonatalRisk",
     "gender": "gender"
   },
   "artifacts": {

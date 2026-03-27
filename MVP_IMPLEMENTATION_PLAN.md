@@ -51,7 +51,7 @@ These are the most relevant local workflow references from `everything-claude-co
 - PII/security hardening is partially complete. Patient PII encryption now exists in the Prisma path, but full production migration and operational key-rotation processes still need completion and live validation.
 - JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
 - Tanzania-specific disease features are now partially implemented. Backend feature extraction, export rows, the ML fallback predictor, and the synthetic training path now understand malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk, but they have not yet been exercised on real pilot-facility data.
-- Training methodology still uses random CV. `ml-service/scripts/train_model.py` still uses `StratifiedKFold`, and the default training file is still `ml-service/data/synthetic_readmission_data.csv`.
+- Training methodology is now partially corrected. `ml-service/scripts/train_model.py` now uses date-based train/validation/test splitting and emits temporal metrics, but the committed artifacts are still synthetic-data artifacts until Step 7 and Step 10 are completed.
 - DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
 - Local verification in this shell is still partially blocked by environment issues: the Docker daemon was unavailable for Step 1, so full containerized verification still remains pending.
 
@@ -238,20 +238,28 @@ Done when:
 
 ## 6. Temporal Holdout Training Upgrade
 
-Status: `next`
+Status: `partial`
 
 Why it is still worth doing before real data arrives:
 - The code can be corrected now, even if the final metrics must wait on real data.
 - It removes a known methodology flaw from the training path.
 
 Current repo state:
-- `ml-service/scripts/train_model.py` still uses `StratifiedKFold`.
-- The default training data file is still the synthetic dataset.
+- `ml-service/scripts/train_model.py` now uses date-based train/validation/test splitting, model selection on temporal validation metrics, and shipped-artifact temporal metrics in metadata.
+- `ml-service/scripts/generate_synthetic_data.py` now emits `admission_date` and `discharge_date` along with the Tanzania-priority feature columns used by the upgraded trainer.
+- The default training dataset and committed artifacts are still synthetic, so methodology is improved but clinical validity still depends on Step 7 and Step 10.
 
 Deliverables:
 - Replace random-fold evaluation with date-based train/validation/test splitting.
 - Emit validation/test metrics into model metadata.
 - Preserve calibration and model artifact generation.
+
+Progress in repo:
+- Added a real CLI to the training script with `--data-path`, `--output-dir`, and `--skip-shap` so local retraining is easier to operate and verify.
+- Added safer calibration fallback logic for smaller or uneven temporal cohorts.
+- Regenerated the bundled synthetic dataset with temporal columns and refreshed the checked-in model artifacts from the temporal training path.
+- Added focused unit tests for temporal date normalization, split ordering, and calibration fallback behavior.
+- Local verification passed for Python syntax checks, synthetic-data generation, trainer CLI help, full temporal training, and ML unit tests.
 
 Done when:
 - Training runs on time-ordered data and reports temporal metrics.

@@ -4,16 +4,17 @@ Train a readmission prediction model using the synthetic clinical dataset.
 
 Pipeline:
 1. Load CSV dataset
-2. Preprocess features (imputation, encoding, scaling)
-3. Train Logistic Regression baseline + XGBoost
-4. Stratified K-fold cross-validation
-5. Calibration via CalibratedClassifierCV
-6. Generate SHAP explainer
+2. Normalize required feature columns and event dates
+3. Split into time-ordered train / validation / test windows
+4. Train Logistic Regression baseline + optional XGBoost
+5. Select the best candidate on temporal validation performance
+6. Calibrate probabilities
 7. Save model artifacts (joblib) + metadata (JSON)
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -22,18 +23,12 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.base import clone
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -83,12 +78,17 @@ BINARY_FEATURES = [
 ]
 
 CATEGORICAL_FEATURES = ["gender"]
-
 ALL_FEATURES = NUMERIC_FEATURES + BINARY_FEATURES + CATEGORICAL_FEATURES
 TARGET = "readmitted_30d"
+TEMPORAL_DATE_COLUMNS = [
+    "discharge_date",
+    "dischargeDate",
+    "admission_date",
+    "admissionDate",
+    "event_date",
+    "eventDate",
+]
 
-
-# Feature name mapping: model feature name -> API request feature name
 FEATURE_NAME_MAP = {
     "age": "age",
     "prior_admissions_12m": "priorAdmissions12m",
@@ -145,6 +145,112 @@ def ensure_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def ensure_temporal_column(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    event_dates = None
+    source_column = None
+
+    for column in TEMPORAL_DATE_COLUMNS:
+        if column not in normalized.columns:
+            continue
+        parsed = pd.to_datetime(normalized[column], errors="coerce", utc=True)
+        if parsed.notna().any():
+            event_dates = parsed if event_dates is None else event_dates.fillna(parsed)
+            source_column = source_column or column
+
+    if event_dates is None or event_dates.isna().all():
+        event_dates = pd.date_range(
+            end=datetime.now(timezone.utc),
+            periods=len(normalized),
+            freq="D",
+        )
+        source_column = "synthetic_row_order"
+    elif event_dates.isna().any():
+        fallback_dates = pd.Series(
+            pd.date_range(
+                end=event_dates.dropna().max(),
+                periods=len(normalized),
+                freq="D",
+            ),
+            index=normalized.index,
+        )
+        event_dates = event_dates.fillna(fallback_dates)
+
+    normalized["_event_date"] = pd.to_datetime(event_dates, utc=True)
+    normalized = normalized.sort_values("_event_date").reset_index(drop=True)
+    normalized.attrs["event_date_source"] = source_column or "synthetic_row_order"
+    return normalized
+
+
+def compute_split_sizes(row_count: int) -> tuple[int, int, int]:
+    if row_count < 3:
+        raise ValueError("Temporal training requires at least 3 rows.")
+
+    test_size = max(1, int(round(row_count * 0.15)))
+    validation_size = max(1, int(round(row_count * 0.15)))
+    train_size = row_count - validation_size - test_size
+
+    if train_size < 1:
+        deficit = 1 - train_size
+        if validation_size > test_size:
+            validation_size = max(1, validation_size - deficit)
+        else:
+            test_size = max(1, test_size - deficit)
+        train_size = row_count - validation_size - test_size
+
+    return train_size, validation_size, test_size
+
+
+def next_distinct_boundary(df: pd.DataFrame, start_index: int) -> int:
+    boundary = start_index
+    while (
+        boundary < len(df)
+        and boundary > 0
+        and df.iloc[boundary]["_event_date"] == df.iloc[boundary - 1]["_event_date"]
+    ):
+        boundary += 1
+    return boundary
+
+
+def temporal_train_validation_test_split(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if df["_event_date"].nunique() < 3:
+        raise ValueError("Temporal training requires at least 3 distinct event dates.")
+
+    train_size, validation_size, _ = compute_split_sizes(len(df))
+    validation_start = next_distinct_boundary(df, train_size)
+    validation_end = next_distinct_boundary(df, validation_start + validation_size)
+
+    train_df = df.iloc[:validation_start].copy()
+    validation_df = df.iloc[validation_start:validation_end].copy()
+    test_df = df.iloc[validation_end:].copy()
+
+    if validation_df.empty or test_df.empty:
+        raise ValueError("Temporal split failed to create non-empty validation and test partitions.")
+
+    return train_df, validation_df, test_df
+
+
+def safe_roc_auc(y_true, y_prob) -> float | None:
+    if len(np.unique(y_true)) < 2:
+        return None
+    return float(roc_auc_score(y_true, y_prob))
+
+
+def resolve_calibration_config(y_values) -> tuple[str | None, int | None]:
+    class_counts = pd.Series(y_values).value_counts()
+    if len(class_counts) < 2:
+        return None, None
+
+    min_class_count = int(class_counts.min())
+    if min_class_count >= 3:
+        return "isotonic", min(3, min_class_count)
+    if min_class_count >= 2:
+        return "sigmoid", 2
+    return None, None
+
+
 def build_preprocessor() -> ColumnTransformer:
     numeric_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -173,37 +279,87 @@ def build_preprocessor() -> ColumnTransformer:
 def evaluate_model(model, X, y, label: str) -> dict:
     y_pred = model.predict(X)
     y_prob = model.predict_proba(X)[:, 1]
+    roc_auc = safe_roc_auc(y, y_prob)
 
-    metrics = {
+    return {
         "model": label,
         "accuracy": round(accuracy_score(y, y_pred), 4),
         "precision": round(precision_score(y, y_pred, zero_division=0), 4),
         "recall": round(recall_score(y, y_pred, zero_division=0), 4),
         "f1": round(f1_score(y, y_pred, zero_division=0), 4),
-        "roc_auc": round(roc_auc_score(y, y_prob), 4),
+        "roc_auc": round(roc_auc, 4) if roc_auc is not None else None,
     }
-    return metrics
 
 
-def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
+def select_best_temporal_model(candidates, X_train, y_train, X_validation, y_validation):
+    evaluations = []
+    best_entry = None
+    best_score = -1.0
+
+    for model_label, pipeline in candidates:
+        fitted_pipeline = clone(pipeline)
+        fitted_pipeline.fit(X_train, y_train)
+        validation_metrics = evaluate_model(
+            fitted_pipeline,
+            X_validation,
+            y_validation,
+            f"{model_label}_validation",
+        )
+        score = validation_metrics["roc_auc"]
+        if score is None:
+            score = validation_metrics["f1"]
+
+        entry = {
+            "label": model_label,
+            "pipeline": fitted_pipeline,
+            "validation_metrics": validation_metrics,
+        }
+        evaluations.append(entry)
+
+        if score > best_score:
+            best_entry = entry
+            best_score = score
+
+    if best_entry is None:
+        raise ValueError("No temporal candidate model could be selected.")
+
+    return best_entry, evaluations
+
+
+def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool = True) -> None:
     data_path = Path(data_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading data from {data_path}")
-    df = ensure_feature_columns(pd.read_csv(data_path))
+    df = ensure_temporal_column(ensure_feature_columns(pd.read_csv(data_path)))
     print(f"Dataset: {len(df)} rows, {len(df.columns)} columns")
     print(f"Readmission rate: {df[TARGET].mean() * 100:.1f}%")
+    print(f"Temporal split source: {df.attrs.get('event_date_source', 'unknown')}")
 
-    X = df[ALL_FEATURES].copy()
-    y = df[TARGET].values
+    train_df, validation_df, test_df = temporal_train_validation_test_split(df)
+    print(
+        "Temporal windows:"
+        f" train={len(train_df)}"
+        f" validation={len(validation_df)}"
+        f" test={len(test_df)}"
+    )
+    print(
+        "Date ranges:"
+        f" train={train_df['_event_date'].min().isoformat()}..{train_df['_event_date'].max().isoformat()}"
+        f" validation={validation_df['_event_date'].min().isoformat()}..{validation_df['_event_date'].max().isoformat()}"
+        f" test={test_df['_event_date'].min().isoformat()}..{test_df['_event_date'].max().isoformat()}"
+    )
 
-    # Build preprocessor
-    preprocessor = build_preprocessor()
+    X_train = train_df[ALL_FEATURES].copy()
+    y_train = train_df[TARGET].values
+    X_validation = validation_df[ALL_FEATURES].copy()
+    y_validation = validation_df[TARGET].values
+    X_test = test_df[ALL_FEATURES].copy()
+    y_test = test_df[TARGET].values
 
-    # --- Model 1: Logistic Regression ---
     lr_pipeline = Pipeline([
-        ("preprocessor", preprocessor),
+        ("preprocessor", build_preprocessor()),
         ("classifier", LogisticRegression(
             C=0.5,
             max_iter=1000,
@@ -213,19 +369,7 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
         )),
     ])
 
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    lr_cv_scores = cross_val_score(lr_pipeline, X, y, cv=cv, scoring="roc_auc")
-    print(f"\nLogistic Regression CV AUC: {lr_cv_scores.mean():.4f} ± {lr_cv_scores.std():.4f}")
-
-    lr_pipeline.fit(X, y)
-    lr_metrics = evaluate_model(lr_pipeline, X, y, "LogisticRegression")
-    print(f"LR Train metrics: {lr_metrics}")
-
-    # --- Model 2: XGBoost (if available) ---
-    best_pipeline = lr_pipeline
-    best_label = "logistic_regression"
-    best_metrics = lr_metrics
-    best_cv_auc = lr_cv_scores.mean()
+    candidate_pipelines = [("logistic_regression", lr_pipeline)]
 
     if HAS_XGBOOST:
         xgb_pipeline = Pipeline([
@@ -239,48 +383,90 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
                 scale_pos_weight=max(1.0, (1 - df[TARGET].mean()) / df[TARGET].mean()),
                 eval_metric="logloss",
                 random_state=42,
-                use_label_encoder=False,
             )),
         ])
-
-        xgb_cv_scores = cross_val_score(xgb_pipeline, X, y, cv=cv, scoring="roc_auc")
-        print(f"\nXGBoost CV AUC: {xgb_cv_scores.mean():.4f} ± {xgb_cv_scores.std():.4f}")
-
-        xgb_pipeline.fit(X, y)
-        xgb_metrics = evaluate_model(xgb_pipeline, X, y, "XGBClassifier")
-        print(f"XGB Train metrics: {xgb_metrics}")
-
-        if xgb_cv_scores.mean() > lr_cv_scores.mean():
-            best_pipeline = xgb_pipeline
-            best_label = "xgboost"
-            best_metrics = xgb_metrics
-            best_cv_auc = xgb_cv_scores.mean()
-            print("\n[OK] XGBoost selected as best model")
-        else:
-            print("\n[OK] Logistic Regression selected as best model")
+        candidate_pipelines.append(("xgboost", xgb_pipeline))
     else:
         print("\nXGBoost not available, using Logistic Regression")
 
-    # --- Calibration ---
-    print("\nCalibrating model probabilities...")
-    calibrated = CalibratedClassifierCV(best_pipeline, cv=3, method="isotonic")
-    calibrated.fit(X, y)
+    best_entry, candidate_evaluations = select_best_temporal_model(
+        candidate_pipelines,
+        X_train,
+        y_train,
+        X_validation,
+        y_validation,
+    )
+    best_label = best_entry["label"]
 
-    cal_metrics = evaluate_model(calibrated, X, y, f"{best_label}_calibrated")
-    print(f"Calibrated metrics: {cal_metrics}")
+    for entry in candidate_evaluations:
+        print(f"\n{entry['label']} validation metrics: {entry['validation_metrics']}")
 
-    # --- SHAP Explainer ---
+    print(f"\n[OK] {best_label} selected using temporal validation performance")
+
+    pipeline_map = dict(candidate_pipelines)
+    combined_train_df = pd.concat([train_df, validation_df], ignore_index=True)
+    X_combined = combined_train_df[ALL_FEATURES].copy()
+    y_combined = combined_train_df[TARGET].values
+
+    best_pipeline = clone(pipeline_map[best_label])
+    best_pipeline.fit(X_combined, y_combined)
+    train_metrics = evaluate_model(best_pipeline, X_combined, y_combined, f"{best_label}_train")
+    uncalibrated_test_metrics = evaluate_model(
+        best_pipeline,
+        X_test,
+        y_test,
+        f"{best_label}_test_uncalibrated",
+    )
+    print(f"Combined train metrics: {train_metrics}")
+    print(f"Temporal test metrics before calibration: {uncalibrated_test_metrics}")
+
+    calibration_method, calibration_cv = resolve_calibration_config(y_combined)
+    calibrated = best_pipeline
+    calibration_summary = {
+        "applied": False,
+        "method": None,
+        "cv_folds": None,
+        "reason": "insufficient_class_support",
+    }
+
+    if calibration_method is not None and calibration_cv is not None:
+        print(f"\nCalibrating model probabilities with {calibration_method} (cv={calibration_cv})...")
+        calibrated = CalibratedClassifierCV(best_pipeline, cv=calibration_cv, method=calibration_method)
+        calibrated.fit(X_combined, y_combined)
+        calibration_summary = {
+            "applied": True,
+            "method": calibration_method,
+            "cv_folds": calibration_cv,
+            "reason": None,
+        }
+    else:
+        print("\nSkipping calibration because the temporal training window does not have enough class support.")
+
+    validation_metrics = evaluate_model(
+        calibrated,
+        X_validation,
+        y_validation,
+        f"{best_label}_validation_temporal_final",
+    )
+    cal_metrics = evaluate_model(
+        calibrated,
+        X_test,
+        y_test,
+        f"{best_label}_test_temporal_final",
+    )
+    print(f"Temporal validation metrics for shipped artifact: {validation_metrics}")
+    print(f"Temporal test metrics for shipped artifact: {cal_metrics}")
+
     explainer = None
-    if HAS_SHAP:
+    if use_shap and HAS_SHAP:
         print("\nGenerating SHAP explainer...")
         try:
-            X_transformed = best_pipeline.named_steps["preprocessor"].transform(X)
+            X_transformed = best_pipeline.named_steps["preprocessor"].transform(X_combined)
             classifier = best_pipeline.named_steps["classifier"]
 
             if HAS_XGBOOST and isinstance(classifier, xgb.XGBClassifier):
                 explainer = shap.TreeExplainer(classifier)
             else:
-                # Use a sample for KernelExplainer (faster)
                 sample_size = min(100, len(X_transformed))
                 background = X_transformed[:sample_size]
                 explainer = shap.KernelExplainer(
@@ -289,10 +475,11 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
                 )
             print("[OK] SHAP explainer created")
         except Exception as e:
-            print(f"⚠ SHAP explainer creation failed: {e}")
+            print(f"[WARN] SHAP explainer creation failed: {e}")
             explainer = None
+    elif not use_shap:
+        print("\nSkipping SHAP explainer generation by request.")
 
-    # --- Save Artifacts ---
     model_path = output_dir / "trip_readmission_model.joblib"
     explainer_path = output_dir / "trip_shap_explainer.joblib"
     metadata_path = output_dir / "model_metadata.json"
@@ -306,11 +493,8 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
         print(f"Saving SHAP explainer to {explainer_path}")
         joblib.dump(explainer, explainer_path)
 
-    # Get feature names after preprocessing
     try:
-        feature_names = list(
-            best_pipeline.named_steps["preprocessor"].get_feature_names_out()
-        )
+        feature_names = list(best_pipeline.named_steps["preprocessor"].get_feature_names_out())
     except Exception:
         feature_names = ALL_FEATURES
 
@@ -320,9 +504,25 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "dataset_rows": len(df),
         "readmission_rate": round(float(df[TARGET].mean()), 4),
-        "cv_auc_mean": round(float(best_cv_auc), 4),
-        "train_metrics": best_metrics,
-        "calibrated_metrics": cal_metrics,
+        "train_metrics": train_metrics,
+        "validation_metrics": validation_metrics,
+        "test_metrics": cal_metrics,
+        "candidate_validation_metrics": {
+            entry["label"]: entry["validation_metrics"] for entry in candidate_evaluations
+        },
+        "calibration": calibration_summary,
+        "temporal_split": {
+            "event_date_source": df.attrs.get("event_date_source", "unknown"),
+            "train_rows": len(train_df),
+            "validation_rows": len(validation_df),
+            "test_rows": len(test_df),
+            "train_start": train_df["_event_date"].min().isoformat(),
+            "train_end": train_df["_event_date"].max().isoformat(),
+            "validation_start": validation_df["_event_date"].min().isoformat(),
+            "validation_end": validation_df["_event_date"].max().isoformat(),
+            "test_start": test_df["_event_date"].min().isoformat(),
+            "test_end": test_df["_event_date"].max().isoformat(),
+        },
         "features": {
             "numeric": NUMERIC_FEATURES,
             "binary": BINARY_FEATURES,
@@ -343,23 +543,52 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
         json.dump(metadata, f, indent=2, default=str)
 
     print(f"\n{'='*60}")
-    print(f"Training complete!")
+    print("Training complete!")
     print(f"  Model type:    {best_label}")
-    print(f"  CV AUC:        {best_cv_auc:.4f}")
+    print(f"  Val ROC AUC:   {validation_metrics.get('roc_auc')}")
+    print(f"  Test ROC AUC:  {cal_metrics.get('roc_auc')}")
     print(f"  Artifacts:     {output_dir}")
     print(f"  Model file:    {model_path.name}")
     print(f"  Metadata:      {metadata_path.name}")
     print(f"{'='*60}")
 
 
-if __name__ == "__main__":
+def parse_args() -> argparse.Namespace:
     root = Path(__file__).resolve().parents[1]
-    data_file = root / "data" / "synthetic_readmission_data.csv"
-    model_dir = root / "data" / "models"
+    parser = argparse.ArgumentParser(
+        description="Train the TRIP readmission model using temporal train/validation/test windows."
+    )
+    parser.add_argument(
+        "--data-path",
+        default=str(root / "data" / "synthetic_readmission_data.csv"),
+        help="CSV dataset path. Defaults to the bundled synthetic dataset.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=str(root / "data" / "models"),
+        help="Directory where model artifacts and metadata will be written.",
+    )
+    parser.add_argument(
+        "--skip-shap",
+        action="store_true",
+        help="Skip SHAP explainer generation to speed up local smoke tests.",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    data_file = Path(args.data_path)
+    model_dir = Path(args.output_dir)
 
     if not data_file.exists():
         print(f"Dataset not found at {data_file}")
         print("Run generate_synthetic_data.py first.")
-        sys.exit(1)
+        return 1
 
-    train_and_save(data_file, model_dir)
+    train_and_save(data_file, model_dir, use_shap=not args.skip_shap)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
