@@ -25,7 +25,7 @@
     "format": "prettier --write \"src/**/*.{js,jsx,json,css,md}\"",
     "preview": "vite preview --host",
     "dev": "vite",
-    "vercel:install": "node ./node_modules/prisma/build/index.js generate --schema backend/prisma/schema.prisma",
+    "vercel:install": "node ./scripts/vercel-install.js",
     "vercel:build": "node ./node_modules/vite/bin/vite.js build"
   },
   "homepage": ".",
