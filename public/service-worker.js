@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = "trip-static-v2.4";
+const STATIC_CACHE_NAME = "trip-static-v2.5";
 const APP_SHELL = ["/", "/manifest.json"];
 const STATIC_DESTINATIONS = new Set(["document", "style", "script", "image", "font"]);
 

@@ -118,17 +118,17 @@ const LoginPage = ({ onLogin, onBack }) => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-teal-50 via-blue-50 to-purple-50 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-white via-slate-50 to-teal-50 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400/30 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-400/30 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-500" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-300/18 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-sky-300/14 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/70 rounded-full filter blur-3xl animate-pulse delay-500" />
       </div>
 
       <div className="w-full max-w-5xl relative z-10">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-          <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-teal-500 to-teal-700 p-6 sm:p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-white/70 shadow-[0_28px_80px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col lg:flex-row">
+          <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-teal-600 via-teal-500 to-cyan-500 p-6 sm:p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/12 rounded-full -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
 
             <div className="relative z-10">
@@ -153,40 +153,40 @@ const LoginPage = ({ onLogin, onBack }) => {
               <h3 className="text-3xl font-bold mb-4">
                 {t("loginWelcomeBack")}
               </h3>
-              <p className="text-teal-100 leading-relaxed mb-8">
+              <p className="text-teal-50/90 leading-relaxed mb-8">
                 {t("loginIntro")}
               </p>
 
               <div className="space-y-4">
-                <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl p-4">
+                <div className="flex items-center gap-3 bg-white/14 backdrop-blur rounded-2xl p-4 border border-white/10">
                   <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                     <Check className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-semibold">{t("loginAIPowered")}</p>
-                    <p className="text-sm text-teal-100">
+                    <p className="text-sm text-teal-50/90">
                       {t("loginPredictionAccuracy")}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl p-4">
+                <div className="flex items-center gap-3 bg-white/14 backdrop-blur rounded-2xl p-4 border border-white/10">
                   <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                     <Shield className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-semibold">{t("loginSecure")}</p>
-                    <p className="text-sm text-teal-100">
+                    <p className="text-sm text-teal-50/90">
                       {t("loginEncryption")}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl p-4">
+                <div className="flex items-center gap-3 bg-white/14 backdrop-blur rounded-2xl p-4 border border-white/10">
                   <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-semibold">{t("loginNationwide")}</p>
-                    <p className="text-sm text-teal-100">
+                    <p className="text-sm text-teal-50/90">
                       {t("loginFacilitiesCount")}
                     </p>
                   </div>
@@ -195,7 +195,7 @@ const LoginPage = ({ onLogin, onBack }) => {
             </div>
 
             <div className="relative z-10 mt-8 pt-8 border-t border-white/20">
-              <p className="text-sm text-teal-100">
+              <p className="text-sm text-teal-50/90">
                 © {new Date().getFullYear()} {t("ministryCopyright")}
               </p>
             </div>
@@ -328,8 +328,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                         type="text"
                         {...register("email")}
                         aria-invalid={errors.email ? "true" : "false"}
-                        className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none ${
-                          errors.email ? "border-red-300 bg-red-50" : "border-gray-100"
+                        className={`w-full pl-12 pr-4 py-4 bg-white border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white transition-all outline-none ${
+                          errors.email ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-teal-200"
                         }`}
                         placeholder={t("loginEmailPlaceholder")}
                       />
@@ -349,8 +349,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                         type={showPassword ? "text" : "password"}
                         {...register("password")}
                         aria-invalid={errors.password ? "true" : "false"}
-                        className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl focus:border-teal-500 focus:bg-white transition-all outline-none ${
-                          errors.password ? "border-red-300 bg-red-50" : "border-gray-100"
+                        className={`w-full pl-12 pr-12 py-4 bg-white border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white transition-all outline-none ${
+                          errors.password ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-teal-200"
                         }`}
                         placeholder="••••••••"
                       />
@@ -419,7 +419,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                 </button>
 
                 <div className="mt-6 pt-6 border-t border-gray-100">
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <Shield className="w-5 h-5 text-teal-600" />
                     <p className="text-xs text-gray-600">
                       <span className="font-semibold">{t("loginSecure")}</span>{" "}
@@ -446,7 +446,7 @@ const LoginPage = ({ onLogin, onBack }) => {
         </div>
 
         <div className="mt-6 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur rounded-lg border border-gray-200 text-sm text-gray-600">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur rounded-xl border border-slate-200 shadow-sm text-sm text-gray-600">
             <Globe className="w-4 h-4" />
             <label htmlFor="login-language" className="sr-only">
               {t("languageLabel")}

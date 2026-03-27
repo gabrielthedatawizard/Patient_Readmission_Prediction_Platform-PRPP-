@@ -4,16 +4,7 @@ const STORAGE_KEY = "trip-theme";
 const ThemeContext = createContext(null);
 
 function getInitialTheme() {
-  if (typeof window === "undefined") return "light";
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "dark" || stored === "light") return stored;
-  } catch (error) {
-    // Ignore storage errors
-  }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return "light";
 }
 
 export const ThemeProvider = ({ children }) => {
@@ -21,26 +12,22 @@ export const ThemeProvider = ({ children }) => {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-      root.style.colorScheme = "dark";
-    } else {
-      root.classList.remove("dark");
-      root.style.colorScheme = "light";
-    }
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
 
     try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
+      window.localStorage.setItem(STORAGE_KEY, "light");
     } catch (error) {
       // Ignore persistence failures
     }
   }, [theme]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  const toggleTheme = () => setTheme("light");
+  const setLightTheme = () => setTheme("light");
 
   const value = useMemo(
-    () => ({ theme, setTheme, toggleTheme }),
-    [theme],
+    () => ({ theme: "light", setTheme: setLightTheme, toggleTheme }),
+    [],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
