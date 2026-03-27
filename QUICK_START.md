@@ -85,6 +85,7 @@ The Compose stack uses Prisma mode by default and runs:
 - `npm run prisma:seed`
 
 For persistent Prisma mode, also set a stable backend `ENCRYPTION_KEY` with at least 32 characters. Development and test mode can use an internal fallback key, but a real environment should always set its own secret before writing patient data.
+If you want real SMS escalation for high-risk alerts, also set `ALERT_SMS_ENABLED=true`, `ALERT_SMS_PROVIDER=africastalking`, `AFRICAS_TALKING_USERNAME`, `AFRICAS_TALKING_API_KEY`, and `ALERT_SMS_RECIPIENTS`. The safe default target mode is `operations`, not direct patient messaging.
 
 Use this path when validating:
 
@@ -171,6 +172,7 @@ npm run test:e2e:prisma
 - `npm test` at the repo root is still a placeholder; frontend automated tests are not configured yet.
 - Prisma mode requires `DATABASE_URL`, `DIRECT_URL`, and `TRIP_DATA_PROVIDER=prisma`.
 - Production-like Prisma mode also requires a valid `ENCRYPTION_KEY` for patient PII at-rest protection.
+- SMS escalation is opt-in and requires explicit Africa's Talking configuration.
 - The backend health check is available at `http://localhost:5000/api/health`.
 - The backend readiness check is available at `http://localhost:5000/api/ready`.
 - The ML service health check is available at `http://localhost:5001/health`.

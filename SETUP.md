@@ -62,6 +62,9 @@ PORT=5000
 TRIP_DATA_PROVIDER=memory
 JWT_SECRET=change-me-for-production
 ENCRYPTION_KEY=change-me-to-a-stable-32-plus-character-secret
+ALERT_SMS_ENABLED=false
+ALERT_SMS_PROVIDER=disabled
+ALERT_SMS_TARGET_MODE=operations
 JWT_EXPIRES_IN=8h
 FRONTEND_URL=http://localhost:3000
 CORS_ORIGIN=http://localhost:3000
@@ -73,9 +76,18 @@ If you want persistent data instead of demo memory mode, also set:
 DATABASE_URL=postgresql://trip_user:trip_password@localhost:5432/trip_platform?schema=public
 TRIP_DATA_PROVIDER=prisma
 ENCRYPTION_KEY=trip-local-dev-encryption-key-2026-change-me
+ALERT_SMS_ENABLED=true
+ALERT_SMS_PROVIDER=africastalking
+ALERT_SMS_TARGET_MODE=operations
+ALERT_SMS_RECIPIENTS=+255700000001
+AFRICAS_TALKING_ENV=sandbox
+AFRICAS_TALKING_USERNAME=sandbox
+AFRICAS_TALKING_API_KEY=replace-with-sandbox-or-live-api-key
+AFRICAS_TALKING_SENDER_ID=TRIPMOH
 ```
 
 For Prisma mode, set `ENCRYPTION_KEY` before you rely on persistent local data. Development and test mode can fall back to a built-in dev key, but using your own stable key avoids unreadable ciphertext after environment changes.
+For SMS alerts, the safe default is `ALERT_SMS_TARGET_MODE=operations`, which sends high-risk notifications to configured operational contacts rather than directly to patients.
 
 ## Local Setup Paths
 
@@ -134,6 +146,7 @@ Compose behavior:
 
 - Backend runs in Prisma mode with strict provider enforcement
 - Backend enforces patient PII encryption metadata and expects a valid `ENCRYPTION_KEY` in production-like persistent deployments
+- Optional SMS alerting can use Africa's Talking when explicitly enabled and configured
 - Database migrations are applied automatically
 - Seed data is loaded automatically
 - Frontend points at the backend and WebSocket endpoints on localhost
@@ -241,6 +254,10 @@ Check that the PostgreSQL container is healthy and that `DIRECT_URL` and `DATABA
 ### Prisma mode starts but patient reads fail after an environment change
 
 Make sure `ENCRYPTION_KEY` is set to the same stable value that was used when the patient rows were written. Changing the encryption key without re-encrypting data will make existing ciphertext unreadable.
+
+### SMS alerts stay recorded but never submit
+
+Check `/api/health` and look at the `sms` service status. For Africa's Talking, make sure `ALERT_SMS_ENABLED=true`, `ALERT_SMS_PROVIDER=africastalking`, `AFRICAS_TALKING_USERNAME`, and `AFRICAS_TALKING_API_KEY` are set, and that `ALERT_SMS_RECIPIENTS` is configured when using `ALERT_SMS_TARGET_MODE=operations`.
 
 ### Docker Compose validates but will not start containers
 

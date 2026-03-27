@@ -923,6 +923,23 @@ async function updateAlertForUser(user, alertId, patch = {}) {
   return mapAlert(updated);
 }
 
+async function updateAlertChannels(alertId, channels = []) {
+  if (!alertId) {
+    return null;
+  }
+
+  const updated = await prisma.alert.update({
+    where: {
+      id: alertId
+    },
+    data: {
+      channels: Array.isArray(channels) ? channels : []
+    }
+  });
+
+  return mapAlert(updated);
+}
+
 async function createAuditLog(entry) {
   const created = await prisma.auditLog.create({
     data: {
@@ -1183,6 +1200,7 @@ module.exports = {
   listAlertsForUser,
   getAlertForUser,
   updateAlertForUser,
+  updateAlertChannels,
   createAuditLog,
   listAuditLogsForUser,
   appendSyncEvent,

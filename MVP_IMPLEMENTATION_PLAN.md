@@ -140,7 +140,7 @@ Done when:
 
 ## 3. Notification Gateway Completion
 
-Status: `next`
+Status: `partial`
 
 Why this is early:
 - The alert pipeline already exists, so this is a contained completion task.
@@ -155,6 +155,15 @@ Deliverables:
 - Implement an Africa's Talking adapter first.
 - Audit outbound delivery attempts and failures.
 - Keep in-app/WebSocket alerts as fallback behavior.
+
+Progress update on 2026-03-27:
+- Added a dedicated SMS gateway service with provider/config status helpers and an Africa's Talking adapter.
+- Changed high-risk SMS escalation to an operations-contact default instead of using the patient phone implicitly.
+- Made SMS delivery opt-in via explicit environment configuration.
+- Alert records now persist post-attempt SMS channel outcomes such as `submitted`, `failed`, `provider_not_configured`, and `skipped_missing_operations_contact`.
+- Added per-channel audit records for SMS delivery outcomes in addition to the existing alert-dispatched audit event.
+- Exposed SMS gateway status in `/api/health` so deployments can tell whether alerting is actually wired.
+- Extended analytics automation summaries with SMS submitted/failed/skipped counts for downstream dashboard use.
 
 Done when:
 - High-risk alerts trigger both persisted in-app alerts and real SMS dispatch attempts.

@@ -68,6 +68,7 @@ Required:
 
 - `NODE_ENV=production`
 - `JWT_SECRET=<strong-random-secret>`
+- `ENCRYPTION_KEY=<strong-random-secret>`
 - `TRIP_DATA_PROVIDER=prisma`
 - `TRIP_STRICT_DATA_PROVIDER=true`
 - `DATABASE_URL=<supabase pooled url>`
@@ -79,6 +80,17 @@ Recommended:
 - `FRONTEND_URL=https://your-domain.vercel.app`
 - `JWT_EXPIRES_IN=8h`
 - `ML_FALLBACK_ENABLED=true`
+
+Optional SMS escalation:
+
+- `ALERT_SMS_ENABLED=true`
+- `ALERT_SMS_PROVIDER=africastalking`
+- `ALERT_SMS_TARGET_MODE=operations`
+- `ALERT_SMS_RECIPIENTS=+255700000001,+255700000002`
+- `AFRICAS_TALKING_ENV=live`
+- `AFRICAS_TALKING_USERNAME=<your-africas-talking-username>`
+- `AFRICAS_TALKING_API_KEY=<your-africas-talking-api-key>`
+- `AFRICAS_TALKING_SENDER_ID=<approved-sender-id>`
 
 Optional frontend override:
 
@@ -99,3 +111,4 @@ Optional frontend override:
 - Use the pooled Supabase URL for `DATABASE_URL`.
 - Use the direct Supabase database host for `DIRECT_URL` when running Prisma migrations.
 - Vercel serverless functions do not provide a persistent WebSocket server; use polling or explicit refresh for realtime-sensitive views.
+- SMS alerts are safer when routed to operational escalation contacts via `ALERT_SMS_TARGET_MODE=operations`. Switch to patient-targeted SMS only if that workflow is explicitly approved.

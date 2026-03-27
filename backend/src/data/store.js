@@ -776,6 +776,18 @@ function updateAlertForUser(user, alertId, patch = {}) {
   return alert;
 }
 
+function updateAlertChannels(alertId, channels = []) {
+  const alert = alerts.find((item) => item.id === alertId) || null;
+
+  if (!alert) {
+    return null;
+  }
+
+  alert.channels = Array.isArray(channels) ? channels : [];
+  alert.updatedAt = nowIso();
+  return alert;
+}
+
 function createAuditLog(entry) {
   const log = {
     id: randomUUID(),
@@ -964,6 +976,7 @@ module.exports = {
   listAlertsForUser,
   getAlertForUser,
   updateAlertForUser,
+  updateAlertChannels,
   createAuditLog,
   listAuditLogsForUser,
   appendSyncEvent,

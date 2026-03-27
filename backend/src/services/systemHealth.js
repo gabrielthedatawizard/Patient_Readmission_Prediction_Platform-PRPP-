@@ -7,6 +7,7 @@ const {
 } = require('../data');
 const { getAuthConfigStatus } = require('../middleware/auth');
 const { getEncryptionConfigStatus } = require('../lib/encryption');
+const { getSmsGatewayStatus } = require('./smsGateway');
 
 const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
 const ML_HEALTH_TIMEOUT_MS = Number(process.env.ML_HEALTH_TIMEOUT_MS || process.env.ML_TIMEOUT_MS) || 2000;
@@ -109,6 +110,7 @@ async function buildHealthSnapshot() {
   const [database, ml] = await Promise.all([buildDatabaseHealth(), buildMlHealth()]);
   const auth = getAuthConfigStatus();
   const encryption = getEncryptionConfigStatus();
+  const sms = getSmsGatewayStatus();
 
   return {
     environment: process.env.NODE_ENV || 'development',
@@ -130,6 +132,7 @@ async function buildHealthSnapshot() {
       analytics: 'up',
       audit: 'up',
       sync: 'up',
+      sms,
       database,
       ml
     },
