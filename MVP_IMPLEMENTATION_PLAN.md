@@ -138,9 +138,11 @@ Progress update on 2026-03-27:
 - Added `src/hooks/useAnalytics.js` so analytics overview, audit logs, quality/fairness snapshots, ML monitoring, and training-dataset export all use the shared React Query layer.
 - Refactored `src/components/analytics/Analytics.jsx`, `src/components/analytics/DataQualityDashboard.jsx`, and `src/dashboards/MLEngineerDashboard.jsx` away from manual fetch orchestration and onto query-driven loading, refresh, stale-data, and retry behavior.
 - Upgraded `src/hooks/useDashboardData.js` and the analytics service/client path so dashboard reads now get the same protected error parsing as the rest of the app and keep previous data during background refresh.
+- Added route-level lazy loading for `PatientsList` and `Tasks`, plus explicit Vite manual chunking for React, routing, query, charts, motion, icons, and export libraries to reduce initial bundle pressure.
 - Verification status:
   - `eslint` passes with no warnings.
   - `vite build` passes under Node `20.20.2`.
+  - The main entry bundle dropped from the earlier ~541 kB warning case to ~107 kB after chunking, and the build no longer reports any >500 kB chunk warning.
 
 Done when:
 - Patients, alerts, tasks, and latest prediction flows use shared query hooks.

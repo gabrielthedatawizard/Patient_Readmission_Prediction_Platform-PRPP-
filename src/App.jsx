@@ -16,8 +16,6 @@ import LoginPage from "./pages/LoginPage";
 
 // Components
 import Sidebar from "./components/layout/Sidebar";
-import PatientsList from "./components/patient/PatientsList";
-import Tasks from "./components/dashboard/Tasks";
 import PageTransition from "./components/PageTransition";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
@@ -30,6 +28,8 @@ import { SAMPLE_FACILITIES } from "./data/facilities";
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
+const PatientsList = lazy(() => import("./components/patient/PatientsList"));
+const Tasks = lazy(() => import("./components/dashboard/Tasks"));
 const MoHNationalDashboard = lazy(() => import("./dashboards/MoHNationalDashboard"));
 const RHMTDashboard = lazy(() => import("./dashboards/RHMTDashboard"));
 const CHMTDashboard = lazy(() => import("./dashboards/CHMTDashboard"));
