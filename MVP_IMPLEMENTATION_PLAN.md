@@ -357,23 +357,33 @@ Done when:
 
 ## 10. Real-Data Retraining and Clinical Validation
 
-Status: `blocked on completed slices 4-8 plus external data`
+Status: `partial`
 
 Why this is the final MVP gate:
 - It is the point where the platform becomes clinically defensible instead of just technically functional.
 
 Current repo state:
-- Training code exists, but committed artifacts are synthetic-data artifacts.
+- Training and ingestion code now exist, and `ml-service/scripts/retrain_and_validate_real_data.py` now provides an end-to-end validation harness for the final gate.
+- The committed artifacts are still synthetic-data artifacts because no real pilot-facility extract has been run through the final gate yet.
 
 Deliverables:
 - Retrain on de-identified real admissions.
 - Validate on temporal holdout.
 - Review calibration and safety thresholds before any clinical rollout.
 
+Progress in repo:
+- Added an end-to-end retrain-and-validate script that accepts a raw backend export or normalized CSV, retrains the temporal model, and writes a clinical validation report with gate checks and sign-off steps.
+- Added Brier score to training metadata so calibration quality is included directly in the final validation gate.
+- Added focused unit coverage for the new gate logic and a full smoke run of the harness on the bundled dataset path using temporary output directories.
+- Updated `ml-service/README.md` with the final pilot workflow and the clinical validation gate invocation.
+
 Done when:
 - Synthetic artifacts are replaced.
 - Temporal evaluation on real data meets the agreed clinical threshold.
 - Pilot validation sign-off is documented.
+
+Remaining external dependency:
+- Requires a de-identified pilot-facility dataset and formal clinical review to move from `partial` to `done`.
 
 ## Recommended First Build Slice
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Train a readmission prediction model using the synthetic clinical dataset.
+Train a readmission prediction model using a normalized clinical dataset.
 
 Pipeline:
 1. Load CSV dataset
@@ -28,7 +28,14 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -280,6 +287,7 @@ def evaluate_model(model, X, y, label: str) -> dict:
     y_pred = model.predict(X)
     y_prob = model.predict_proba(X)[:, 1]
     roc_auc = safe_roc_auc(y, y_prob)
+    brier_score = float(brier_score_loss(y, y_prob)) if len(y) else None
 
     return {
         "model": label,
@@ -288,6 +296,7 @@ def evaluate_model(model, X, y, label: str) -> dict:
         "recall": round(recall_score(y, y_pred, zero_division=0), 4),
         "f1": round(f1_score(y, y_pred, zero_division=0), 4),
         "roc_auc": round(roc_auc, 4) if roc_auc is not None else None,
+        "brier_score": round(brier_score, 4) if brier_score is not None else None,
     }
 
 

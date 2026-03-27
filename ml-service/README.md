@@ -134,6 +134,26 @@ python3 scripts/ingest_real_data.py /path/to/training-dataset.json data/real/tri
 python3 scripts/train_model.py --data-path data/real/trip_training_dataset_normalized.csv --output-dir data/models
 ```
 
+## Final Clinical Validation Gate
+
+When pilot data is ready, use the end-to-end gate below to normalize, retrain, validate, and produce
+a clinical readiness report in one step.
+
+```bash
+cd ml-service
+python3 scripts/retrain_and_validate_real_data.py /path/to/training-dataset.json \
+  --normalized-output data/real/trip_training_dataset_normalized.csv \
+  --model-output-dir data/models/real_validation_run \
+  --report-path data/models/clinical_validation_report.json
+```
+
+Notes:
+
+- The script accepts either a raw backend export or an already normalized training CSV.
+- It writes a JSON report with ingestion quality, temporal validation/test metrics, gate checks, and a clinical sign-off checklist.
+- By default it fails if the ingestion step drops rows or still has diagnosis mapping review gaps. Use `--allow-ingestion-gaps` only for exploratory dry runs.
+- The default gate thresholds are configurable from the CLI and include minimum temporal ROC AUC, minimum test recall, maximum Brier score, and maximum data-quality loss.
+
 Then build a refreshed artifact:
 
 ```bash
