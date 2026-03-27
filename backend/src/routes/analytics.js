@@ -335,7 +335,8 @@ router.get('/ml/monitoring', requirePermission('analytics:read'), asyncHandler(a
     details: {
       visitCount: monitoring.visitCount,
       readmissionRate30d: monitoring.readmissionRate30d,
-      fallbackRate: monitoring.fallbackRate
+      fallbackRate: monitoring.fallbackRate,
+      operationalReviewRequired: monitoring.operationalReviewRequired
     }
   });
 

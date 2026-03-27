@@ -338,11 +338,19 @@ Why this follows the earlier model-prep work:
 
 Current repo state:
 - `backend/src/routes/analytics.js` already exposes `/ml/training-dataset` and `/ml/monitoring`.
-- `backend/src/services/mlDatasetService.js` already computes part of the monitoring snapshot.
+- `backend/src/services/mlDatasetService.js` now computes calibration, drift, missingness, cohort, and Tanzania-priority coverage sections in the monitoring snapshot.
+- The monitoring math is implemented, but the most meaningful calibration and drift interpretation still depends on real pilot-facility data replacing the current synthetic artifacts.
 
 Deliverables:
 - Add calibration metrics, cohort slicing, drift indicators, and disease-specific coverage checks.
 - Expose thresholds that can trigger operational review.
+
+Progress in repo:
+- Added calibration metrics including Brier score, expected calibration error, max calibration gap, and probability-bin summaries.
+- Added cohort slices for gender, facility, prediction tier, and Tanzania-priority condition cohorts.
+- Added temporal drift monitoring for readmission rate, prediction probability, fallback rate, and feature completeness, plus threshold-based operational review flags.
+- Added Tanzania-priority coverage summaries for malaria, HIV/ART, TB, SAM, sickle cell disease, and neonatal-risk signals in one snapshot.
+- Local verification passed for JS syntax checks and a direct monitoring smoke test against the repo’s current dataset export path.
 
 Done when:
 - Monitoring answers fallback rate, calibration quality, missingness, drift, and Tanzania-feature coverage in one place.
