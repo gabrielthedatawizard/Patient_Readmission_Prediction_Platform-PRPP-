@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useLocation, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -18,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
+import { useAuth } from "../context/AuthProvider";
 import { login as loginRequest, normalizeRoleForBackend } from "../services/apiClient";
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
@@ -33,6 +35,9 @@ const loginSchema = z.object({
 });
 
 const LoginPage = ({ onLogin, onBack }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { handleLogin: handleAuthLogin } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -54,6 +59,7 @@ const LoginPage = ({ onLogin, onBack }) => {
     },
   });
   const email = watch("email");
+  const redirectPath = location.state?.from?.pathname || "/dashboard";
 
   const roles = [
     { id: "moh", labelKey: "mohAdmin", icon: Building },
@@ -91,8 +97,14 @@ const LoginPage = ({ onLogin, onBack }) => {
         rememberMe: values.rememberMe,
       });
 
+      handleAuthLogin(session);
       setIsLoading(false);
-      onLogin(session);
+
+      if (typeof onLogin === "function") {
+        await Promise.resolve(onLogin(session));
+      }
+
+      navigate(redirectPath, { replace: true });
     } catch (requestError) {
       setIsLoading(false);
       const resolvedMessage =
@@ -133,7 +145,14 @@ const LoginPage = ({ onLogin, onBack }) => {
 
             <div className="relative z-10">
               <button
-                onClick={onBack}
+                onClick={() => {
+                  if (typeof onBack === "function") {
+                    onBack();
+                    return;
+                  }
+
+                  navigate("/", { replace: true });
+                }}
                 className="flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors"
               >
                 <ArrowRight className="w-4 h-4 rotate-180" />
