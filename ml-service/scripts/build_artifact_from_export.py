@@ -78,14 +78,14 @@ def load_labelled_engineered_rows(rows: list[dict[str, Any]]) -> list[tuple[dict
     labelled_rows: list[tuple[dict[str, float], int]] = []
 
     for row in rows:
-      label_raw = row.get("readmitted30d")
-      label = to_float(label_raw)
-      if label not in {0.0, 1.0}:
-          continue
+        label_raw = row.get("readmitted30d", row.get("readmitted_30d"))
+        label = to_float(label_raw)
+        if label not in {0.0, 1.0}:
+            continue
 
-      normalized = normalize_features(row)
-      engineered, _ = engineer_features(normalized)
-      labelled_rows.append((engineered, int(label)))
+        normalized = normalize_features(row)
+        engineered, _ = engineer_features(normalized)
+        labelled_rows.append((engineered, int(label)))
 
     return labelled_rows
 

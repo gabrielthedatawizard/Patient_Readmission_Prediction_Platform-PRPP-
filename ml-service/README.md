@@ -47,7 +47,12 @@ curl -X POST http://localhost:5001/api/v1/predict \
       "livesAlone": true,
       "hasHeartFailure": true,
       "hasDiabetes": false,
-      "hasCkd": true
+      "hasCkd": true,
+      "hasHiv": true,
+      "onArt": true,
+      "hasTuberculosis": false,
+      "hasMalaria": false,
+      "neonatalRisk": false
     }
   }'
 ```

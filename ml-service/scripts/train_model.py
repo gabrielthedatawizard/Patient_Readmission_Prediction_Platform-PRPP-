@@ -73,6 +73,13 @@ BINARY_FEATURES = [
     "has_heart_failure",
     "has_diabetes",
     "has_ckd",
+    "has_malaria",
+    "has_hiv",
+    "on_art",
+    "has_tuberculosis",
+    "has_severe_acute_malnutrition",
+    "has_sickle_cell_disease",
+    "neonatal_risk",
 ]
 
 CATEGORICAL_FEATURES = ["gender"]
@@ -100,8 +107,42 @@ FEATURE_NAME_MAP = {
     "has_heart_failure": "hasHeartFailure",
     "has_diabetes": "hasDiabetes",
     "has_ckd": "hasCkd",
+    "has_malaria": "hasMalaria",
+    "has_hiv": "hasHiv",
+    "on_art": "onArt",
+    "has_tuberculosis": "hasTuberculosis",
+    "has_severe_acute_malnutrition": "hasSevereAcuteMalnutrition",
+    "has_sickle_cell_disease": "hasSickleCellDisease",
+    "neonatal_risk": "neonatalRisk",
     "gender": "gender",
 }
+
+DEFAULT_FEATURE_VALUES = {
+    "has_malaria": 0,
+    "has_hiv": 0,
+    "on_art": 0,
+    "has_tuberculosis": 0,
+    "has_severe_acute_malnutrition": 0,
+    "has_sickle_cell_disease": 0,
+    "neonatal_risk": 0,
+}
+
+
+def ensure_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+
+    if TARGET not in normalized.columns and "readmitted30d" in normalized.columns:
+        normalized[TARGET] = normalized["readmitted30d"]
+
+    for feature_name, default_value in DEFAULT_FEATURE_VALUES.items():
+        if feature_name not in normalized.columns:
+            normalized[feature_name] = default_value
+
+    missing_features = [feature for feature in ALL_FEATURES if feature not in normalized.columns]
+    if missing_features:
+        raise ValueError(f"Dataset is missing required feature columns: {', '.join(missing_features)}")
+
+    return normalized
 
 
 def build_preprocessor() -> ColumnTransformer:
@@ -150,7 +191,7 @@ def train_and_save(data_path: str | Path, output_dir: str | Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading data from {data_path}")
-    df = pd.read_csv(data_path)
+    df = ensure_feature_columns(pd.read_csv(data_path))
     print(f"Dataset: {len(df)} rows, {len(df.columns)} columns")
     print(f"Readmission rate: {df[TARGET].mean() * 100:.1f}%")
 

@@ -92,4 +92,58 @@ describe('predictionFeatureBuilder', () => {
     expect(modelFeatures.highRiskMedicationCount).toBe(1);
     expect(featureSnapshot.requestOverrides).toContain('charlsonIndex');
   });
+
+  test('derives Tanzania-priority condition and neonatal context features', () => {
+    const { modelFeatures, featureSnapshot, analysisSummary } = buildPredictionFeatures({
+      patient: {
+        id: 'PT-3',
+        age: 0,
+        gender: 'female',
+        facilityId: 'FAC-NEO',
+        clinicalProfile: {
+          ageInDays: 12,
+          gestationalAgeWeeks: 35,
+          birthWeightGrams: 2100
+        }
+      },
+      visit: {
+        id: 'VIS-TZ',
+        patientId: 'PT-3',
+        facilityId: 'FAC-NEO',
+        ward: 'NICU',
+        diagnosis: 'B20.1',
+        diagnoses: ['B20.1', 'A15.0', 'E43', 'D57.0', 'B50.9'],
+        medications: [{ name: 'Tenofovir/Lamivudine/Dolutegravir' }]
+      },
+      visits: []
+    });
+
+    expect(modelFeatures.hasHiv).toBe(true);
+    expect(modelFeatures.hasTuberculosis).toBe(true);
+    expect(modelFeatures.hasSevereAcuteMalnutrition).toBe(true);
+    expect(modelFeatures.hasSickleCellDisease).toBe(true);
+    expect(modelFeatures.hasMalaria).toBe(true);
+    expect(modelFeatures.onArt).toBe(true);
+    expect(modelFeatures.neonatalRisk).toBe(true);
+    expect(featureSnapshot.tanzaniaContext.priorityConditions).toEqual(
+      expect.arrayContaining([
+        'hiv',
+        'on_art',
+        'tuberculosis',
+        'severe_acute_malnutrition',
+        'sickle_cell_disease',
+        'malaria',
+        'neonatal_risk'
+      ])
+    );
+    expect(featureSnapshot.tanzaniaContext.neonatalRiskFactors).toEqual(
+      expect.arrayContaining([
+        'age_under_28_days',
+        'neonatal_ward',
+        'low_birth_weight',
+        'prematurity'
+      ])
+    );
+    expect(analysisSummary.treatmentSignals).toContain('on_art');
+  });
 });

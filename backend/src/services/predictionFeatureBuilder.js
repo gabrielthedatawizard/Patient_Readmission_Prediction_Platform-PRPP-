@@ -11,6 +11,20 @@ const HIGH_RISK_MEDICATION_PATTERNS = [
   'spironolactone'
 ];
 
+const ART_MEDICATION_PATTERNS = [
+  'dolutegravir',
+  'tenofovir',
+  'lamivudine',
+  'efavirenz',
+  'zidovudine',
+  'abacavir',
+  'lopinavir',
+  'ritonavir',
+  'atazanavir',
+  'nevirapine',
+  'emtricitabine'
+];
+
 const DIAGNOSIS_GROUPS = [
   { name: 'heartFailure', prefixes: ['I50'], charlsonWeight: 2 },
   { name: 'diabetes', prefixes: ['E10', 'E11', 'E13', 'O24'], charlsonWeight: 1 },
@@ -21,9 +35,54 @@ const DIAGNOSIS_GROUPS = [
   { name: 'cancer', prefixes: ['C'], charlsonWeight: 2 }
 ];
 
+const TANZANIA_PRIORITY_PREFIXES = {
+  malaria: ['B50', 'B51', 'B52', 'B53', 'B54', 'P37.3'],
+  hiv: ['B20', 'B21', 'B22', 'B23', 'B24', 'Z21', 'R75'],
+  tuberculosis: ['A15', 'A16', 'A17', 'A18', 'A19'],
+  severeAcuteMalnutrition: ['E40', 'E41', 'E42', 'E43'],
+  sickleCellDisease: ['D57'],
+  neonatal: ['P', 'Z38']
+};
+
+const NEONATAL_WARD_PATTERNS = ['nicu', 'neonat', 'newborn', 'scbu', 'special care baby'];
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBoolean(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (
+    ['true', '1', 'yes', 'y', 'on_art', 'on-art', 'active', 'current', 'treated'].includes(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    ['false', '0', 'no', 'n', 'off_art', 'off-art', 'none', 'stopped', 'inactive'].includes(
+      normalized
+    )
+  ) {
+    return false;
+  }
+
+  return null;
 }
 
 function normalizeString(value) {
@@ -138,17 +197,165 @@ function getFirstDefinedValue(...candidates) {
   return null;
 }
 
+function getFirstBooleanValue(...candidates) {
+  for (const candidate of candidates) {
+    const booleanValue = toBoolean(candidate);
+    if (booleanValue !== null) {
+      return booleanValue;
+    }
+  }
+
+  return null;
+}
+
 function hasDiagnosisPrefix(diagnoses, prefixes) {
   return diagnoses.some((diagnosis) =>
     prefixes.some((prefix) => String(diagnosis).toUpperCase().startsWith(prefix))
   );
 }
 
-function deriveConditionFlags(diagnoses) {
+function hasMedicationPattern(medications, patterns) {
+  return medications.some((medication) =>
+    patterns.some((pattern) => medication.name.toLowerCase().includes(pattern))
+  );
+}
+
+function resolveConditionFlag(explicitCandidates, fallbackValue) {
+  const explicit = getFirstBooleanValue(...explicitCandidates);
+  return explicit !== null ? explicit : Boolean(fallbackValue);
+}
+
+function buildNeonatalRiskContext({
+  ageYears,
+  diagnoses,
+  requestFeatures = {},
+  clinicalProfile = {},
+  visit = null
+}) {
+  const ageInDays = getFirstNumericValue(
+    requestFeatures.ageInDays,
+    requestFeatures.neonatalAgeDays,
+    clinicalProfile.ageInDays,
+    clinicalProfile.neonatalAgeDays
+  );
+  const gestationalAgeWeeks = getFirstNumericValue(
+    requestFeatures.gestationalAgeWeeks,
+    clinicalProfile.gestationalAgeWeeks
+  );
+  const birthWeightGrams = getFirstNumericValue(
+    requestFeatures.birthWeightGrams,
+    clinicalProfile.birthWeightGrams
+  );
+  const ward = normalizeString(
+    getFirstDefinedValue(requestFeatures.ward, visit?.ward, clinicalProfile.ward)
+  );
+  const explicitFlag = getFirstBooleanValue(
+    requestFeatures.neonatalRisk,
+    clinicalProfile.neonatalRisk,
+    clinicalProfile.isNeonate
+  );
+
+  const neonatalRiskFactors = [];
+
+  if (explicitFlag === true) {
+    neonatalRiskFactors.push('explicit_neonatal_flag');
+  }
+  if (ageInDays !== null && ageInDays <= 28) {
+    neonatalRiskFactors.push('age_under_28_days');
+  } else if (ageYears !== null && ageYears === 0) {
+    neonatalRiskFactors.push('age_recorded_as_zero_years');
+  }
+  if (hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.neonatal)) {
+    neonatalRiskFactors.push('neonatal_diagnosis');
+  }
+  if (ward && NEONATAL_WARD_PATTERNS.some((pattern) => ward.toLowerCase().includes(pattern))) {
+    neonatalRiskFactors.push('neonatal_ward');
+  }
+  if (birthWeightGrams !== null && birthWeightGrams < 2500) {
+    neonatalRiskFactors.push('low_birth_weight');
+  }
+  if (gestationalAgeWeeks !== null && gestationalAgeWeeks < 37) {
+    neonatalRiskFactors.push('prematurity');
+  }
+
+  return {
+    neonatalRisk:
+      explicitFlag === true || Array.from(new Set(neonatalRiskFactors)).length > 0,
+    neonatalRiskFactors: Array.from(new Set(neonatalRiskFactors)),
+    ageInDays,
+    gestationalAgeWeeks,
+    birthWeightGrams
+  };
+}
+
+function deriveConditionFlags({
+  diagnoses,
+  medications,
+  requestFeatures = {},
+  clinicalProfile = {},
+  ageYears,
+  visit = null
+}) {
+  const artMedicationDetected = hasMedicationPattern(medications, ART_MEDICATION_PATTERNS);
+  const neonatalContext = buildNeonatalRiskContext({
+    ageYears,
+    diagnoses,
+    requestFeatures,
+    clinicalProfile,
+    visit
+  });
+
+  const hasHiv = resolveConditionFlag(
+    [
+      requestFeatures.hasHiv,
+      requestFeatures.hivPositive,
+      clinicalProfile.hasHiv,
+      clinicalProfile.hivPositive
+    ],
+    hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.hiv)
+  );
+
   return {
     hasHeartFailure: hasDiagnosisPrefix(diagnoses, ['I50']),
     hasDiabetes: hasDiagnosisPrefix(diagnoses, ['E10', 'E11', 'E13', 'O24']),
-    hasCkd: hasDiagnosisPrefix(diagnoses, ['N18'])
+    hasCkd: hasDiagnosisPrefix(diagnoses, ['N18']),
+    hasMalaria: resolveConditionFlag(
+      [requestFeatures.hasMalaria, clinicalProfile.hasMalaria],
+      hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.malaria)
+    ),
+    hasHiv,
+    onArt: resolveConditionFlag(
+      [requestFeatures.onArt, requestFeatures.artStatus, clinicalProfile.onArt, clinicalProfile.artStatus],
+      hasHiv && artMedicationDetected
+    ),
+    hasTuberculosis: resolveConditionFlag(
+      [requestFeatures.hasTuberculosis, requestFeatures.hasTb, clinicalProfile.hasTuberculosis, clinicalProfile.hasTb],
+      hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.tuberculosis)
+    ),
+    hasSevereAcuteMalnutrition: resolveConditionFlag(
+      [
+        requestFeatures.hasSevereAcuteMalnutrition,
+        requestFeatures.hasSam,
+        clinicalProfile.hasSevereAcuteMalnutrition,
+        clinicalProfile.hasSam
+      ],
+      hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.severeAcuteMalnutrition)
+    ),
+    hasSickleCellDisease: resolveConditionFlag(
+      [
+        requestFeatures.hasSickleCellDisease,
+        requestFeatures.hasSickleCell,
+        clinicalProfile.hasSickleCellDisease,
+        clinicalProfile.hasSickleCell
+      ],
+      hasDiagnosisPrefix(diagnoses, TANZANIA_PRIORITY_PREFIXES.sickleCellDisease)
+    ),
+    neonatalRisk: neonatalContext.neonatalRisk,
+    neonatalRiskFactors: neonatalContext.neonatalRiskFactors,
+    ageInDays: neonatalContext.ageInDays,
+    gestationalAgeWeeks: neonatalContext.gestationalAgeWeeks,
+    birthWeightGrams: neonatalContext.birthWeightGrams,
+    artMedicationDetected
   };
 }
 
@@ -223,6 +430,34 @@ function buildSocialRiskFactors({ phoneAccess, transportationDifficulty, livesAl
   return flags;
 }
 
+function buildTanzaniaPriorityConditions(conditionFlags) {
+  const flags = [];
+
+  if (conditionFlags.hasMalaria) {
+    flags.push('malaria');
+  }
+  if (conditionFlags.hasHiv) {
+    flags.push('hiv');
+  }
+  if (conditionFlags.onArt) {
+    flags.push('on_art');
+  }
+  if (conditionFlags.hasTuberculosis) {
+    flags.push('tuberculosis');
+  }
+  if (conditionFlags.hasSevereAcuteMalnutrition) {
+    flags.push('severe_acute_malnutrition');
+  }
+  if (conditionFlags.hasSickleCellDisease) {
+    flags.push('sickle_cell_disease');
+  }
+  if (conditionFlags.neonatalRisk) {
+    flags.push('neonatal_risk');
+  }
+
+  return flags;
+}
+
 function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures = {} }) {
   const clinicalProfile = patient?.clinicalProfile || {};
   const visitLabs = visit?.labResults || {};
@@ -241,6 +476,7 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
     getFirstDefinedValue(requestFeatures.medications, visit?.medications, clinicalProfile.medications, [])
   );
   const highRiskMedications = medications.filter((item) => item.highRisk);
+  const ageYears = toNumber(getFirstDefinedValue(requestFeatures.age, patient?.age, clinicalProfile.age)) || 0;
 
   const lengthOfStayDays = getFirstNumericValue(
     requestFeatures.lengthOfStayDays,
@@ -290,20 +526,24 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
     clinicalProfile.icuStayDays
   ) || 0;
 
-  const phoneAccess = Boolean(
-    getFirstDefinedValue(requestFeatures.phoneAccess, visitSocial.phoneAccess, clinicalProfile.phoneAccess, false)
-  );
-  const transportationDifficulty = Boolean(
-    getFirstDefinedValue(
+  const phoneAccess =
+    getFirstBooleanValue(
+      requestFeatures.phoneAccess,
+      visitSocial.phoneAccess,
+      clinicalProfile.phoneAccess
+    ) ?? false;
+  const transportationDifficulty =
+    getFirstBooleanValue(
       requestFeatures.transportationDifficulty,
       visitSocial.transportationDifficulty,
-      clinicalProfile.transportationDifficulty,
-      false
-    )
-  );
-  const livesAlone = Boolean(
-    getFirstDefinedValue(requestFeatures.livesAlone, visitSocial.livesAlone, clinicalProfile.livesAlone, false)
-  );
+      clinicalProfile.transportationDifficulty
+    ) ?? false;
+  const livesAlone =
+    getFirstBooleanValue(
+      requestFeatures.livesAlone,
+      visitSocial.livesAlone,
+      clinicalProfile.livesAlone
+    ) ?? false;
 
   const charlsonIndex =
     estimateCharlsonIndex({
@@ -311,13 +551,21 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
       fallbackValue: getFirstDefinedValue(requestFeatures.charlsonIndex, clinicalProfile.charlsonIndex)
     }) || 0;
 
-  const conditionFlags = deriveConditionFlags(diagnosisList);
+  const conditionFlags = deriveConditionFlags({
+    diagnoses: diagnosisList,
+    medications,
+    requestFeatures,
+    clinicalProfile,
+    ageYears,
+    visit
+  });
   const labAbnormalities = buildLabSummary({ egfr, hemoglobin, hba1c });
   const socialRiskFactors = buildSocialRiskFactors({
     phoneAccess,
     transportationDifficulty,
     livesAlone
   });
+  const tanzaniaPriorityConditions = buildTanzaniaPriorityConditions(conditionFlags);
 
   const featureSnapshot = {
     identifiers: {
@@ -326,7 +574,7 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
       facilityId: patient?.facilityId || visit?.facilityId || null
     },
     demographics: {
-      age: toNumber(getFirstDefinedValue(requestFeatures.age, patient?.age, clinicalProfile.age)) || 0,
+      age: ageYears,
       gender: normalizeString(getFirstDefinedValue(requestFeatures.gender, patient?.gender)) || 'unknown',
       insurance: patient?.insurance || null
     },
@@ -364,7 +612,26 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
       transportationDifficulty,
       livesAlone
     },
-    conditionFlags,
+    conditionFlags: {
+      hasHeartFailure: conditionFlags.hasHeartFailure,
+      hasDiabetes: conditionFlags.hasDiabetes,
+      hasCkd: conditionFlags.hasCkd,
+      hasMalaria: conditionFlags.hasMalaria,
+      hasHiv: conditionFlags.hasHiv,
+      hasTuberculosis: conditionFlags.hasTuberculosis,
+      hasSevereAcuteMalnutrition: conditionFlags.hasSevereAcuteMalnutrition,
+      hasSickleCellDisease: conditionFlags.hasSickleCellDisease,
+      neonatalRisk: conditionFlags.neonatalRisk
+    },
+    tanzaniaContext: {
+      onArt: conditionFlags.onArt,
+      artMedicationDetected: conditionFlags.artMedicationDetected,
+      neonatalRiskFactors: conditionFlags.neonatalRiskFactors,
+      ageInDays: conditionFlags.ageInDays,
+      gestationalAgeWeeks: conditionFlags.gestationalAgeWeeks,
+      birthWeightGrams: conditionFlags.birthWeightGrams,
+      priorityConditions: tanzaniaPriorityConditions
+    },
     computed: {
       charlsonIndex,
       icuStayDays
@@ -395,13 +662,23 @@ function buildPredictionFeatures({ patient, visit, visits = [], requestFeatures 
     livesAlone,
     hasHeartFailure: conditionFlags.hasHeartFailure,
     hasDiabetes: conditionFlags.hasDiabetes,
-    hasCkd: conditionFlags.hasCkd
+    hasCkd: conditionFlags.hasCkd,
+    hasMalaria: conditionFlags.hasMalaria,
+    hasHiv: conditionFlags.hasHiv,
+    onArt: conditionFlags.onArt,
+    hasTuberculosis: conditionFlags.hasTuberculosis,
+    hasSevereAcuteMalnutrition: conditionFlags.hasSevereAcuteMalnutrition,
+    hasSickleCellDisease: conditionFlags.hasSickleCellDisease,
+    neonatalRisk: conditionFlags.neonatalRisk
   };
 
   const analysisSummary = {
     diagnosisCount: diagnosisList.length,
     labAbnormalities,
     socialRiskFactors,
+    tanzaniaPriorityConditions,
+    neonatalRiskFactors: conditionFlags.neonatalRiskFactors,
+    treatmentSignals: conditionFlags.onArt ? ['on_art'] : [],
     medicationRiskProfile:
       highRiskMedications.length >= 2 ? 'high' : highRiskMedications.length === 1 ? 'moderate' : 'low',
     utilizationRiskProfile:

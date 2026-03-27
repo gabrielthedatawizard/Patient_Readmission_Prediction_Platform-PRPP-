@@ -33,6 +33,13 @@ FEATURE_COLUMNS = [
     "has_heart_failure",
     "has_diabetes",
     "has_ckd",
+    "has_malaria",
+    "has_hiv",
+    "on_art",
+    "has_tuberculosis",
+    "has_severe_acute_malnutrition",
+    "has_sickle_cell_disease",
+    "neonatal_risk",
     "readmitted_30d",
 ]
 
@@ -50,12 +57,24 @@ def sigmoid(x: float) -> float:
 
 
 def generate_row(patient_index: int, rng: random.Random) -> dict:
-    age = max(18, min(100, int(rng.gauss(62, 16))))
-    gender = rng.choices(["male", "female"], weights=[0.52, 0.48])[0]
+    neonatal_case = rng.random() < 0.05
+    if neonatal_case:
+        age = 0
+        gender = rng.choice(["male", "female"])
+    else:
+        age = max(18, min(100, int(rng.gauss(62, 16))))
+        gender = rng.choices(["male", "female"], weights=[0.52, 0.48])[0]
 
-    has_hf = rng.random() < (0.25 if age > 65 else 0.08)
-    has_dm = rng.random() < (0.30 if age > 55 else 0.10)
-    has_ckd = rng.random() < (0.18 if age > 60 else 0.05)
+    has_hf = False if neonatal_case else rng.random() < (0.25 if age > 65 else 0.08)
+    has_dm = False if neonatal_case else rng.random() < (0.30 if age > 55 else 0.10)
+    has_ckd = False if neonatal_case else rng.random() < (0.18 if age > 60 else 0.05)
+    has_malaria = rng.random() < (0.16 if neonatal_case else 0.08)
+    has_hiv = False if neonatal_case else rng.random() < (0.12 if 18 <= age <= 49 else 0.06)
+    on_art = has_hiv and rng.random() < 0.82
+    has_tb = rng.random() < (0.18 if has_hiv else 0.03)
+    has_sam = rng.random() < (0.22 if neonatal_case else 0.03)
+    has_sickle = rng.random() < (0.04 if neonatal_case else 0.025)
+    neonatal_risk = neonatal_case
 
     charlson = 0
     if has_hf:
@@ -64,6 +83,10 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
         charlson += rng.randint(1, 2)
     if has_ckd:
         charlson += rng.randint(1, 3)
+    if has_tb:
+        charlson += 1
+    if has_hiv and not on_art:
+        charlson += 1
     if age > 70:
         charlson += rng.randint(0, 2)
     charlson = min(charlson, 12)
@@ -73,14 +96,26 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
         prior_admissions += rng.randint(0, 2)
     prior_admissions = min(prior_admissions, 10)
 
-    los = max(1, int(rng.gauss(5 + charlson * 0.8, 3)))
+    los = max(1, int(rng.gauss((7 if neonatal_case else 5) + charlson * 0.8, 3)))
     los = min(los, 45)
 
     egfr = max(10, min(120, int(rng.gauss(75 if not has_ckd else 42, 18))))
-    hemoglobin = round(max(5.0, min(18.0, rng.gauss(12.5 if not has_ckd else 10.2, 1.8))), 1)
+    hemoglobin = round(
+        max(
+            5.0,
+            min(
+                18.0,
+                rng.gauss(
+                    11.6 if (has_tb or has_hiv or has_sam or has_sickle) else (12.5 if not has_ckd else 10.2),
+                    1.8,
+                ),
+            ),
+        ),
+        1,
+    )
     hba1c = round(max(4.0, min(14.0, rng.gauss(5.8 if not has_dm else 8.5, 1.2))), 1)
-    bp_sys = max(80, min(220, int(rng.gauss(132 if not has_hf else 155, 18))))
-    bp_dia = max(40, min(130, int(rng.gauss(78 if not has_hf else 92, 12))))
+    bp_sys = max(80, min(220, int(rng.gauss(92 if neonatal_case else (132 if not has_hf else 155), 18))))
+    bp_dia = max(40, min(130, int(rng.gauss(58 if neonatal_case else (78 if not has_hf else 92), 12))))
 
     high_risk_meds = 0
     if has_hf:
@@ -92,12 +127,12 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     high_risk_meds = min(high_risk_meds, 5)
 
     icu_days = 0
-    if rng.random() < 0.15:
+    if rng.random() < (0.25 if neonatal_case else 0.15):
         icu_days = rng.randint(1, 8)
 
-    phone_access = rng.random() < 0.82
-    transport_diff = rng.random() < (0.35 if age > 70 else 0.15)
-    lives_alone = rng.random() < (0.30 if age > 65 else 0.12)
+    phone_access = False if neonatal_case else rng.random() < (0.74 if has_hiv or has_tb else 0.82)
+    transport_diff = False if neonatal_case else rng.random() < (0.28 if has_hiv or has_tb else (0.35 if age > 70 else 0.15))
+    lives_alone = False if neonatal_case else rng.random() < (0.30 if age > 65 else 0.12)
 
     # Logistic model for readmission probability
     log_odds = -3.2
@@ -108,6 +143,13 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     log_odds += 0.5 if has_hf else 0
     log_odds += 0.3 if has_dm else 0
     log_odds += 0.4 if has_ckd else 0
+    log_odds += 0.2 if has_malaria else 0
+    log_odds += 0.45 if has_hiv else 0
+    log_odds -= 0.12 if on_art else 0
+    log_odds += 0.38 if has_tb else 0
+    log_odds += 0.55 if has_sam else 0
+    log_odds += 0.26 if has_sickle else 0
+    log_odds += 0.62 if neonatal_risk else 0
     log_odds += 0.02 * max(0, 60 - egfr)
     log_odds += 0.15 * max(0, 10 - hemoglobin)
     log_odds += 0.12 * max(0, hba1c - 7)
@@ -144,6 +186,13 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
         "has_heart_failure": int(has_hf),
         "has_diabetes": int(has_dm),
         "has_ckd": int(has_ckd),
+        "has_malaria": int(has_malaria),
+        "has_hiv": int(has_hiv),
+        "on_art": int(on_art),
+        "has_tuberculosis": int(has_tb),
+        "has_severe_acute_malnutrition": int(has_sam),
+        "has_sickle_cell_disease": int(has_sickle),
+        "neonatal_risk": int(neonatal_risk),
         "readmitted_30d": readmitted,
     }
 

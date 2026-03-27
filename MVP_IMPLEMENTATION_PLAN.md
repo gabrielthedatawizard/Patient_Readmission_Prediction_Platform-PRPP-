@@ -47,10 +47,10 @@ These are the most relevant local workflow references from `everything-claude-co
 ### Verified gaps or partial areas
 
 - Frontend data layer is now partially modernized. React Query is installed and wired for the main patient, task, alert, and prediction flows, but some dashboard/API surfaces still need migration and end-to-end verification.
-- Notifications are only partially complete. `backend/src/services/notificationService.js` creates/persists alerts and broadcasts by WebSocket, but there is no real SMS provider integration yet.
-- PII encryption is missing. `backend/prisma/schema.prisma` still stores `Patient.name`, `Patient.phone`, and `Patient.address` in plaintext, and `backend/src/lib/prisma.js` has no encryption middleware.
+- Notifications are partially complete. `backend/src/services/notificationService.js` now supports an Africa's Talking SMS gateway path and alert-channel persistence, but live provider verification is still pending.
+- PII/security hardening is partially complete. Patient PII encryption now exists in the Prisma path, but full production migration and operational key-rotation processes still need completion and live validation.
 - JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
-- Tanzania-specific disease features are missing. `backend/src/services/predictionFeatureBuilder.js` and `ml-service/scripts/train_model.py` still focus on generic NCD-oriented features.
+- Tanzania-specific disease features are now partially implemented. Backend feature extraction, export rows, the ML fallback predictor, and the synthetic training path now understand malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk, but they have not yet been exercised on real pilot-facility data.
 - Training methodology still uses random CV. `ml-service/scripts/train_model.py` still uses `StratifiedKFold`, and the default training file is still `ml-service/data/synthetic_readmission_data.csv`.
 - DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
 - Local verification in this shell is still partially blocked by environment issues: the Docker daemon was unavailable for Step 1, so full containerized verification still remains pending.
@@ -209,20 +209,28 @@ Done when:
 
 ## 5. Tanzania-Specific Feature Expansion
 
-Status: `next`
+Status: `partial`
 
 Why it comes before real retraining:
 - We can prepare the feature pipeline now even before pilot data arrives.
 - It addresses one of the largest blueprint validity gaps.
 
 Current repo state:
-- `backend/src/services/predictionFeatureBuilder.js` only covers heart failure, diabetes, CKD, COPD, stroke, IHD, and cancer groups.
-- `ml-service/scripts/train_model.py` still uses a generic feature list with no Tanzania-priority disease fields.
+- `backend/src/services/predictionFeatureBuilder.js` now derives malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk flags in addition to the existing chronic disease features.
+- `backend/src/services/mlDatasetService.js` now exports those Tanzania-priority features into training rows and source feature snapshots.
+- `ml-service/app/predictor.py`, `ml-service/scripts/train_model.py`, and `ml-service/scripts/generate_synthetic_data.py` now understand the expanded feature set and keep backward-compatible defaults for older datasets.
+- `ml-service/scripts/build_artifact_from_export.py` is now compatible again with the predictor helper exports.
 
 Deliverables:
 - Extend backend feature extraction for malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk flags where data is available.
 - Extend training features and predictor expectations to match.
 - Keep backward compatibility for demo/sample records that do not yet contain all new fields.
+
+Progress in this repo:
+- Added Tanzania-priority feature derivation and neonatal context detection in the backend feature builder, including ART medication inference and exported training-row coverage.
+- Extended the Python fallback predictor, explanations, artifact calibration path, and synthetic training-data generator for the same new fields.
+- Added focused tests and runtime checks for the Tanzania-specific predictor path.
+- Local verification passed for Python unit tests, JS syntax checks, a backend runtime derivation check, and synthetic-data generation. Backend Jest remains blocked in this shell by the pre-existing `pkg-dir` dependency issue in `backend/node_modules`.
 
 Done when:
 - New Tanzania-specific features appear in exported training rows.
