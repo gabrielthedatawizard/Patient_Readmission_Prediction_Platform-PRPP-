@@ -1,7 +1,7 @@
 {
   "version": 2,
   "name": "trip-platform",
-  "installCommand": "npm install && npm run vercel:install",
+  "installCommand": "npm install --include=dev --no-audit --no-fund && npm run vercel:install",
   "buildCommand": "npm run vercel:build",
   "outputDirectory": "build",
   "functions": {

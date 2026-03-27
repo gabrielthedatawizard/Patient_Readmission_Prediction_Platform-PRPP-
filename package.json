@@ -25,8 +25,8 @@
     "format": "prettier --write \"src/**/*.{js,jsx,json,css,md}\"",
     "preview": "vite preview --host",
     "dev": "vite",
-    "vercel:install": "npm --prefix backend install && npm --prefix backend run prisma:generate",
-    "vercel:build": "vite build"
+    "vercel:install": "npm --prefix backend install --include=dev && npm --prefix backend run prisma:generate",
+    "vercel:build": "node ./node_modules/vite/bin/vite.js build"
   },
   "homepage": ".",
   "dependencies": {
