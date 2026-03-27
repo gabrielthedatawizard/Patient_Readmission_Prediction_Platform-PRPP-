@@ -1,22 +1,18 @@
 let passwordHasher = null;
 let implementationName = null;
 
-function tryLoadHasher(packageName) {
+try {
+  // Prefer the pure-JS implementation for serverless portability.
+  // eslint-disable-next-line global-require
+  passwordHasher = require('bcryptjs');
+  implementationName = 'bcryptjs';
+} catch (error) {
   try {
-    // eslint-disable-next-line global-require, import/no-dynamic-require
-    return require(packageName);
-  } catch (error) {
-    return null;
-  }
-}
-
-passwordHasher = tryLoadHasher('bcrypt');
-if (passwordHasher) {
-  implementationName = 'bcrypt';
-} else {
-  passwordHasher = tryLoadHasher('bcryptjs');
-  if (passwordHasher) {
-    implementationName = 'bcryptjs';
+    // eslint-disable-next-line global-require
+    passwordHasher = require('bcrypt');
+    implementationName = 'bcrypt';
+  } catch (bcryptError) {
+    passwordHasher = null;
   }
 }
 
