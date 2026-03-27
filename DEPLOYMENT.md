@@ -92,6 +92,18 @@ Optional SMS escalation:
 - `AFRICAS_TALKING_API_KEY=<your-africas-talking-api-key>`
 - `AFRICAS_TALKING_SENDER_ID=<approved-sender-id>`
 
+Optional DHIS2 facility sync:
+
+- `DHIS2_BASE_URL=https://dhis2.example.org`
+- `DHIS2_USERNAME=<service-account-username>`
+- `DHIS2_PASSWORD=<service-account-password>`
+- `DHIS2_ROOT_ORG_UNIT=<optional-root-org-unit-id>`
+- `DHIS2_FACILITY_LEVELS=4,5,6`
+- `DHIS2_REGION_LEVEL=2`
+- `DHIS2_DISTRICT_LEVEL=3`
+- `DHIS2_LEVEL_MAP={"5":"regional_referral","6":"district"}`
+- `DHIS2_TIMEOUT_MS=10000`
+
 Optional frontend override:
 
 - `VITE_API_URL=/api`
@@ -105,6 +117,7 @@ Optional frontend override:
 - Login succeeds using seeded credentials, for example:
   - Email: `clinician@trip.go.tz`
   - Password: `Trip@2026`
+- If DHIS2 is configured, `GET /api/integrations/dhis2/status` returns a configured snapshot for `moh` or `ml_engineer` users
 
 ## Notes
 

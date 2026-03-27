@@ -7,6 +7,7 @@ const {
 } = require('../data');
 const { getAuthConfigStatus } = require('../middleware/auth');
 const { getEncryptionConfigStatus } = require('../lib/encryption');
+const { getDhis2ConfigStatus } = require('../integrations/dhis2Client');
 const { getSmsGatewayStatus } = require('./smsGateway');
 
 const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
@@ -111,6 +112,7 @@ async function buildHealthSnapshot() {
   const auth = getAuthConfigStatus();
   const encryption = getEncryptionConfigStatus();
   const sms = getSmsGatewayStatus();
+  const dhis2 = getDhis2ConfigStatus();
 
   return {
     environment: process.env.NODE_ENV || 'development',
@@ -132,6 +134,7 @@ async function buildHealthSnapshot() {
       analytics: 'up',
       audit: 'up',
       sync: 'up',
+      dhis2,
       sms,
       database,
       ml

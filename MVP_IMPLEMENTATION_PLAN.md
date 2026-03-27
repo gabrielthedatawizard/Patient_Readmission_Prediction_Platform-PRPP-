@@ -53,7 +53,7 @@ These are the most relevant local workflow references from `everything-claude-co
 - Tanzania-specific disease features are now partially implemented. Backend feature extraction, export rows, the ML fallback predictor, and the synthetic training path now understand malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk, but they have not yet been exercised on real pilot-facility data.
 - Training methodology is now partially corrected. `ml-service/scripts/train_model.py` now uses date-based train/validation/test splitting and emits temporal metrics, but the committed artifacts are still synthetic-data artifacts until Step 7 and Step 10 are completed.
 - Real-data ingestion is now partially prepared. `ml-service/scripts/ingest_real_data.py` can normalize backend ML exports into the temporal training schema and emit a validation report, but execution still depends on receiving a real pilot-facility extract.
-- DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
+- DHIS2 integration is now partially implemented. The backend now has a DHIS2 client, preview-first sync route, and facility import flow, but live execution still depends on credentials and org-unit mapping decisions.
 - Local verification in this shell is still partially blocked by environment issues: the Docker daemon was unavailable for Step 1, so full containerized verification still remains pending.
 
 ### External blockers that code alone cannot solve
@@ -299,20 +299,28 @@ External dependency:
 
 ## 8. DHIS2 Integration
 
-Status: `blocked on credentials and mapping decisions`
+Status: `partial`
 
 Why it is after the earlier slices:
 - It is important, but not required to complete the immediate app-hardening and model-prep work.
 - It depends on external system access and mapping choices.
 
 Current repo state:
-- Documentation references DHIS2.
-- There is no implemented DHIS2 client or sync route in the backend code.
+- `backend/src/integrations/dhis2Client.js` now exists and can fetch DHIS2 organisation units with environment-driven configuration.
+- `backend/src/routes/integrations.js` now exposes admin-facing `GET /api/integrations/dhis2/status` and `POST /api/integrations/dhis2/sync` endpoints.
+- Facility sync now supports preview mode, deterministic DHIS2 identifiers, and provider-backed facility upserts for both memory and Prisma data stores.
+- Live execution is still blocked on DHIS2 credentials and final org-unit level mapping decisions.
 
 Deliverables:
 - Add `backend/src/integrations/dhis2Client.js`.
 - Implement org-unit sync and facility import flow.
 - Add admin-facing sync trigger or scheduled job entry point.
+
+Progress in repo:
+- Added a DHIS2 Web API client plus sync service that converts organisation units into TRIP facilities with region/district derivation and platform-level inference.
+- Added provider-backed facility sync support, including Prisma schema fields for `dhis2OrgUnitId` and `dhis2Code` to avoid duplicate-facility drift on repeat imports.
+- Added a preview-first sync route and DHIS2 status route for `moh` and `ml_engineer` users, along with health-snapshot visibility and deployment env-var guidance.
+- Local verification passed for JS syntax checks and a direct DHIS2 sync-service smoke test with mocked org-unit data; backend Jest and full Express boot remain blocked in this shell by the pre-existing broken `backend/node_modules` dependency state.
 
 Done when:
 - Facility hierarchy can be refreshed from DHIS2 into Prisma-backed storage.

@@ -276,15 +276,23 @@ Authorization: Bearer {token}
 
 ### 7. DHIS2 Integration
 
+#### Check Integration Status
+```javascript
+GET /api/integrations/dhis2/status
+Authorization: Bearer {token}
+```
+
 #### Sync Facility Data
 ```javascript
 POST /api/integrations/dhis2/sync
 Authorization: Bearer {token}
 
 {
-  "facilityId": "FAC-001",
-  "dataElements": ["admissions", "discharges", "readmissions"],
-  "period": "2025-01"
+  "dryRun": true,
+  "rootOrgUnitId": "ROOT",
+  "facilityLevels": [4, 5, 6],
+  "regionLevel": 2,
+  "districtLevel": 3
 }
 ```
 

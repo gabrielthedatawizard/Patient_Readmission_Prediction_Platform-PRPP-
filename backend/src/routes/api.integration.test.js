@@ -44,6 +44,8 @@ describe('API Route Integration Tests', () => {
   });
 
   let token = '';
+  let adminToken = '';
+  let facilityManagerToken = '';
 
   test('Authentication - Login successful', async () => {
     const res = await apiRequest('POST', '/api/auth/login', {
@@ -52,6 +54,24 @@ describe('API Route Integration Tests', () => {
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
     token = res.body.accessToken;
+  });
+
+  test('Authentication - MOH login successful', async () => {
+    const res = await apiRequest('POST', '/api/auth/login', {
+      body: { email: 'moh@trip.go.tz', password: 'Trip@2026' }
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeTruthy();
+    adminToken = res.body.accessToken;
+  });
+
+  test('Authentication - Facility manager login successful', async () => {
+    const res = await apiRequest('POST', '/api/auth/login', {
+      body: { email: 'facility_manager@trip.go.tz', password: 'Trip@2026' }
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeTruthy();
+    facilityManagerToken = res.body.accessToken;
   });
 
   test('RBAC - Disallow unauthorized access to endpoints', async () => {
@@ -78,5 +98,22 @@ describe('API Route Integration Tests', () => {
     const res = await apiRequest('GET', '/api/alerts?limit=5', { token });
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.alerts)).toBe(true);
+  });
+
+  test('Integrations - DHIS2 status requires national admin or ML engineer role', async () => {
+    const res = await apiRequest('GET', '/api/integrations/dhis2/status', {
+      token: facilityManagerToken
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test('Integrations - DHIS2 status returns configuration snapshot for MOH', async () => {
+    const res = await apiRequest('GET', '/api/integrations/dhis2/status', {
+      token: adminToken
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('configured');
+    expect(res.body).toHaveProperty('facilityLevels');
+    expect(Array.isArray(res.body.facilityLevels)).toBe(true);
   });
 });

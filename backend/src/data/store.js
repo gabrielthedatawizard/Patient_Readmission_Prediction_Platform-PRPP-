@@ -258,8 +258,105 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function mapFacility(facility) {
+  if (!facility) {
+    return null;
+  }
+
+  return {
+    id: facility.id,
+    name: facility.name,
+    regionCode: facility.regionCode || null,
+    district: facility.district || null,
+    level: facility.level || null,
+    dhis2OrgUnitId: facility.dhis2OrgUnitId || null,
+    dhis2Code: facility.dhis2Code || null
+  };
+}
+
 function getFacilityById(facilityId) {
-  return facilities.find((facility) => facility.id === facilityId) || null;
+  return mapFacility(facilities.find((facility) => facility.id === facilityId) || null);
+}
+
+function listFacilities() {
+  return facilities.map((facility) => mapFacility(facility));
+}
+
+function findExistingFacilityForSync(entry) {
+  if (entry.dhis2OrgUnitId) {
+    const exact = facilities.find((facility) => facility.dhis2OrgUnitId === entry.dhis2OrgUnitId);
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2OrgUnitId' };
+    }
+  }
+
+  if (entry.dhis2Code) {
+    const exact = facilities.find((facility) => facility.dhis2Code === entry.dhis2Code);
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2Code' };
+    }
+  }
+
+  const normalizedName = String(entry.name || '').trim().toLowerCase();
+  if (normalizedName) {
+    const exact = facilities.find(
+      (facility) => String(facility.name || '').trim().toLowerCase() === normalizedName
+    );
+    if (exact) {
+      return { facility: exact, matchType: 'name' };
+    }
+  }
+
+  return { facility: null, matchType: null };
+}
+
+function upsertFacilitiesFromSync(entries = [], options = {}) {
+  const dryRun = options.dryRun === true;
+  const syncedFacilities = [];
+  let imported = 0;
+  let updated = 0;
+  let matchedByName = 0;
+
+  entries.forEach((entry) => {
+    const { facility: existing, matchType } = findExistingFacilityForSync(entry);
+    const nextState = {
+      id: existing?.id || entry.id,
+      name: entry.name,
+      regionCode: entry.regionCode,
+      district: entry.district,
+      level: entry.level,
+      dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+      dhis2Code: entry.dhis2Code || null
+    };
+
+    if (existing) {
+      updated += 1;
+      if (matchType === 'name') {
+        matchedByName += 1;
+      }
+
+      if (!dryRun) {
+        Object.assign(existing, nextState);
+      }
+
+      syncedFacilities.push(mapFacility(dryRun ? nextState : existing));
+      return;
+    }
+
+    imported += 1;
+    if (!dryRun) {
+      facilities.push(nextState);
+    }
+    syncedFacilities.push(mapFacility(nextState));
+  });
+
+  return {
+    total: entries.length,
+    imported,
+    updated,
+    matchedByName,
+    facilities: syncedFacilities
+  };
 }
 
 function getUserByEmail(email) {
@@ -950,6 +1047,7 @@ module.exports = {
   facilities,
   users,
   getFacilityById,
+  listFacilities,
   getUserByEmail,
   getUserById,
   toPublicUser,
@@ -981,6 +1079,7 @@ module.exports = {
   listAuditLogsForUser,
   appendSyncEvent,
   listSyncEventsForUser,
+  upsertFacilitiesFromSync,
   buildDataQualitySnapshot,
   buildFairnessSnapshot
 };

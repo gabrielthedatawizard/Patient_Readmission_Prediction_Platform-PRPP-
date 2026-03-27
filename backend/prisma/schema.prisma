@@ -44,21 +44,23 @@ model Region {
 }
 
 model Facility {
-  id          String       @id
-  name        String
-  level       String
-  district    String
-  region      Region       @relation(fields: [regionId], references: [id])
-  regionId    String
-  users       User[]
-  patients    Patient[]
-  visits      Visit[]
-  predictions Prediction[]
-  tasks       Task[]
-  alerts      Alert[]
-  auditLogs   AuditLog[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String       @id
+  name           String
+  level          String
+  district       String
+  dhis2OrgUnitId String?      @unique
+  dhis2Code      String?      @unique
+  region         Region       @relation(fields: [regionId], references: [id])
+  regionId       String
+  users          User[]
+  patients       Patient[]
+  visits         Visit[]
+  predictions    Prediction[]
+  tasks          Task[]
+  alerts         Alert[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([regionId])
   @@index([district])

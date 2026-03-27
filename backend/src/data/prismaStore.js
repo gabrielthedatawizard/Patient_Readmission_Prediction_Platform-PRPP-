@@ -58,8 +58,11 @@ function mapFacility(facility) {
     id: facility.id,
     name: facility.name,
     regionCode: facility.regionCode || facility.region?.code || null,
+    region: facility.region?.name || null,
     district: facility.district,
-    level: facility.level
+    level: facility.level,
+    dhis2OrgUnitId: facility.dhis2OrgUnitId || null,
+    dhis2Code: facility.dhis2Code || null
   };
 }
 
@@ -254,13 +257,216 @@ async function getFacilityById(facilityId) {
     include: {
       region: {
         select: {
-          code: true
+          code: true,
+          name: true
         }
       }
     }
   });
 
   return mapFacility(facility);
+}
+
+async function listFacilities() {
+  const facilities = await prisma.facility.findMany({
+    include: {
+      region: {
+        select: {
+          code: true,
+          name: true
+        }
+      }
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  });
+
+  return facilities.map((facility) => mapFacility(facility));
+}
+
+async function findExistingFacilityForSync(entry) {
+  if (entry.dhis2OrgUnitId) {
+    const exact = await prisma.facility.findUnique({
+      where: { dhis2OrgUnitId: entry.dhis2OrgUnitId },
+      include: {
+        region: {
+          select: {
+            code: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2OrgUnitId' };
+    }
+  }
+
+  if (entry.dhis2Code) {
+    const exact = await prisma.facility.findUnique({
+      where: { dhis2Code: entry.dhis2Code },
+      include: {
+        region: {
+          select: {
+            code: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2Code' };
+    }
+  }
+
+  if (entry.name) {
+    const exact = await prisma.facility.findFirst({
+      where: {
+        name: {
+          equals: entry.name,
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        region: {
+          select: {
+            code: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (exact) {
+      return { facility: exact, matchType: 'name' };
+    }
+  }
+
+  return { facility: null, matchType: null };
+}
+
+async function upsertFacilitiesFromSync(entries = [], options = {}) {
+  const dryRun = options.dryRun === true;
+  const syncedFacilities = [];
+  let imported = 0;
+  let updated = 0;
+  let matchedByName = 0;
+
+  for (const entry of entries) {
+    const { facility: existing, matchType } = await findExistingFacilityForSync(entry);
+    const simulatedRegion = {
+      code: entry.regionCode,
+      name: entry.regionName || entry.regionCode
+    };
+
+    if (existing) {
+      updated += 1;
+      if (matchType === 'name') {
+        matchedByName += 1;
+      }
+
+      if (dryRun) {
+        syncedFacilities.push(mapFacility({
+          ...existing,
+          name: entry.name,
+          level: entry.level,
+          district: entry.district,
+          dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+          dhis2Code: entry.dhis2Code || null,
+          region: simulatedRegion
+        }));
+        continue;
+      }
+
+      const region = await prisma.region.upsert({
+        where: { code: entry.regionCode },
+        update: { name: entry.regionName || entry.regionCode },
+        create: {
+          code: entry.regionCode,
+          name: entry.regionName || entry.regionCode
+        }
+      });
+
+      const saved = await prisma.facility.update({
+        where: { id: existing.id },
+        data: {
+          name: entry.name,
+          level: entry.level,
+          district: entry.district,
+          dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+          dhis2Code: entry.dhis2Code || null,
+          regionId: region.id
+        },
+        include: {
+          region: {
+            select: {
+              code: true,
+              name: true
+            }
+          }
+        }
+      });
+
+      syncedFacilities.push(mapFacility(saved));
+      continue;
+    }
+
+    imported += 1;
+    if (dryRun) {
+      syncedFacilities.push(mapFacility({
+        id: entry.id,
+        name: entry.name,
+        level: entry.level,
+        district: entry.district,
+        dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+        dhis2Code: entry.dhis2Code || null,
+        region: simulatedRegion
+      }));
+      continue;
+    }
+
+    const region = await prisma.region.upsert({
+      where: { code: entry.regionCode },
+      update: { name: entry.regionName || entry.regionCode },
+      create: {
+        code: entry.regionCode,
+        name: entry.regionName || entry.regionCode
+      }
+    });
+
+    const saved = await prisma.facility.create({
+      data: {
+        id: entry.id,
+        name: entry.name,
+        level: entry.level,
+        district: entry.district,
+        dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+        dhis2Code: entry.dhis2Code || null,
+        regionId: region.id
+      },
+      include: {
+        region: {
+          select: {
+            code: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    syncedFacilities.push(mapFacility(saved));
+  }
+
+  return {
+    total: entries.length,
+    imported,
+    updated,
+    matchedByName,
+    facilities: syncedFacilities
+  };
 }
 
 async function getUserByEmail(email) {
@@ -1174,6 +1380,7 @@ async function listSyncEventsForUser(user, options = {}) {
 module.exports = {
   DEMO_PASSWORD,
   getFacilityById,
+  listFacilities,
   getUserByEmail,
   getUserById,
   toPublicUser,
@@ -1205,6 +1412,7 @@ module.exports = {
   listAuditLogsForUser,
   appendSyncEvent,
   listSyncEventsForUser,
+  upsertFacilitiesFromSync,
   buildDataQualitySnapshot,
   buildFairnessSnapshot
 };

@@ -26,6 +26,7 @@ const chwRoutes = require('./src/routes/chw');
 const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
+const integrationsRoutes = require('./src/routes/integrations');
 const { buildHealthSnapshot, isPlatformReady } = require('./src/services/systemHealth');
 
 const app = express();
@@ -190,7 +191,8 @@ app.get('/api', (req, res) => {
       mlTrainingDataset: '/api/analytics/ml/training-dataset',
       mlMonitoring: '/api/analytics/ml/monitoring',
       audit: '/api/audit',
-      sync: '/api/sync'
+      sync: '/api/sync',
+      integrations: '/api/integrations'
     }
   });
 });
@@ -204,6 +206,7 @@ app.use('/api/chw', chwRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/integrations', integrationsRoutes);
 
 app.use((err, req, res, next) => {
   if (err.message && err.message.startsWith('CORS blocked')) {
