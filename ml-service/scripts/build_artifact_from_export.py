@@ -4,10 +4,15 @@ import argparse
 import csv
 import json
 import math
+import sys
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from app.predictor import DEFAULT_ARTIFACT, engineer_features, normalize_features
 

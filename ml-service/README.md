@@ -43,6 +43,24 @@ Notes:
 - The saved metadata now includes candidate validation metrics, shipped-artifact validation/test metrics, temporal split windows, and calibration details.
 - Use `--skip-shap` during quick smoke tests if you want to avoid generating the explainer artifact.
 
+## Normalize Real Backend Exports
+
+When pilot-facility data is available, first export encounter rows from the backend and normalize them
+into the temporal training schema.
+
+```bash
+cd ml-service
+python3 scripts/ingest_real_data.py /path/to/trip-training-dataset.json data/real/trip_training_dataset_normalized.csv
+```
+
+Notes:
+
+- The ingester accepts both JSON and CSV exports from `/api/analytics/ml/training-dataset`.
+- It converts backend camelCase rows into the snake_case fields expected by `scripts/train_model.py`.
+- Rows without a usable admission/discharge date or a binary `readmitted30d` label are dropped from the training CSV and recorded in the JSON report.
+- The JSON report highlights diagnosis rows that still need mapping review, including free-text diagnoses and rows relying only on explicit condition flags.
+- Use `--strict` during pilot onboarding if you want the command to fail whenever rows are dropped or diagnosis mapping review is still pending.
+
 ## Example Request
 
 ```bash
@@ -107,6 +125,14 @@ This covers both predictor behavior and the temporal training helpers.
 Once the backend is running with real encounter data, export a labelled training set from:
 
 - `/api/analytics/ml/training-dataset?labelledOnly=true`
+
+Recommended workflow:
+
+```bash
+cd ml-service
+python3 scripts/ingest_real_data.py /path/to/training-dataset.json data/real/trip_training_dataset_normalized.csv
+python3 scripts/train_model.py --data-path data/real/trip_training_dataset_normalized.csv --output-dir data/models
+```
 
 Then build a refreshed artifact:
 

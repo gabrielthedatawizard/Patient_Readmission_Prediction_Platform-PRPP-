@@ -52,6 +52,7 @@ These are the most relevant local workflow references from `everything-claude-co
 - JWT production safeguards are partly present. `backend/src/middleware/auth.js` enforces a strong secret in production, but token signing still uses `HS256`.
 - Tanzania-specific disease features are now partially implemented. Backend feature extraction, export rows, the ML fallback predictor, and the synthetic training path now understand malaria, HIV/ART, TB, SAM, sickle cell, and neonatal risk, but they have not yet been exercised on real pilot-facility data.
 - Training methodology is now partially corrected. `ml-service/scripts/train_model.py` now uses date-based train/validation/test splitting and emits temporal metrics, but the committed artifacts are still synthetic-data artifacts until Step 7 and Step 10 are completed.
+- Real-data ingestion is now partially prepared. `ml-service/scripts/ingest_real_data.py` can normalize backend ML exports into the temporal training schema and emit a validation report, but execution still depends on receiving a real pilot-facility extract.
 - DHIS2 integration is missing in code. The docs mention it, but there is no `backend/src/integrations/dhis2Client.js` or equivalent implementation.
 - Local verification in this shell is still partially blocked by environment issues: the Docker daemon was unavailable for Step 1, so full containerized verification still remains pending.
 
@@ -267,7 +268,7 @@ Done when:
 
 ## 7. Real Data Ingestion Pipeline
 
-Status: `blocked on external data`
+Status: `partial`
 
 Why this is still in the MVP plan:
 - It is the central clinical blocker and must remain visible.
@@ -275,13 +276,20 @@ Why this is still in the MVP plan:
 
 Current repo state:
 - Dataset export already exists in the backend.
-- There is no `ml-service/scripts/ingest_real_data.py`.
+- `ml-service/scripts/ingest_real_data.py` now exists and can normalize backend export rows into the snake_case temporal-training schema used by `ml-service/scripts/train_model.py`.
+- The ingester drops rows without usable temporal dates or binary labels, and emits a JSON validation report that highlights diagnosis rows still needing mapping review.
 - The committed model artifacts still reflect synthetic training data.
 
 Deliverables:
 - Add a real-data ingestion and normalization script.
 - Validate required columns, dates, labels, and diagnosis mappings.
 - Produce training-ready rows for the temporal holdout pipeline.
+
+Progress in repo:
+- Added `ml-service/scripts/ingest_real_data.py` with JSON/CSV export support, provenance fields, strict-mode validation, and a sidecar ingestion report.
+- Added focused unit coverage for row normalization, dropped-row reporting, diagnosis-mapping review detection, and end-to-end CSV/report emission.
+- Updated `ml-service/README.md` with the intended real-data workflow: backend export -> ingestion normalization -> temporal training.
+- Local verification passed for Python syntax checks and the full ML unit-test suite, including the new ingestion coverage.
 
 Done when:
 - A pilot-facility extract can be converted into a clean training dataset.
