@@ -30,7 +30,30 @@ function toNumberList(value, fallback = []) {
 }
 
 function normalizeBaseUrl(value) {
-  return String(value || '').trim().replace(/\/$/, '');
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(rawValue);
+    const hostname = parsed.hostname.toLowerCase();
+    const isLegacyPlayHost =
+      hostname === 'play.dhis2.org' || hostname === 'www.play.dhis2.org';
+    const isPlayHost = isLegacyPlayHost || hostname === 'play.im.dhis2.org';
+
+    if (isLegacyPlayHost) {
+      parsed.hostname = 'play.im.dhis2.org';
+    }
+
+    if (isPlayHost && (!parsed.pathname || parsed.pathname === '/')) {
+      parsed.pathname = '/dev';
+    }
+
+    return parsed.toString().replace(/\/$/, '');
+  } catch (error) {
+    return rawValue.replace(/\/$/, '');
+  }
 }
 
 function getDhis2Config(overrides = {}) {
