@@ -286,6 +286,17 @@ export async function triggerDhis2Sync(body = {}) {
   });
 }
 
+export async function fetchNotificationVerificationStatus() {
+  return request("/integrations/notifications/status");
+}
+
+export async function triggerNotificationVerificationTest(body = {}) {
+  return request("/integrations/notifications/test", {
+    method: "POST",
+    body,
+  });
+}
+
 export async function logout() {
   try {
     await request('/auth/logout', { method: 'POST' });

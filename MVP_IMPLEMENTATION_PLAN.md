@@ -504,7 +504,7 @@ Done when:
 
 ### Slice 12C. Live Notification Completion
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Finish the operational notification path now that the gateway abstraction exists.
@@ -513,6 +513,19 @@ Focus:
 - Configure `ALERT_SMS_RECIPIENTS`
 - Run a real provider smoke test
 - Confirm alert-to-SMS audit visibility
+
+Progress update on 2026-03-29:
+- Added notification verification endpoints under `/api/integrations/notifications` so MoH and ML engineer users can inspect live SMS gateway readiness and run a dry-run or controlled live smoke test without touching patient workflows.
+- Added `backend/src/services/notificationVerificationService.js` to summarize gateway status, masked operations recipients, preview messaging, live-send blocking reasons, and recent SMS delivery evidence from the audit trail.
+- Extended `backend/src/routes/integrations.js` with:
+  - `GET /api/integrations/notifications/status`
+  - `POST /api/integrations/notifications/test`
+- Added audited smoke-test delivery records via `integration_notifications_test_triggered` and `integration_notifications_test_delivery`.
+- Extended `src/pages/SettingsPage.jsx` with a notification verification panel showing gateway status, target mode, environment, recipient masking, preview message, recent delivery evidence, and a live smoke-test button that stays disabled until the gateway is truly ready.
+- Verification status:
+  - backend syntax checks on the new notification verification service and integration route
+  - frontend `lint`
+  - frontend `build`
 
 Done when:
 - A live high-risk alert can produce a verified outbound SMS delivery attempt without crashing the alert flow.
@@ -577,6 +590,151 @@ Focus:
 
 Done when:
 - Synthetic artifacts are replaced and the model passes the agreed validation threshold on real data.
+
+## 13. Implementation Prompt Crosswalk
+
+Status: `reference roadmap`
+
+This section aligns `TRIP_Implementation_Prompts_v1.docx` with the current repo so we can keep using that document without applying it too literally where file paths or architecture assumptions differ.
+
+### Prompts already substantially covered in this repo
+
+- `P-1 Encryption`
+  - Covered by the Prisma encryption layer, health reporting, and production safeguards already implemented.
+- `P-0 Demo Data`
+  - Partially covered by the Tanzania-specific synthetic generator, temporal training data, and sandbox hierarchy mode.
+- `P-3 DHIS2`
+  - Partially covered by the current DHIS2 client, sync, demo/live base URL normalization, workspace tree, and hierarchy import tooling.
+- `P-4 RBAC`
+  - Partially covered by the current role-permission model and role-feature gating, but not yet by formal role expiry or full provisioning lifecycle.
+- `P-5 Audit`
+  - Covered in principle by route-level audit logging, though immutable DB-level protections are still a later hardening concern.
+- `P-7 ML Pipeline`
+  - Partially covered by the temporal training path, Tanzania features, export pipeline, and fallback runtime.
+- `P-8 Calibration`
+  - Partially covered by calibration metrics in metadata and monitoring snapshots.
+- `P-9 SMS Notify`
+  - Partially covered by Africa's Talking gateway support, but still waiting on live outbound verification.
+- `P-10 Facility UX`
+  - Partially covered by workspace hierarchy, settings visibility, and dashboard shell work.
+- `P-11 Dashboards`
+  - Partially covered by current role-specific dashboards and scoped analytics.
+- `P-12 Model Monitor`
+  - Partially covered by ML monitoring, drift summaries, and workflow verification.
+
+### Prompts not yet explicitly represented in the roadmap and now added
+
+- `P-15 HFR Sync`
+  - Add as a future facility-registry slice once real Tanzania registry credentials and mapping decisions exist.
+- `P-6 FHIR Connector`
+  - Add as a future interoperability slice after the DHIS2/hierarchy path is stable.
+- `P-13 Cross-Facility Readmission Detection`
+  - Add as a later patient-matching slice once facility scope, encryption, and governance are stable enough.
+- `P-14 Offline PWA + ONNX`
+  - Add as a later offline-first slice after the MVP runtime decision and once we are ready to support local inference honestly.
+- `P-4 Role lifecycle hardening`
+  - Add role expiry, delegated provisioning, and assignment governance as a future identity/governance slice.
+
+### Important adaptation notes
+
+- The prompt document assumes some `src/...` backend paths that do not match this repo’s current `backend/src/...` layout.
+- The prompt document assumes a separate FastAPI ML service as the active runtime; this repo currently runs a Node/Express API with an optional external ML service and a production fallback path.
+- The prompt document should continue to guide sequence and safeguards, but every prompt must be translated into the verified repo structure before implementation.
+
+## 14. Future Slice Additions From Implementation Prompts
+
+Status: `planned future roadmap`
+
+These slices are intentionally not being forced into the current MVP close-out path, but they now belong in the formal roadmap so we do not lose them.
+
+### Slice 14A. HFR-Backed Facility Registry Sync
+
+Status: `planned`
+
+Goal:
+- Establish a canonical Tanzania facility hierarchy source beyond demo DHIS2 org-unit browsing.
+
+Scope:
+- Introduce an HFR-aligned sync service that can use DHIS2 as a proxy where needed.
+- Add tree/subtree retrieval for facility administration and provisioning flows.
+- Keep the base URL and credentials configuration-driven.
+
+Not now because:
+- We do not yet have real Tanzania production credentials or a confirmed HFR operating contract.
+
+### Slice 14B. Role Provisioning, Expiry, and Governance
+
+Status: `planned`
+
+Goal:
+- Tighten lifecycle governance for user assignments and administrative approvals.
+
+Scope:
+- Role expiry dates
+- Delegated approvals
+- Facility onboarding and provisioning checkpoints
+- Better distinction between national, regional, district, and facility admin actions
+
+### Slice 14C. FHIR / External Clinical Connector Layer
+
+Status: `planned`
+
+Goal:
+- Prepare TRIP to consume or exchange clinical data through a standards-based connector path without coupling core workflows directly to one source system.
+
+Scope:
+- FHIR adapter boundary
+- Mapping layer for patient, admission, discharge, and observation payloads
+- Config-driven mediator deployment
+
+### Slice 14D. Cross-Facility Readmission Matching
+
+Status: `planned`
+
+Goal:
+- Detect likely readmissions across facilities when patients re-enter the system outside the original facility.
+
+Scope:
+- Probabilistic patient matching
+- Sensitive audit coverage for cross-facility lookups
+- Review workflow for possible vs confirmed matches
+
+Dependency:
+- Must stay after encryption, facility scope, and stronger governance controls.
+
+### Slice 14E. Offline-First Local Inference
+
+Status: `planned`
+
+Goal:
+- Move from the current offline-assisted experience to a more honest offline-first facility workflow with optional local prediction support.
+
+Scope:
+- ONNX export path
+- Local inference runtime
+- Safer sync queue contract
+- Explicit offline/non-offline UI semantics
+
+Dependency:
+- Must follow the MVP ML runtime decision and should not be mixed into the current production fallback path prematurely.
+
+## 15. Phase 0 Readiness Checklist
+
+Status: `reference checklist`
+
+This is adapted from the implementation-prompts document and should be used as the Phase 0 gate before any institutional pilot demonstration that implies operational readiness.
+
+- No plain-text patient PII at rest in the database
+- Tanzania-calibrated synthetic data remains within the intended readmission-rate band
+- No random-shuffle or K-fold leakage in the production training methodology
+- Role and hierarchy enforcement pass the current integration/E2E checks
+- Audit trail captures prediction, task, alert, sync, and sensitive-read events consistently
+- Facility hierarchy is visible and interactive inside the workspace
+- Dashboard outputs reflect the user’s actual scope and duty
+- SMS path is verified in a safe environment before any live operational claim is made
+- The production ML runtime mode is explicit and truthful
+- Schema compatibility is visible and does not silently hide critical production gaps
+- Real-data activation is blocked until de-identified data, retraining, and validation gates are complete
 
 ## Recommended First Build Slice
 

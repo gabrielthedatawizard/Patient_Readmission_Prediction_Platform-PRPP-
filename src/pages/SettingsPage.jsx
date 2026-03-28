@@ -68,7 +68,7 @@ const SETTINGS_COPY = {
     integrationsIntro:
       "TRIP already has the backend integration routes. This page surfaces the live connection state and gives administrators a safe dry-run path.",
     integrationRestricted:
-      "DHIS2 integration controls are limited to ML engineer and MoH roles in the current MVP.",
+      "DHIS2 and notification verification controls are limited to ML engineer and MoH roles in the current MVP.",
     dhis2Connected: "Configured",
     dhis2NotConnected: "Not configured",
     dhis2DryRun: "Run DHIS2 dry-run sync",
@@ -76,6 +76,22 @@ const SETTINGS_COPY = {
     dhis2DryRunSuccess: "Dry-run completed. Review the summary below before enabling live import workflows.",
     dhis2DryRunFailure: "DHIS2 preview sync failed.",
     dryRunSummary: "Dry-run summary",
+    notificationsTitle: "Notification verification",
+    notificationsIntro:
+      "Review the live SMS gateway state, preview the outbound alert message, and run a controlled smoke test without touching patient workflows.",
+    notificationsDryRun: "Run SMS dry-run",
+    notificationsDryRunSuccess: "Notification dry-run completed. Review the preview and recent delivery evidence below.",
+    notificationsLiveTest: "Send live SMS smoke test",
+    notificationsLiveSuccess: "Live SMS smoke test completed. Review the delivery result below before relying on operational escalation.",
+    notificationsFailure: "Notification verification failed.",
+    notificationsRecipients: "Operations recipients",
+    notificationsRecentActivity: "Recent delivery evidence",
+    notificationsPreview: "Preview message",
+    notificationsLiveBlocked: "Live smoke tests are currently blocked.",
+    notificationsNoActivity: "No SMS delivery evidence is visible yet.",
+    notificationsProvider: "Provider",
+    notificationsTargetMode: "Target mode",
+    notificationsEnvironment: "Environment",
     facilityLevels: "Facility levels",
     regionLevel: "Region level",
     districtLevel: "District level",
@@ -127,7 +143,7 @@ const SETTINGS_COPY = {
     integrationsIntro:
       "TRIP tayari ina njia za backend za integration. Ukurasa huu unaonyesha hali ya muunganisho wa moja kwa moja na njia salama ya dry-run.",
     integrationRestricted:
-      "Udhibiti wa DHIS2 umewekewa kikomo kwa wajibu wa ML engineer na MoH katika MVP ya sasa.",
+      "Udhibiti wa DHIS2 na uhakiki wa notification umewekewa kikomo kwa wajibu wa ML engineer na MoH katika MVP ya sasa.",
     dhis2Connected: "Imewekwa",
     dhis2NotConnected: "Haijawekwa",
     dhis2DryRun: "Endesha dry-run ya DHIS2",
@@ -135,6 +151,22 @@ const SETTINGS_COPY = {
     dhis2DryRunSuccess: "Dry-run imekamilika. Kagua muhtasari hapa chini kabla ya kuwezesha import ya moja kwa moja.",
     dhis2DryRunFailure: "Preview sync ya DHIS2 imeshindikana.",
     dryRunSummary: "Muhtasari wa dry-run",
+    notificationsTitle: "Uhakiki wa notification",
+    notificationsIntro:
+      "Kagua hali ya moja kwa moja ya SMS gateway, preview ya ujumbe wa tahadhari, na endesha smoke test ya udhibiti bila kugusa workflow za wagonjwa.",
+    notificationsDryRun: "Endesha SMS dry-run",
+    notificationsDryRunSuccess: "Dry-run ya notification imekamilika. Kagua preview na ushahidi wa hivi karibuni hapa chini.",
+    notificationsLiveTest: "Tuma SMS smoke test ya moja kwa moja",
+    notificationsLiveSuccess: "SMS smoke test ya moja kwa moja imekamilika. Kagua matokeo ya utoaji kabla ya kutegemea operational escalation.",
+    notificationsFailure: "Uhakiki wa notification umeshindikana.",
+    notificationsRecipients: "Walengwa wa operations",
+    notificationsRecentActivity: "Ushahidi wa utoaji wa hivi karibuni",
+    notificationsPreview: "Preview ya ujumbe",
+    notificationsLiveBlocked: "Live smoke test zimezuiwa kwa sasa.",
+    notificationsNoActivity: "Bado hakuna ushahidi wa utoaji wa SMS unaoonekana.",
+    notificationsProvider: "Mtoa huduma",
+    notificationsTargetMode: "Njia ya walengwa",
+    notificationsEnvironment: "Mazingira",
     facilityLevels: "Ngazi za vituo",
     regionLevel: "Ngazi ya mkoa",
     districtLevel: "Ngazi ya wilaya",
@@ -207,6 +239,7 @@ function SettingsPage() {
   const userInitials = getUserInitials(currentUser?.fullName, t("userFallback"));
   const roleLabel = getUserRoleLabel(userRole, t);
   const canManageDhis2 = ["moh", "ml-engineer"].includes(String(userRole || ""));
+  const canManageNotifications = ["moh", "ml-engineer"].includes(String(userRole || ""));
   const canReviewSchema = ["moh", "ml-engineer"].includes(String(userRole || ""));
   const canVerifyWorkflow = canVerifyOperationalWorkflow(userRole);
   const usingOfflineSnapshot = isUsingOfflineData || isUsingOfflineTasks;
@@ -221,6 +254,13 @@ function SettingsPage() {
     queryKey: ["trip", "integrations", "dhis2", "status"],
     queryFn: () => requestJson("/integrations/dhis2/status"),
     enabled: canManageDhis2,
+    staleTime: 60 * 1000,
+  });
+
+  const notificationStatusQuery = useQuery({
+    queryKey: ["trip", "integrations", "notifications", "status"],
+    queryFn: () => requestJson("/integrations/notifications/status"),
+    enabled: canManageNotifications,
     staleTime: 60 * 1000,
   });
 
@@ -245,6 +285,28 @@ function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["trip", "workspace", "facilities"] });
       queryClient.invalidateQueries({ queryKey: ["trip", "workspace", "context"] });
       queryClient.invalidateQueries({ queryKey: ["trip", "analytics"] });
+    },
+  });
+
+  const notificationDryRunMutation = useMutation({
+    mutationFn: () => requestJson("/integrations/notifications/test", {
+      method: "POST",
+      body: { liveSend: false },
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "notifications", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
+    },
+  });
+
+  const notificationLiveMutation = useMutation({
+    mutationFn: () => requestJson("/integrations/notifications/test", {
+      method: "POST",
+      body: { liveSend: true },
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "notifications", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
     },
   });
 
@@ -294,6 +356,9 @@ function SettingsPage() {
 
   const dhis2Status = dhis2StatusQuery.data || null;
   const dryRunSummary = dhis2SyncMutation.data?.summary || null;
+  const notificationStatus = notificationStatusQuery.data || null;
+  const notificationPreview = notificationDryRunMutation.data || null;
+  const notificationLiveResult = notificationLiveMutation.data || null;
   const services = systemHealthQuery.data?.services || {};
   const schemaStatus = services.schema || null;
   const workflow = workflowQuery.data || null;
@@ -974,6 +1039,170 @@ function SettingsPage() {
                   Live hierarchy import failed. {dhis2ImportMutation.error?.message || ""}
                 </div>
               ) : null}
+
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      SMS
+                    </p>
+                    <h3 className="mt-1 text-lg font-bold text-slate-950">{copy.notificationsTitle}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{copy.notificationsIntro}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <HealthPill
+                      label="SMS"
+                      status={notificationStatus?.gateway?.status || services.sms?.status || "unknown"}
+                    />
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                      {copy.notificationsProvider}: {notificationStatus?.provider || services.sms?.provider || "-"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {copy.notificationsTargetMode}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">
+                      {notificationStatus?.targetMode || services.sms?.targetMode || "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {copy.notificationsEnvironment}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">
+                      {notificationStatus?.gateway?.environment || services.sms?.environment || "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        {copy.notificationsRecipients}
+                      </p>
+                      <span className="text-xs font-semibold text-slate-500">
+                        {Number(notificationStatus?.recipientCount || 0).toLocaleString()} configured
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(notificationStatus?.recipients || []).length ? (
+                        notificationStatus.recipients.map((target) => (
+                          <span
+                            key={target}
+                            className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            {target}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-slate-500">No operations recipients configured.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    icon={<RefreshCw className="h-4 w-4" />}
+                    onClick={() => notificationDryRunMutation.mutate()}
+                    loading={notificationDryRunMutation.isPending}
+                  >
+                    {copy.notificationsDryRun}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    icon={<Check className="h-4 w-4" />}
+                    onClick={() => notificationLiveMutation.mutate()}
+                    loading={notificationLiveMutation.isPending}
+                    disabled={!notificationStatus?.liveSendAllowed}
+                  >
+                    {copy.notificationsLiveTest}
+                  </Button>
+                </div>
+
+                {!notificationStatus?.liveSendAllowed && notificationStatus?.liveSendBlockedReason ? (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    {copy.notificationsLiveBlocked} {notificationStatus.liveSendBlockedReason}
+                  </div>
+                ) : null}
+
+                {notificationDryRunMutation.isSuccess ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    {copy.notificationsDryRunSuccess}
+                  </div>
+                ) : null}
+
+                {notificationLiveMutation.isSuccess ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    {copy.notificationsLiveSuccess}
+                  </div>
+                ) : null}
+
+                {notificationDryRunMutation.isError ? (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                    {copy.notificationsFailure} {notificationDryRunMutation.error?.message || ""}
+                  </div>
+                ) : null}
+
+                {notificationLiveMutation.isError ? (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                    {copy.notificationsFailure} {notificationLiveMutation.error?.message || ""}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {copy.notificationsPreview}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">
+                    {notificationLiveResult?.messagePreview ||
+                      notificationPreview?.messagePreview ||
+                      notificationStatus?.previewMessage ||
+                      "No preview message available."}
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {copy.notificationsRecentActivity}
+                    </p>
+                    <span className="text-xs text-slate-500">
+                      {Number(notificationStatus?.recentActivity?.length || 0).toLocaleString()} events
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {(notificationStatus?.recentActivity || []).length ? (
+                      notificationStatus.recentActivity.map((event) => (
+                        <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-slate-950">{event.action}</p>
+                            <HealthPill label="SMS" status={event.status || "unknown"} />
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">
+                            {[event.provider, event.targetMode, event.target].filter(Boolean).join(" | ")}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {event.attemptedAt
+                              ? new Date(event.attemptedAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")
+                              : "Unknown time"}
+                          </p>
+                          {event.error ? (
+                            <p className="mt-2 text-xs font-medium text-rose-700">{event.error}</p>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                        {copy.notificationsNoActivity}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5">
