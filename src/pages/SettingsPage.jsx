@@ -186,6 +186,7 @@ function SettingsPage() {
   const userInitials = getUserInitials(currentUser?.fullName, t("userFallback"));
   const roleLabel = getUserRoleLabel(userRole, t);
   const canManageDhis2 = ["moh", "ml-engineer"].includes(String(userRole || ""));
+  const canReviewSchema = ["moh", "ml-engineer"].includes(String(userRole || ""));
   const usingOfflineSnapshot = isUsingOfflineData || isUsingOfflineTasks;
 
   const systemHealthQuery = useQuery({
@@ -228,10 +229,12 @@ function SettingsPage() {
   const dhis2Status = dhis2StatusQuery.data || null;
   const dryRunSummary = dhis2SyncMutation.data?.summary || null;
   const services = systemHealthQuery.data?.services || {};
+  const schemaStatus = services.schema || null;
 
   const serviceCards = useMemo(
     () => [
       { label: "Database", status: services.database?.status || "unknown", detail: services.database?.provider || "prisma" },
+      { label: "Schema", status: services.schema?.status || "unknown", detail: services.schema?.message || "Schema compatibility visibility" },
       { label: "DHIS2", status: services.dhis2?.status || "unknown", detail: services.dhis2?.baseUrl || "Not connected" },
       { label: "SMS", status: services.sms?.status || "unknown", detail: services.sms?.message || "Operational notification path" },
       { label: "ML", status: services.ml?.status || "unknown", detail: services.ml?.message || "Model services" },
@@ -239,6 +242,8 @@ function SettingsPage() {
     [
       services.database?.provider,
       services.database?.status,
+      services.schema?.message,
+      services.schema?.status,
       services.dhis2?.baseUrl,
       services.dhis2?.status,
       services.ml?.message,
@@ -661,6 +666,58 @@ function SettingsPage() {
                   </div>
                 ))}
               </div>
+
+              {canReviewSchema && schemaStatus ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Production schema compatibility
+                      </p>
+                      <p className="mt-2 text-sm text-slate-600">{schemaStatus.message}</p>
+                    </div>
+                    <HealthPill label="Schema" status={schemaStatus.status || "unknown"} />
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      ["Patient PII metadata", schemaStatus.capabilities?.patientPiiMetadata],
+                      ["Facility DHIS2 fields", schemaStatus.capabilities?.facilityDhis2Fields],
+                      ["Structured visit fields", schemaStatus.capabilities?.visitStructuredFields],
+                      ["Prediction ML fields", schemaStatus.capabilities?.predictionMlFields],
+                      ["Alert table", schemaStatus.capabilities?.hasAlertTable],
+                    ].map(([label, enabled]) => (
+                      <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <p className={`mt-2 text-sm font-semibold ${enabled ? "text-emerald-700" : "text-amber-700"}`}>
+                          {enabled ? "Available" : "Compatibility fallback active"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {Array.isArray(schemaStatus.missing) && schemaStatus.missing.length ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        Missing feature support
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {schemaStatus.missing.map((item) => (
+                          <div key={item.key} className="rounded-2xl border border-amber-200 bg-white/80 p-3">
+                            <p className="text-sm font-semibold text-slate-900">{item.description}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Table: {item.table}
+                              {Array.isArray(item.requiredColumns) && item.requiredColumns.length
+                                ? ` | Columns: ${item.requiredColumns.join(", ")}`
+                                : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {dryRunSummary ? (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">

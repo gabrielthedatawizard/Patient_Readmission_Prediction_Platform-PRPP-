@@ -78,24 +78,65 @@ async function detectDatabaseSchemaCapabilities(client) {
       return requiredColumns.every((column) => availableColumns?.has(column));
     };
 
+    const featureChecks = {
+      patientPiiMetadata: {
+        table: 'Patient',
+        requiredColumns: ['piiVersion', 'piiEncryptedAt'],
+        description: 'Encrypted-patient metadata columns'
+      },
+      facilityDhis2Fields: {
+        table: 'Facility',
+        requiredColumns: ['dhis2OrgUnitId', 'dhis2Code'],
+        description: 'DHIS2 facility identity columns'
+      },
+      visitStructuredFields: {
+        table: 'Visit',
+        requiredColumns: [
+          'diagnoses',
+          'medications',
+          'labResults',
+          'vitalSigns',
+          'socialFactors',
+          'dischargeDisposition'
+        ],
+        description: 'Structured visit payload columns'
+      },
+      predictionMlFields: {
+        table: 'Prediction',
+        requiredColumns: ['probability', 'method', 'featureSnapshot', 'analysisSummary'],
+        description: 'Prediction ML metadata columns'
+      },
+      hasAlertTable: {
+        table: 'Alert',
+        requiredColumns: [],
+        description: 'Alert persistence table'
+      }
+    };
+
+    const capabilities = Object.entries(featureChecks).reduce((result, [key, config]) => {
+      if (key === 'hasAlertTable') {
+        result[key] = columnsByTable.has(config.table);
+        return result;
+      }
+
+      result[key] = hasColumns(config.table, config.requiredColumns);
+      return result;
+    }, {});
+
+    const missing = Object.entries(featureChecks)
+      .filter(([key]) => !capabilities[key])
+      .map(([key, config]) => ({
+        key,
+        table: config.table,
+        description: config.description,
+        requiredColumns: config.requiredColumns
+      }));
+
     return {
-      patientPiiMetadata: hasColumns('Patient', ['piiVersion', 'piiEncryptedAt']),
-      facilityDhis2Fields: hasColumns('Facility', ['dhis2OrgUnitId', 'dhis2Code']),
-      visitStructuredFields: hasColumns('Visit', [
-        'diagnoses',
-        'medications',
-        'labResults',
-        'vitalSigns',
-        'socialFactors',
-        'dischargeDisposition'
-      ]),
-      predictionMlFields: hasColumns('Prediction', [
-        'probability',
-        'method',
-        'featureSnapshot',
-        'analysisSummary'
-      ]),
-      hasAlertTable: columnsByTable.has('Alert')
+      ...capabilities,
+      status: missing.length ? 'partial' : 'compatible',
+      missing,
+      checkedAt: new Date().toISOString()
     };
   } catch (error) {
     return {
@@ -103,7 +144,11 @@ async function detectDatabaseSchemaCapabilities(client) {
       facilityDhis2Fields: false,
       visitStructuredFields: false,
       predictionMlFields: false,
-      hasAlertTable: false
+      hasAlertTable: false,
+      status: 'unknown',
+      missing: [],
+      checkedAt: new Date().toISOString(),
+      message: String(error?.message || error || 'Schema capability detection failed')
     };
   }
 }

@@ -497,50 +497,56 @@ async function listFacilities() {
   return facilities.map((facility) => mapFacility(facility));
 }
 
+function chunkItems(items = [], size = 100) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function buildFacilitySyncPreview(entry, source = null) {
+  return mapFacility({
+    id: source?.id || entry.id,
+    name: entry.name,
+    level: entry.level,
+    district: entry.district,
+    dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+    dhis2Code: entry.dhis2Code || null,
+    region: {
+      code: entry.regionCode,
+      name: entry.regionName || entry.regionCode
+    }
+  });
+}
+
 async function upsertFacilitiesFromSync(entries = [], options = {}) {
   const dryRun = options.dryRun === true;
+  const responseSampleLimit = Number.isFinite(Number(options.responseSampleLimit))
+    ? Math.max(10, Math.min(Number(options.responseSampleLimit), 250))
+    : 100;
   const capabilities = await getDatabaseSchemaCapabilities();
   const facilitySelect = buildFacilitySelect(capabilities);
   const existingFacilities = await prisma.facility.findMany({
     select: facilitySelect
   });
   const facilityIndex = buildFacilitySyncIndex(existingFacilities, capabilities);
-  const regionCache = new Map();
+  const plannedEntries = entries.map((entry) => {
+    const match = findExistingFacilityForSync(entry, facilityIndex, capabilities);
+    return {
+      entry,
+      existing: match.facility,
+      matchType: match.matchType
+    };
+  });
   const syncedFacilities = [];
   let imported = 0;
   let updated = 0;
   let matchedByName = 0;
 
-  async function ensureRegion(regionCode, regionName) {
-    const cacheKey = `${regionCode}:${regionName || regionCode}`;
-    if (!regionCache.has(cacheKey)) {
-      regionCache.set(
-        cacheKey,
-        prisma.region.upsert({
-          where: { code: regionCode },
-          update: { name: regionName || regionCode },
-          create: {
-            code: regionCode,
-            name: regionName || regionCode
-          }
-        })
-      );
-    }
-
-    return regionCache.get(cacheKey);
-  }
-
-  for (const entry of entries) {
-    const { facility: existing, matchType } = findExistingFacilityForSync(
-      entry,
-      facilityIndex,
-      capabilities
-    );
-    const simulatedRegion = {
-      code: entry.regionCode,
-      name: entry.regionName || entry.regionCode
-    };
-
+  for (const { entry, existing, matchType } of plannedEntries) {
     if (existing) {
       updated += 1;
       if (matchType === 'name') {
@@ -548,77 +554,131 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
       }
 
       if (dryRun) {
-        syncedFacilities.push(mapFacility({
-          ...existing,
-          name: entry.name,
-          level: entry.level,
-          district: entry.district,
-          dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-          dhis2Code: entry.dhis2Code || null,
-          region: simulatedRegion
-        }));
-        continue;
+        syncedFacilities.push(buildFacilitySyncPreview(entry, existing));
       }
-
-      const region = await ensureRegion(entry.regionCode, entry.regionName);
-
-      const saved = await prisma.facility.update({
-        where: { id: existing.id },
-        data: {
-          name: entry.name,
-          level: entry.level,
-          district: entry.district,
-          ...(capabilities.facilityDhis2Fields
-            ? {
-                dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-                dhis2Code: entry.dhis2Code || null
-              }
-            : {}),
-          regionId: region.id
-        },
-        select: facilitySelect
-      });
-
-      addFacilityToSyncIndex(facilityIndex, saved, capabilities);
-      syncedFacilities.push(mapFacility(saved));
       continue;
     }
 
     imported += 1;
     if (dryRun) {
-      syncedFacilities.push(mapFacility({
-        id: entry.id,
-        name: entry.name,
-        level: entry.level,
-        district: entry.district,
-        dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-        dhis2Code: entry.dhis2Code || null,
-        region: simulatedRegion
-      }));
-      continue;
+      syncedFacilities.push(buildFacilitySyncPreview(entry));
     }
+  }
 
-    const region = await ensureRegion(entry.regionCode, entry.regionName);
+  if (dryRun) {
+    return {
+      total: entries.length,
+      imported,
+      updated,
+      matchedByName,
+      facilities: syncedFacilities.slice(0, responseSampleLimit),
+      facilitiesTruncated: syncedFacilities.length > responseSampleLimit
+    };
+  }
 
-    const saved = await prisma.facility.create({
-      data: {
+  const uniqueRegions = Array.from(
+    plannedEntries.reduce((bucket, { entry }) => {
+      const code = String(entry.regionCode || '').trim();
+      if (!code) {
+        return bucket;
+      }
+
+      if (!bucket.has(code)) {
+        bucket.set(code, {
+          code,
+          name: entry.regionName || code
+        });
+      }
+
+      return bucket;
+    }, new Map()).values()
+  );
+  const regions = await Promise.all(
+    uniqueRegions.map((regionEntry) =>
+      prisma.region.upsert({
+        where: { code: regionEntry.code },
+        update: { name: regionEntry.name || regionEntry.code },
+        create: {
+          code: regionEntry.code,
+          name: regionEntry.name || regionEntry.code
+        }
+      })
+    )
+  );
+  const regionsByCode = new Map(regions.map((region) => [region.code, region]));
+
+  const updateOperations = [];
+  const createOperations = [];
+
+  plannedEntries.forEach(({ entry, existing }) => {
+    const region = regionsByCode.get(entry.regionCode);
+    const facilityData = {
+      name: entry.name,
+      level: entry.level,
+      district: entry.district,
+      ...(capabilities.facilityDhis2Fields
+        ? {
+            dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+            dhis2Code: entry.dhis2Code || null
+          }
+        : {}),
+      regionId: region?.id || existing?.regionId || null
+    };
+
+    if (existing) {
+      updateOperations.push({
+        id: existing.id,
+        data: facilityData
+      });
+    } else {
+      createOperations.push({
         id: entry.id,
-        name: entry.name,
-        level: entry.level,
-        district: entry.district,
-        ...(capabilities.facilityDhis2Fields
-          ? {
-              dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-              dhis2Code: entry.dhis2Code || null
-            }
-          : {}),
-        regionId: region.id
+        data: {
+          id: entry.id,
+          ...facilityData
+        }
+      });
+    }
+  });
+
+  const syncedFacilityMap = new Map();
+
+  for (const chunk of chunkItems(updateOperations, 50)) {
+    const savedFacilities = await prisma.$transaction(
+      chunk.map((operation) =>
+        prisma.facility.update({
+          where: { id: operation.id },
+          data: operation.data,
+          select: facilitySelect
+        })
+      )
+    );
+
+    savedFacilities.forEach((facility) => {
+      addFacilityToSyncIndex(facilityIndex, facility, capabilities);
+      syncedFacilityMap.set(facility.id, mapFacility(facility));
+    });
+  }
+
+  for (const chunk of chunkItems(createOperations, 200)) {
+    await prisma.facility.createMany({
+      data: chunk.map((operation) => operation.data),
+      skipDuplicates: true
+    });
+
+    const createdFacilities = await prisma.facility.findMany({
+      where: {
+        id: {
+          in: chunk.map((operation) => operation.id)
+        }
       },
       select: facilitySelect
     });
 
-    addFacilityToSyncIndex(facilityIndex, saved, capabilities);
-    syncedFacilities.push(mapFacility(saved));
+    createdFacilities.forEach((facility) => {
+      addFacilityToSyncIndex(facilityIndex, facility, capabilities);
+      syncedFacilityMap.set(facility.id, mapFacility(facility));
+    });
   }
 
   return {
@@ -626,7 +686,8 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
     imported,
     updated,
     matchedByName,
-    facilities: syncedFacilities
+    facilities: Array.from(syncedFacilityMap.values()).slice(0, responseSampleLimit),
+    facilitiesTruncated: syncedFacilityMap.size > responseSampleLimit
   };
 }
 

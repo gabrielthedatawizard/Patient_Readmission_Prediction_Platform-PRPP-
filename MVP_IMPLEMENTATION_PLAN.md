@@ -449,7 +449,7 @@ Use this section as the next-session tracker after the current hierarchy phase. 
 
 ### Slice 12A. Production Schema Reconciliation
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Remove the remaining compatibility-only behavior in production by reconciling the live Prisma schema with the fields and tables the current app already expects.
@@ -458,6 +458,16 @@ Focus:
 - Alert persistence
 - Newer facility metadata
 - Any compatibility fallbacks still masking old production schema state
+
+Progress update on 2026-03-28:
+- Added explicit schema capability detection in `backend/src/lib/prisma.js` so the live app now knows whether the database supports encrypted-patient metadata, DHIS2 facility columns, structured visit payloads, prediction ML metadata, and the alert table.
+- Extended `backend/src/services/systemHealth.js` so `/api/health` and `/api/ready` now include a dedicated `schema` service block with compatibility status, missing feature support, and a checked timestamp.
+- Surfaced production schema compatibility in `src/pages/SettingsPage.jsx` for MoH and ML engineer roles so operators can see whether the deployed database is fully aligned or still using compatibility fallbacks.
+- Verification status:
+  - `node --check backend/src/lib/prisma.js`
+  - `node --check backend/src/services/systemHealth.js`
+  - frontend `lint`
+  - frontend `build`
 
 Done when:
 - The production database natively supports the current app contract and compatibility fallbacks are reduced.

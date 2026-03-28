@@ -159,12 +159,13 @@ async function syncDhis2Facilities(overrides = {}) {
     units.map((unit) => mapOrganisationUnitToFacility(unit, options))
   );
   const syncResult = await upsertFacilitiesFromSync(facilityEntries, {
-    dryRun: options.dryRun
+    dryRun: options.dryRun,
+    responseSampleLimit: options.previewSampleLimit
   });
-  const previewFacilities = options.dryRun
-    ? syncResult.facilities.slice(0, options.previewSampleLimit)
-    : syncResult.facilities;
-  const previewTruncated = options.dryRun && syncResult.facilities.length > previewFacilities.length;
+  const previewFacilities = syncResult.facilities.slice(0, options.previewSampleLimit);
+  const previewTruncated =
+    Boolean(syncResult.facilitiesTruncated) ||
+    syncResult.facilities.length > previewFacilities.length;
 
   return {
     generatedAt: new Date().toISOString(),

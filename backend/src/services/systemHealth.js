@@ -7,6 +7,7 @@ const {
 } = require('../data');
 const { getAuthConfigStatus } = require('../middleware/auth');
 const { getEncryptionConfigStatus } = require('../lib/encryption');
+const { getDatabaseSchemaCapabilities } = require('../lib/prisma');
 const { getDhis2ConfigStatus } = require('../integrations/dhis2Client');
 const { getSmsGatewayStatus } = require('./smsGateway');
 const { getMlRuntimeConfig } = require('./mlService');
@@ -53,6 +54,45 @@ async function buildDatabaseHealth() {
       message: conciseError(error)
     };
   }
+}
+
+async function buildSchemaHealth(database) {
+  if (database.provider !== 'prisma' || database.status !== 'up') {
+    return {
+      status: 'unknown',
+      compatibilityStatus: 'unknown',
+      message: 'Schema compatibility checks are only available when Prisma is active and reachable.'
+    };
+  }
+
+  const capabilities = await getDatabaseSchemaCapabilities();
+  const compatibilityStatus = capabilities.status || 'unknown';
+  const missing = Array.isArray(capabilities.missing) ? capabilities.missing : [];
+
+  return {
+    status:
+      compatibilityStatus === 'compatible'
+        ? 'up'
+        : compatibilityStatus === 'partial'
+          ? 'degraded'
+          : 'unknown',
+    compatibilityStatus,
+    checkedAt: capabilities.checkedAt || null,
+    message:
+      compatibilityStatus === 'compatible'
+        ? 'Database schema matches the current TRIP feature contract.'
+        : compatibilityStatus === 'partial'
+          ? 'Database schema is behind the current TRIP feature contract; compatibility fallbacks are active.'
+          : capabilities.message || 'Schema compatibility could not be confirmed.',
+    capabilities: {
+      patientPiiMetadata: Boolean(capabilities.patientPiiMetadata),
+      facilityDhis2Fields: Boolean(capabilities.facilityDhis2Fields),
+      visitStructuredFields: Boolean(capabilities.visitStructuredFields),
+      predictionMlFields: Boolean(capabilities.predictionMlFields),
+      hasAlertTable: Boolean(capabilities.hasAlertTable)
+    },
+    missing
+  };
 }
 
 async function buildMlHealth() {
@@ -123,6 +163,7 @@ async function buildMlHealth() {
 
 async function buildHealthSnapshot() {
   const [database, ml] = await Promise.all([buildDatabaseHealth(), buildMlHealth()]);
+  const schema = await buildSchemaHealth(database);
   const auth = getAuthConfigStatus();
   const encryption = getEncryptionConfigStatus();
   const sms = getSmsGatewayStatus();
@@ -151,6 +192,7 @@ async function buildHealthSnapshot() {
       dhis2,
       sms,
       database,
+      schema,
       ml
     },
     resilience: {
