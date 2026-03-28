@@ -1,6 +1,6 @@
 # TRIP MVP Implementation Plan
 
-Last updated: 2026-03-28
+Last updated: 2026-03-29
 Source of truth: `TRIP_Blueprint_v2_SourceVerified.docx` plus direct repo audit of the linked PRPP repository.
 
 ## Working Rules
@@ -474,7 +474,7 @@ Done when:
 
 ### Slice 12B. End-to-End High-Risk Workflow Verification
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Prove one complete workflow from prediction through discharge, task creation, alerting, and audit trail without manual debugging.
@@ -485,6 +485,19 @@ Focus:
 - Task generation
 - Alert persistence
 - Audit visibility
+
+Progress update on 2026-03-29:
+- Added a backend workflow verification service at `backend/src/services/workflowVerificationService.js` that groups one prediction with its facility, role-aware patient summary, generated tasks, linked alert, and filtered audit trail.
+- Added `GET /api/predictions/:predictionId/workflow` so operational roles can inspect one high-risk workflow without manually cross-checking tasks, alerts, and audit logs in separate screens.
+- Extended both memory and Prisma stores so task and alert queries can be filtered by `predictionId`, which keeps the workflow summary tied to the same scoped data layer used by the rest of the app.
+- Added a live verification panel in `src/pages/SettingsPage.jsx` for operational roles. It shows recent high-risk predictions in scope, checklist status, task completion, alert state, and the latest workflow audit events.
+- Added focused backend E2E coverage in `backend/src/e2e/prisma.routes.e2e.test.js` for the workflow summary endpoint.
+- Verification status:
+  - `cmd /c node --check backend/src/services/workflowVerificationService.js`
+  - `cmd /c node --check backend/src/routes/predictions.js`
+  - `cmd /c node --check backend/src/e2e/prisma.routes.e2e.test.js`
+  - frontend `lint`
+  - frontend `build`
 
 Done when:
 - At least one clinician-to-follow-up workflow passes end to end in the deployed app.

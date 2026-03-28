@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -21,7 +21,12 @@ import Card from "../components/common/Card";
 import { requestJson } from "../services/apiClient";
 import { flushSyncQueue } from "../services/syncService";
 import { useConnectivityStatus } from "../hooks/useConnectivityStatus";
+import {
+  usePredictionWorkflowQuery,
+  useRecentPredictionsQuery,
+} from "../hooks/useTrip";
 import { getAvatarStyle, getUserInitials, getUserRoleLabel } from "../services/userIdentity";
+import { canVerifyOperationalWorkflow } from "../services/roleAccess";
 
 const SETTINGS_COPY = {
   en: {
@@ -159,6 +164,21 @@ function HealthPill({ label, status = "unknown" }) {
   );
 }
 
+function VerificationPill({ label, status = "missing" }) {
+  const tone =
+    status === "complete"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : status === "not_required"
+        ? "bg-slate-50 text-slate-600 border-slate-200"
+        : "bg-rose-50 text-rose-700 border-rose-100";
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}>
+      {label}: {status.replaceAll("_", " ")}
+    </span>
+  );
+}
+
 function SettingsPage() {
   const queryClient = useQueryClient();
   const { currentUser, userRole } = useAuth();
@@ -181,12 +201,14 @@ function SettingsPage() {
   const isOnline = useConnectivityStatus();
   const [syncFeedback, setSyncFeedback] = useState("");
   const [syncError, setSyncError] = useState("");
+  const [selectedWorkflowPredictionId, setSelectedWorkflowPredictionId] = useState("");
   const copy = SETTINGS_COPY[language] || SETTINGS_COPY.en;
   const avatarStyle = getAvatarStyle(userRole);
   const userInitials = getUserInitials(currentUser?.fullName, t("userFallback"));
   const roleLabel = getUserRoleLabel(userRole, t);
   const canManageDhis2 = ["moh", "ml-engineer"].includes(String(userRole || ""));
   const canReviewSchema = ["moh", "ml-engineer"].includes(String(userRole || ""));
+  const canVerifyWorkflow = canVerifyOperationalWorkflow(userRole);
   const usingOfflineSnapshot = isUsingOfflineData || isUsingOfflineTasks;
 
   const systemHealthQuery = useQuery({
@@ -226,10 +248,55 @@ function SettingsPage() {
     },
   });
 
+  const recentPredictionsQuery = useRecentPredictionsQuery(
+    {
+      limit: 6,
+      clinicianId: userRole === "clinician" ? "self" : undefined,
+    },
+    {
+      enabled: canVerifyWorkflow,
+      staleTime: 30 * 1000,
+    },
+  );
+
+  const recentHighRiskPredictions = useMemo(
+    () =>
+      (recentPredictionsQuery.data || []).filter(
+        (prediction) => String(prediction.tier || "").toLowerCase() === "high",
+      ),
+    [recentPredictionsQuery.data],
+  );
+
+  useEffect(() => {
+    if (!canVerifyWorkflow) {
+      setSelectedWorkflowPredictionId("");
+      return;
+    }
+
+    if (!recentHighRiskPredictions.length) {
+      setSelectedWorkflowPredictionId("");
+      return;
+    }
+
+    const stillVisible = recentHighRiskPredictions.some(
+      (prediction) => prediction.id === selectedWorkflowPredictionId,
+    );
+
+    if (!stillVisible) {
+      setSelectedWorkflowPredictionId(recentHighRiskPredictions[0].id);
+    }
+  }, [canVerifyWorkflow, recentHighRiskPredictions, selectedWorkflowPredictionId]);
+
+  const workflowQuery = usePredictionWorkflowQuery(selectedWorkflowPredictionId, {
+    enabled: canVerifyWorkflow && Boolean(selectedWorkflowPredictionId),
+    staleTime: 30 * 1000,
+  });
+
   const dhis2Status = dhis2StatusQuery.data || null;
   const dryRunSummary = dhis2SyncMutation.data?.summary || null;
   const services = systemHealthQuery.data?.services || {};
   const schemaStatus = services.schema || null;
+  const workflow = workflowQuery.data || null;
 
   const serviceCards = useMemo(
     () => [
@@ -535,6 +602,271 @@ function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {canVerifyWorkflow ? (
+        <Card className="space-y-5 rounded-[26px] border border-slate-200/80 bg-white/95" hover={false}>
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+              <Activity className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">High-risk workflow verification</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                This view proves that one high-risk prediction created the expected tasks, alert activity, and audit trail for the current operational scope.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+            <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Recent high-risk predictions
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Operational roles can inspect recent high-risk predictions in their current scope.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  icon={<RefreshCw className="h-4 w-4" />}
+                  onClick={() => recentPredictionsQuery.refetch()}
+                  loading={recentPredictionsQuery.isFetching}
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {recentPredictionsQuery.isLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-24 animate-pulse rounded-2xl bg-white" />
+                  ))}
+                </div>
+              ) : null}
+
+              {!recentPredictionsQuery.isLoading && recentPredictionsQuery.error ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                  {recentPredictionsQuery.error?.message || "Unable to load recent workflow candidates."}
+                </div>
+              ) : null}
+
+              {!recentPredictionsQuery.isLoading &&
+              !recentPredictionsQuery.error &&
+              !recentHighRiskPredictions.length ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                  No high-risk predictions are currently available in your scope. Generate one through the discharge workflow to verify the full automation path here.
+                </div>
+              ) : null}
+
+              <div className="space-y-3">
+                {recentHighRiskPredictions.map((prediction) => {
+                  const isActive = prediction.id === selectedWorkflowPredictionId;
+
+                  return (
+                    <button
+                      key={prediction.id}
+                      type="button"
+                      onClick={() => setSelectedWorkflowPredictionId(prediction.id)}
+                      className={`w-full rounded-2xl border p-4 text-left transition ${
+                        isActive
+                          ? "border-teal-500 bg-white shadow-sm shadow-teal-100"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950">
+                            Prediction {prediction.id.slice(0, 8)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Patient {prediction.patientId} |{" "}
+                            {prediction.generatedAt
+                              ? new Date(prediction.generatedAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")
+                              : "Unknown time"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <HealthPill label="Tier" status={String(prediction.tier || "").toLowerCase() === "high" ? "up" : "unknown"} />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Score</p>
+                          <p className="mt-2 text-xl font-bold text-slate-950">{Number(prediction.score || 0).toFixed(0)}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Method</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-950">
+                            {prediction.method === "rules" ? "Rules fallback" : "ML"}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Confidence</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-950">
+                            {(Number(prediction.confidence || 0) * 100).toFixed(0)}%
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-950">Workflow evidence</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Tasks, alerts, and audit records are grouped here for one prediction so operations teams can verify the automation chain quickly.
+                  </p>
+                </div>
+                {workflow?.verification?.workflowState ? (
+                  <HealthPill label="State" status={workflow.verification.workflowState === "resolved" ? "ready" : "degraded"} />
+                ) : null}
+              </div>
+
+              {workflowQuery.isLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+                  ))}
+                </div>
+              ) : null}
+
+              {!workflowQuery.isLoading && workflowQuery.error ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                  {workflowQuery.error?.message || "Unable to load workflow verification details."}
+                </div>
+              ) : null}
+
+              {!workflowQuery.isLoading && !workflowQuery.error && workflow ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Patient in workflow</p>
+                      <p className="mt-2 text-base font-semibold text-slate-950">
+                        {workflow.patient?.name ||
+                          workflow.patient?.caseId ||
+                          workflow.patient?.id ||
+                          workflow.prediction.patientId}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {workflow.patient?.anonymized
+                          ? "Anonymized workflow summary"
+                          : [workflow.patient?.status, workflow.patient?.riskTier].filter(Boolean).join(" | ")}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Facility and workflow state</p>
+                      <p className="mt-2 text-base font-semibold text-slate-950">
+                        {workflow.facility?.name || workflow.prediction.facilityId}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {[workflow.facility?.district, workflow.facility?.regionCode].filter(Boolean).join(" | ")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {(workflow.verification?.checklist || []).map((item) => (
+                      <VerificationPill key={item.key} label={item.label} status={item.status} />
+                    ))}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-4">
+                    {[
+                      ["Tasks", workflow.verification?.taskCount || 0],
+                      ["Outstanding", workflow.verification?.outstandingTaskCount || 0],
+                      ["Audit events", workflow.verification?.auditEventCount || 0],
+                      ["Alert threshold", workflow.verification?.alertThreshold || 0],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-900">Intervention tasks</p>
+                        <span className="text-xs text-slate-500">
+                          Completed {workflow.verification?.completedTaskCount || 0} / {workflow.verification?.taskCount || 0}
+                        </span>
+                      </div>
+                      {(workflow.tasks || []).length ? (
+                        workflow.tasks.map((task) => (
+                          <div key={task.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-950">{task.title}</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {task.category} | Due{" "}
+                                  {task.dueDate
+                                    ? new Date(task.dueDate).toLocaleDateString(language === "sw" ? "sw-TZ" : "en-US")
+                                    : "n/a"}
+                                </p>
+                              </div>
+                              <HealthPill label="Task" status={task.status === "done" ? "ready" : task.status === "in-progress" ? "degraded" : "unknown"} />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                          No intervention tasks were recorded for this prediction.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-slate-900">Alert status</p>
+                          <HealthPill label="Alert" status={workflow.alert?.status || (workflow.verification?.alertExpected ? "down" : "ready")} />
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">
+                          {workflow.alert
+                            ? workflow.alert.message || "Risk alert persisted for this workflow."
+                            : workflow.verification?.alertExpected
+                              ? "This prediction crossed the alert threshold but no persisted alert is visible."
+                              : "This prediction did not require alert escalation."}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-sm font-semibold text-slate-900">Audit trail</p>
+                        <div className="mt-3 space-y-3">
+                          {(workflow.auditTrail || []).length ? (
+                            workflow.auditTrail.slice(-6).reverse().map((event) => (
+                              <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-sm font-semibold text-slate-950">{event.action}</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {event.createdAt
+                                    ? new Date(event.createdAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")
+                                    : "Unknown time"}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                              No audit entries are currently visible for this workflow.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="space-y-5 rounded-[26px] border border-slate-200/80 bg-white/95" hover={false}>
         <div className="flex items-start gap-3">

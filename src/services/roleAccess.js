@@ -10,6 +10,7 @@ const FEATURE_ROLES = {
   taskWorkspace: new Set(["facility-manager", "clinician", "nurse", "pharmacist", "chw"]),
   analyticsWorkspace: new Set(["moh", "rhmt", "chmt", "facility-manager", "ml-engineer"]),
   notifications: new Set(["facility-manager", "clinician", "nurse", "pharmacist", "chw"]),
+  workflowVerification: new Set(["facility-manager", "clinician", "nurse"]),
 };
 
 export function normalizeAccessRole(role) {
@@ -61,6 +62,10 @@ export function canOverridePrediction(role) {
 
 export function canReceiveOperationalNotifications(role) {
   return canAccessWorkspaceFeature(role, "notifications");
+}
+
+export function canVerifyOperationalWorkflow(role) {
+  return canAccessWorkspaceFeature(role, "workflowVerification");
 }
 
 export function getPatientQueryFiltersForRole(role) {

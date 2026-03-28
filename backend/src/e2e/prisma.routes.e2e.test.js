@@ -167,6 +167,53 @@ describeIf('Prisma route e2e', () => {
     expect(resultsResponse.body.predictions.some((item) => item.id === predictionResponse.body.prediction.id)).toBe(true);
   });
 
+  test('workflow verification endpoint summarizes high-risk prediction automation', async () => {
+    const clinicianToken = await login('clinician@trip.go.tz');
+
+    const predictionResponse = await apiRequest('POST', '/api/predictions/predict', {
+      token: clinicianToken,
+      body: {
+        patientId: 'PT-2026-0002',
+        features: {
+          age: 91,
+          priorAdmissions12m: 7,
+          lengthOfStayDays: 16,
+          charlsonIndex: 9,
+          egfr: 28,
+          hemoglobin: 7.9,
+          hba1c: 10.8,
+          bpSystolic: 176,
+          bpDiastolic: 108,
+          phoneAccess: false,
+          transportationDifficulty: true,
+          livesAlone: true,
+          highRiskMedicationCount: 5,
+          icuStayDays: 5
+        }
+      }
+    });
+
+    expect(predictionResponse.status).toBe(201);
+
+    const workflowResponse = await apiRequest(
+      'GET',
+      `/api/predictions/${predictionResponse.body.prediction.id}/workflow`,
+      {
+        token: clinicianToken
+      }
+    );
+
+    expect(workflowResponse.status).toBe(200);
+    expect(workflowResponse.body.workflow).toBeTruthy();
+    expect(workflowResponse.body.workflow.prediction.id).toBe(predictionResponse.body.prediction.id);
+    expect(workflowResponse.body.workflow.tasks.length).toBeGreaterThan(0);
+    expect(workflowResponse.body.workflow.auditTrail.some((entry) => entry.action === 'prediction_generated')).toBe(true);
+    expect(
+      ['high_risk_active', 'interventions_in_progress', 'resolved']
+        .includes(workflowResponse.body.workflow.verification.workflowState)
+    ).toBe(true);
+  });
+
   test('analytics and audit routes are accessible for MOH role', async () => {
     const mohToken = await login('moh@trip.go.tz');
 

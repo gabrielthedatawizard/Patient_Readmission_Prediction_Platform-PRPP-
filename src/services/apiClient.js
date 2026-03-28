@@ -405,6 +405,25 @@ export async function fetchPredictionHistory(patientId) {
   return Array.isArray(payload?.predictions) ? payload.predictions : [];
 }
 
+export async function fetchRecentPredictions({ limit = 10, clinicianId } = {}) {
+  const query = new URLSearchParams();
+  if (limit !== undefined && limit !== null) {
+    query.set("limit", String(limit));
+  }
+  if (clinicianId) {
+    query.set("clinicianId", String(clinicianId));
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const payload = await request(`/predictions/recent${suffix}`);
+  return Array.isArray(payload?.predictions) ? payload.predictions : [];
+}
+
+export async function fetchPredictionWorkflow(predictionId) {
+  const payload = await request(`/predictions/${predictionId}/workflow`);
+  return payload?.workflow || null;
+}
+
 export async function overridePrediction(predictionId, { newTier, reason } = {}) {
   const payload = await request(`/predictions/${predictionId}/override`, {
     method: 'POST',

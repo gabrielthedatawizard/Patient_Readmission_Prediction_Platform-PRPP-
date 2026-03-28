@@ -1128,6 +1128,10 @@ async function listTasksForUser(user, filters = {}) {
     where.patientId = filters.patientId;
   }
 
+  if (filters.predictionId) {
+    where.predictionId = String(filters.predictionId);
+  }
+
   if (filters.priority) {
     where.priority = filters.priority;
   }
@@ -1282,6 +1286,10 @@ async function listAlertsForUser(user, filters = {}) {
 
   if (filters.patientId) {
     where.patientId = String(filters.patientId);
+  }
+
+  if (filters.predictionId) {
+    where.predictionId = String(filters.predictionId);
   }
 
   if (filters.status) {

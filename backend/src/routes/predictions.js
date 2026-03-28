@@ -24,6 +24,7 @@ const { generatePrediction } = require('../services/mlService');
 const { dispatchRiskAlert } = require('../services/notificationService');
 const { extractDischargeSummary } = require('../services/nlpService');
 const { buildPredictionFeatures } = require('../services/predictionFeatureBuilder');
+const { buildPredictionWorkflowSummary } = require('../services/workflowVerificationService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -386,6 +387,35 @@ router.get(
     count: predictions.length,
     predictions
   });
+  })
+);
+
+router.get(
+  '/:predictionId/workflow',
+  requirePermission('predictions:read'),
+  requireRoleFeature('workflowVerification', 'This role cannot inspect end-to-end patient workflows.'),
+  asyncHandler(async (req, res) => {
+  const workflow = await buildPredictionWorkflowSummary(req.user, req.params.predictionId);
+
+  if (!workflow) {
+    return res.status(404).json({
+      error: 'NotFound',
+      message: 'Prediction workflow not found or not accessible.'
+    });
+  }
+
+  await logAudit(req, {
+    action: 'prediction_workflow_viewed',
+    resource: `prediction:${workflow.prediction.id}`,
+    details: {
+      patientId: workflow.prediction.patientId,
+      taskCount: workflow.verification.taskCount,
+      alertStatus: workflow.verification.alertStatus,
+      workflowState: workflow.verification.workflowState
+    }
+  });
+
+  return res.json({ workflow });
   })
 );
 

@@ -709,6 +709,10 @@ function listTasksForUser(user, filters = {}) {
       return false;
     }
 
+    if (filters.predictionId && String(task.predictionId || '') !== String(filters.predictionId)) {
+      return false;
+    }
+
     if (filters.status && task.status !== filters.status) {
       return false;
     }
@@ -810,6 +814,10 @@ function listAlertsForUser(user, filters = {}) {
     }
 
     if (filters.patientId && String(alert.patientId) !== String(filters.patientId)) {
+      return false;
+    }
+
+    if (filters.predictionId && String(alert.predictionId || '') !== String(filters.predictionId)) {
       return false;
     }
 

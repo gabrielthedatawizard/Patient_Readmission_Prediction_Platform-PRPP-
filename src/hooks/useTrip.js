@@ -5,6 +5,8 @@ import {
   fetchBatchPredictions,
   fetchPatients,
   fetchPredictionHistory,
+  fetchPredictionWorkflow,
+  fetchRecentPredictions,
   fetchTasks,
   overridePrediction,
   resolveAlert,
@@ -29,6 +31,13 @@ export const tripQueryKeys = {
     "predictions",
     "history",
     patientId,
+  ],
+  recentPredictions: (filters = {}) => ["trip", "predictions", "recent", filters],
+  predictionWorkflow: (predictionId) => [
+    "trip",
+    "predictions",
+    "workflow",
+    predictionId,
   ],
   dashboardData: (endpoint) => ["trip", "dashboard", endpoint],
 };
@@ -82,6 +91,28 @@ export function usePredictionHistoryQuery(patientId, options = {}) {
     queryFn: () => fetchPredictionHistory(patientId),
     staleTime: options.staleTime ?? 60 * 1000,
     enabled: (options.enabled ?? true) && Boolean(patientId),
+  });
+}
+
+export function useRecentPredictionsQuery(filters = {}, options = {}) {
+  return useQuery({
+    queryKey: tripQueryKeys.recentPredictions(filters),
+    queryFn: () => fetchRecentPredictions(filters),
+    staleTime: options.staleTime ?? 60 * 1000,
+    refetchInterval:
+      options.refetchInterval === undefined
+        ? false
+        : options.refetchInterval,
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function usePredictionWorkflowQuery(predictionId, options = {}) {
+  return useQuery({
+    queryKey: tripQueryKeys.predictionWorkflow(predictionId),
+    queryFn: () => fetchPredictionWorkflow(predictionId),
+    staleTime: options.staleTime ?? 60 * 1000,
+    enabled: (options.enabled ?? true) && Boolean(predictionId),
   });
 }
 

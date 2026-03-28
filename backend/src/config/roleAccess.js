@@ -8,6 +8,7 @@ const ROLE_FEATURES = {
   predictionReview: new Set(['facility_manager', 'clinician', 'nurse']),
   predictionWorkflow: new Set(['clinician']),
   predictionOverride: new Set(['clinician']),
+  workflowVerification: new Set(['facility_manager', 'clinician', 'nurse']),
   communityVisits: new Set(['chw']),
   notifications: new Set(['facility_manager', 'clinician', 'nurse', 'pharmacist', 'chw'])
 };
