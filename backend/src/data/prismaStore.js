@@ -94,6 +94,91 @@ function buildFacilitySelect(capabilities = {}) {
   };
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function buildFacilitySyncIndex(facilities = [], capabilities = {}) {
+  const byName = new Map();
+  const byDhis2OrgUnitId = new Map();
+  const byDhis2Code = new Map();
+
+  facilities.forEach((facility) => {
+    const normalizedName = normalizeText(facility.name);
+    if (normalizedName && !byName.has(normalizedName)) {
+      byName.set(normalizedName, facility);
+    }
+
+    if (capabilities.facilityDhis2Fields) {
+      const orgUnitId = String(facility.dhis2OrgUnitId || '').trim();
+      const dhis2Code = String(facility.dhis2Code || '').trim();
+
+      if (orgUnitId && !byDhis2OrgUnitId.has(orgUnitId)) {
+        byDhis2OrgUnitId.set(orgUnitId, facility);
+      }
+
+      if (dhis2Code && !byDhis2Code.has(dhis2Code)) {
+        byDhis2Code.set(dhis2Code, facility);
+      }
+    }
+  });
+
+  return {
+    byName,
+    byDhis2OrgUnitId,
+    byDhis2Code
+  };
+}
+
+function addFacilityToSyncIndex(index, facility, capabilities = {}) {
+  const normalizedName = normalizeText(facility.name);
+  if (normalizedName && !index.byName.has(normalizedName)) {
+    index.byName.set(normalizedName, facility);
+  }
+
+  if (!capabilities.facilityDhis2Fields) {
+    return;
+  }
+
+  const orgUnitId = String(facility.dhis2OrgUnitId || '').trim();
+  const dhis2Code = String(facility.dhis2Code || '').trim();
+
+  if (orgUnitId && !index.byDhis2OrgUnitId.has(orgUnitId)) {
+    index.byDhis2OrgUnitId.set(orgUnitId, facility);
+  }
+
+  if (dhis2Code && !index.byDhis2Code.has(dhis2Code)) {
+    index.byDhis2Code.set(dhis2Code, facility);
+  }
+}
+
+function findExistingFacilityForSync(entry, index, capabilities = {}) {
+  if (capabilities.facilityDhis2Fields && entry.dhis2OrgUnitId) {
+    const exact = index.byDhis2OrgUnitId.get(String(entry.dhis2OrgUnitId).trim());
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2OrgUnitId' };
+    }
+  }
+
+  if (capabilities.facilityDhis2Fields && entry.dhis2Code) {
+    const exact = index.byDhis2Code.get(String(entry.dhis2Code).trim());
+    if (exact) {
+      return { facility: exact, matchType: 'dhis2Code' };
+    }
+  }
+
+  if (entry.name) {
+    const exact = index.byName.get(normalizeText(entry.name));
+    if (exact) {
+      return { facility: exact, matchType: 'name' };
+    }
+  }
+
+  return { facility: null, matchType: null };
+}
+
 function buildVisitSelect(capabilities = {}) {
   return {
     id: true,
@@ -412,62 +497,45 @@ async function listFacilities() {
   return facilities.map((facility) => mapFacility(facility));
 }
 
-async function findExistingFacilityForSync(entry) {
-  const capabilities = await getDatabaseSchemaCapabilities();
-  const facilitySelect = buildFacilitySelect(capabilities);
-
-  if (capabilities.facilityDhis2Fields && entry.dhis2OrgUnitId) {
-    const exact = await prisma.facility.findUnique({
-      where: { dhis2OrgUnitId: entry.dhis2OrgUnitId },
-      select: facilitySelect
-    });
-
-    if (exact) {
-      return { facility: exact, matchType: 'dhis2OrgUnitId' };
-    }
-  }
-
-  if (capabilities.facilityDhis2Fields && entry.dhis2Code) {
-    const exact = await prisma.facility.findUnique({
-      where: { dhis2Code: entry.dhis2Code },
-      select: facilitySelect
-    });
-
-    if (exact) {
-      return { facility: exact, matchType: 'dhis2Code' };
-    }
-  }
-
-  if (entry.name) {
-    const exact = await prisma.facility.findFirst({
-      where: {
-        name: {
-          equals: entry.name,
-          mode: 'insensitive'
-        }
-      },
-      select: facilitySelect
-    });
-
-    if (exact) {
-      return { facility: exact, matchType: 'name' };
-    }
-  }
-
-  return { facility: null, matchType: null };
-}
-
 async function upsertFacilitiesFromSync(entries = [], options = {}) {
   const dryRun = options.dryRun === true;
   const capabilities = await getDatabaseSchemaCapabilities();
   const facilitySelect = buildFacilitySelect(capabilities);
+  const existingFacilities = await prisma.facility.findMany({
+    select: facilitySelect
+  });
+  const facilityIndex = buildFacilitySyncIndex(existingFacilities, capabilities);
+  const regionCache = new Map();
   const syncedFacilities = [];
   let imported = 0;
   let updated = 0;
   let matchedByName = 0;
 
+  async function ensureRegion(regionCode, regionName) {
+    const cacheKey = `${regionCode}:${regionName || regionCode}`;
+    if (!regionCache.has(cacheKey)) {
+      regionCache.set(
+        cacheKey,
+        prisma.region.upsert({
+          where: { code: regionCode },
+          update: { name: regionName || regionCode },
+          create: {
+            code: regionCode,
+            name: regionName || regionCode
+          }
+        })
+      );
+    }
+
+    return regionCache.get(cacheKey);
+  }
+
   for (const entry of entries) {
-    const { facility: existing, matchType } = await findExistingFacilityForSync(entry);
+    const { facility: existing, matchType } = findExistingFacilityForSync(
+      entry,
+      facilityIndex,
+      capabilities
+    );
     const simulatedRegion = {
       code: entry.regionCode,
       name: entry.regionName || entry.regionCode
@@ -492,14 +560,7 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
         continue;
       }
 
-      const region = await prisma.region.upsert({
-        where: { code: entry.regionCode },
-        update: { name: entry.regionName || entry.regionCode },
-        create: {
-          code: entry.regionCode,
-          name: entry.regionName || entry.regionCode
-        }
-      });
+      const region = await ensureRegion(entry.regionCode, entry.regionName);
 
       const saved = await prisma.facility.update({
         where: { id: existing.id },
@@ -518,6 +579,7 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
         select: facilitySelect
       });
 
+      addFacilityToSyncIndex(facilityIndex, saved, capabilities);
       syncedFacilities.push(mapFacility(saved));
       continue;
     }
@@ -536,14 +598,7 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
       continue;
     }
 
-    const region = await prisma.region.upsert({
-      where: { code: entry.regionCode },
-      update: { name: entry.regionName || entry.regionCode },
-      create: {
-        code: entry.regionCode,
-        name: entry.regionName || entry.regionCode
-      }
-    });
+    const region = await ensureRegion(entry.regionCode, entry.regionName);
 
     const saved = await prisma.facility.create({
       data: {
@@ -562,6 +617,7 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
       select: facilitySelect
     });
 
+    addFacilityToSyncIndex(facilityIndex, saved, capabilities);
     syncedFacilities.push(mapFacility(saved));
   }
 

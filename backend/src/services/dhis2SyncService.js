@@ -139,9 +139,15 @@ function dedupeFacilities(entries = []) {
 
 function buildSyncOptions(overrides = {}) {
   const baseConfig = getDhis2Config(overrides);
+  const previewSampleLimit = Number(
+    overrides.previewSampleLimit || process.env.DHIS2_PREVIEW_SAMPLE_LIMIT || 25
+  );
   return {
     ...baseConfig,
     dryRun: overrides.dryRun !== false,
+    previewSampleLimit: Number.isFinite(previewSampleLimit)
+      ? Math.max(5, Math.min(previewSampleLimit, 100))
+      : 25,
     levelMapping: parseLevelMapping(overrides.levelMapping || process.env.DHIS2_LEVEL_MAP)
   };
 }
@@ -155,6 +161,10 @@ async function syncDhis2Facilities(overrides = {}) {
   const syncResult = await upsertFacilitiesFromSync(facilityEntries, {
     dryRun: options.dryRun
   });
+  const previewFacilities = options.dryRun
+    ? syncResult.facilities.slice(0, options.previewSampleLimit)
+    : syncResult.facilities;
+  const previewTruncated = options.dryRun && syncResult.facilities.length > previewFacilities.length;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -171,9 +181,11 @@ async function syncDhis2Facilities(overrides = {}) {
       total: syncResult.total,
       imported: syncResult.imported,
       updated: syncResult.updated,
-      matchedByName: syncResult.matchedByName
+      matchedByName: syncResult.matchedByName,
+      previewCount: previewFacilities.length,
+      previewTruncated
     },
-    facilities: syncResult.facilities
+    facilities: previewFacilities
   };
 }
 
