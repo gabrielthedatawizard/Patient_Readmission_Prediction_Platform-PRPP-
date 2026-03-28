@@ -7,6 +7,8 @@ const express = require('express');
 const { listPatientsForUser, listPredictionsForPatient } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { requireRoleFeature } = require('../middleware/roleAccess');
+const { buildTaskPatientSummary } = require('../config/roleAccess');
 const { logAudit } = require('../services/auditService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -14,7 +16,11 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-router.get('/:id/visits', requirePermission('patients:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/:id/visits',
+  requirePermission('patients:read'),
+  requireRoleFeature('communityVisits', 'This role does not use the community follow-up workspace.'),
+  asyncHandler(async (req, res) => {
   const date = req.query.date ? new Date(req.query.date) : new Date();
   const selectedDate = Number.isNaN(date.getTime()) ? new Date() : date;
 
@@ -31,44 +37,36 @@ router.get('/:id/visits', requirePermission('patients:read'), asyncHandler(async
       const predictions = await listPredictionsForPatient(req.user, patient.id);
       const latest = predictions[0] || null;
       return {
-        ...patient,
-        riskScore: latest?.score || 0,
+        patientSummary: buildTaskPatientSummary(req.user, patient, { latestPrediction: latest }),
         riskTier: latest?.tier || 'Low'
       };
     })
   );
 
   const sorted = scoredPatients
-    .sort((left, right) => Number(right.riskScore || 0) - Number(left.riskScore || 0))
+    .sort((left, right) => {
+      const tierOrder = { High: 3, Medium: 2, Low: 1 };
+      return Number(tierOrder[right.riskTier] || 0) - Number(tierOrder[left.riskTier] || 0);
+    })
     .slice(0, 15);
 
-  const today = sorted.slice(0, 8).map((patient, index) => ({
-    id: `visit-${patient.id}-${index}`,
-    priority: Number(patient.riskScore || 0) >= 70 ? 'high' : 'medium',
+  const today = sorted.slice(0, 8).map((entry, index) => ({
+    id: `visit-${entry.patientSummary?.id || index}-${index}`,
+    priority: entry.riskTier === 'High' ? 'high' : 'medium',
     scheduledDate: selectedDate.toISOString(),
     patient: {
-      id: patient.id,
-      name: patient.name,
-      address: patient.address || 'Address not recorded',
-      phone: patient.phone || null,
-      latitude: patient.clinicalProfile?.latitude || null,
-      longitude: patient.clinicalProfile?.longitude || null,
-      riskScore: Number(patient.riskScore || 0)
+      ...(entry.patientSummary || {}),
+      riskTier: entry.riskTier
     }
   }));
 
-  const overdue = sorted.slice(8, 10).map((patient, index) => ({
-    id: `overdue-${patient.id}-${index}`,
+  const overdue = sorted.slice(8, 10).map((entry, index) => ({
+    id: `overdue-${entry.patientSummary?.id || index}-${index}`,
     priority: 'high',
     scheduledDate: new Date(selectedDate.getTime() - 24 * 60 * 60 * 1000).toISOString(),
     patient: {
-      id: patient.id,
-      name: patient.name,
-      address: patient.address || 'Address not recorded',
-      phone: patient.phone || null,
-      latitude: patient.clinicalProfile?.latitude || null,
-      longitude: patient.clinicalProfile?.longitude || null,
-      riskScore: Number(patient.riskScore || 0)
+      ...(entry.patientSummary || {}),
+      riskTier: entry.riskTier
     }
   }));
 
@@ -86,6 +84,7 @@ router.get('/:id/visits', requirePermission('patients:read'), asyncHandler(async
     today,
     overdue
   });
-}));
+  })
+);
 
 module.exports = router;

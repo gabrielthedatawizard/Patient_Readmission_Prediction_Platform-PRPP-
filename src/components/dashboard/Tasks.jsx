@@ -230,14 +230,16 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
         {filteredTasks.map((task) => (
           <Card
             key={task.id}
-            className={`cursor-pointer p-4 transition-all hover:shadow-lg ${
+            className={`p-4 transition-all hover:shadow-lg ${
+              canOpenPatient && task.patient ? "cursor-pointer" : ""
+            } ${
               isOverdue(task.dueDate) && task.status !== "completed"
                 ? "border-red-300 bg-red-50/30"
                 : task.priority === "high" && task.status !== "completed"
                   ? "border-amber-300 bg-amber-50/30"
                   : ""
             }`}
-            onClick={() => onPatientSelect?.(task.patient)}
+            onClick={canOpenPatient && task.patient ? () => onPatientSelect(task.patient) : undefined}
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
               <div
@@ -361,3 +363,4 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
 };
 
 export default Tasks;
+  const canOpenPatient = typeof onPatientSelect === "function";

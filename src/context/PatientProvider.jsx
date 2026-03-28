@@ -11,6 +11,10 @@ import {
   mapApiPatientsToUiPatients,
 } from "../services/uiMappers";
 import {
+  getPatientQueryFiltersForRole,
+  shouldHydratePatientWorkspace,
+} from "../services/roleAccess";
+import {
   getOfflinePatients,
   savePatientsOffline,
 } from "../services/offlineStorage";
@@ -23,7 +27,7 @@ import {
 const PatientContext = createContext(null);
 
 export const PatientProvider = ({ children }) => {
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, userRole } = useAuth();
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isDataLoading, setIsDataLoading] = useState(false);
@@ -34,14 +38,21 @@ export const PatientProvider = ({ children }) => {
     region: "Unknown",
     district: "Unknown",
   });
-  const patientsQuery = usePatientsQuery({}, { enabled: isAuthenticated });
-  const tasksQuery = useTasksQuery({}, { enabled: isAuthenticated });
+  const patientQueryFilters = useMemo(
+    () => getPatientQueryFiltersForRole(userRole),
+    [userRole],
+  );
+  const canHydratePatientWorkspace = isAuthenticated && shouldHydratePatientWorkspace(userRole);
+  const patientsQuery = usePatientsQuery(patientQueryFilters, {
+    enabled: canHydratePatientWorkspace,
+  });
+  const tasksQuery = useTasksQuery({}, { enabled: canHydratePatientWorkspace });
   const patientIds = useMemo(
     () => (patientsQuery.data || []).map((patient) => patient.id),
     [patientsQuery.data],
   );
   const predictionsQuery = useBatchPredictionsQuery(patientIds, {
-    enabled: isAuthenticated,
+    enabled: canHydratePatientWorkspace,
   });
 
   const toUiRiskFactors = useCallback((factors = []) => {
@@ -65,9 +76,11 @@ export const PatientProvider = ({ children }) => {
     [patientsQuery.data, predictionsQuery.data, tasksQuery.data],
   );
 
-  const liveDataError =
-    patientsQuery.error || tasksQuery.error || predictionsQuery.error;
+  const liveDataError = canHydratePatientWorkspace
+    ? patientsQuery.error || tasksQuery.error || predictionsQuery.error
+    : null;
   const hasLoadedLiveData =
+    canHydratePatientWorkspace &&
     patientsQuery.isSuccess &&
     tasksQuery.isSuccess &&
     (!patientIds.length || predictionsQuery.isSuccess);
@@ -82,12 +95,29 @@ export const PatientProvider = ({ children }) => {
       return;
     }
 
+    if (!canHydratePatientWorkspace) {
+      setPatients([]);
+      setSelectedPatient(null);
+      setDataError("");
+      setIsUsingOfflineData(false);
+      setIsDataLoading(false);
+      setSelectedFacility((previous) => ({
+        ...previous,
+        name: currentUser?.facilityId || previous.name,
+        region: currentUser?.regionCode || previous.region,
+      }));
+      return;
+    }
+
     setIsDataLoading(
       (patientsQuery.isLoading || tasksQuery.isLoading || predictionsQuery.isLoading) &&
         !patients.length,
     );
   }, [
     isAuthenticated,
+    canHydratePatientWorkspace,
+    currentUser?.facilityId,
+    currentUser?.regionCode,
     patients.length,
     patientsQuery.isLoading,
     predictionsQuery.isLoading,
@@ -138,7 +168,7 @@ export const PatientProvider = ({ children }) => {
   ]);
 
   useEffect(() => {
-    if (!isAuthenticated || !liveDataError || hasLoadedLiveData) {
+    if (!isAuthenticated || !canHydratePatientWorkspace || !liveDataError || hasLoadedLiveData) {
       return;
     }
 
@@ -181,16 +211,20 @@ export const PatientProvider = ({ children }) => {
     return () => {
       disposed = true;
     };
-  }, [hasLoadedLiveData, isAuthenticated, liveDataError]);
+  }, [canHydratePatientWorkspace, hasLoadedLiveData, isAuthenticated, liveDataError]);
 
   const loadPatients = useCallback(async () => {
+    if (!canHydratePatientWorkspace) {
+      return [];
+    }
+
     await Promise.all([
       patientsQuery.refetch(),
       tasksQuery.refetch(),
       patientIds.length ? predictionsQuery.refetch() : Promise.resolve(),
     ]);
     return patients;
-  }, [patientIds.length, patients, patientsQuery, predictionsQuery, tasksQuery]);
+  }, [canHydratePatientWorkspace, patientIds.length, patients, patientsQuery, predictionsQuery, tasksQuery]);
 
   const updatePatientPrediction = useCallback(
     (patientId, prediction) => {

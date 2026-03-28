@@ -18,6 +18,7 @@ const {
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { requireRoleFeature } = require('../middleware/roleAccess');
 const { logAudit } = require('../services/auditService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -174,7 +175,11 @@ function parseCsv(value) {
 
 router.use(requireAuth);
 
-router.get('/', requirePermission('patients:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/',
+  requirePermission('patients:read'),
+  requireRoleFeature('patientDirectory', 'This role does not use the patient directory workspace.'),
+  asyncHandler(async (req, res) => {
   const include = new Set(parseCsv(req.query.include));
   const assignedTo = String(req.query.assignedTo || '').trim();
   const allPatients = await listPatientsForUser(req.user, {
@@ -248,9 +253,14 @@ router.get('/', requirePermission('patients:read'), asyncHandler(async (req, res
       totalPages: Math.ceil(patients.length / limit)
     }
   });
-}));
+  })
+);
 
-router.get('/:id', requirePermission('patients:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/:id',
+  requirePermission('patients:read'),
+  requireRoleFeature('patientDetail', 'This role cannot view full patient detail.'),
+  asyncHandler(async (req, res) => {
   const patient = await getPatientForUser(req.user, req.params.id);
 
   if (!patient) {
@@ -273,9 +283,14 @@ router.get('/:id', requirePermission('patients:read'), asyncHandler(async (req, 
       facility
     }
   });
-}));
+  })
+);
 
-router.get('/:id/encounters', requirePermission('patients:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/:id/encounters',
+  requirePermission('patients:read'),
+  requireRoleFeature('patientDetail', 'This role cannot view encounter-level clinical detail.'),
+  asyncHandler(async (req, res) => {
   const patient = await getPatientForUser(req.user, req.params.id);
 
   if (!patient) {
@@ -300,9 +315,14 @@ router.get('/:id/encounters', requirePermission('patients:read'), asyncHandler(a
     count: visits.length,
     encounters: visits
   });
-}));
+  })
+);
 
-router.post('/:id/encounters', requirePermission('patients:write'), asyncHandler(async (req, res) => {
+router.post(
+  '/:id/encounters',
+  requirePermission('patients:write'),
+  requireRoleFeature('encounterWrite', 'This role cannot create encounter records.'),
+  asyncHandler(async (req, res) => {
   const patient = await getPatientForUser(req.user, req.params.id);
 
   if (!patient) {
@@ -365,9 +385,14 @@ router.post('/:id/encounters', requirePermission('patients:write'), asyncHandler
       message: error.message
     });
   }
-}));
+  })
+);
 
-router.post('/', requirePermission('patients:write'), asyncHandler(async (req, res) => {
+router.post(
+  '/',
+  requirePermission('patients:write'),
+  requireRoleFeature('patientRegistration', 'This role cannot register or create patients.'),
+  asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const errors = validatePatientPayload(payload, { partial: false });
 
@@ -414,9 +439,14 @@ router.post('/', requirePermission('patients:write'), asyncHandler(async (req, r
       message: error.message
     });
   }
-}));
+  })
+);
 
-router.put('/:id', requirePermission('patients:write'), asyncHandler(async (req, res) => {
+router.put(
+  '/:id',
+  requirePermission('patients:write'),
+  requireRoleFeature('patientRegistration', 'This role cannot update patient registration data.'),
+  asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const errors = validatePatientPayload(payload, { partial: true });
 
@@ -464,6 +494,7 @@ router.put('/:id', requirePermission('patients:write'), asyncHandler(async (req,
       message: error.message
     });
   }
-}));
+  })
+);
 
 module.exports = router;

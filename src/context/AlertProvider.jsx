@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useAuth } from "./AuthProvider";
 import { useI18n } from "./I18nProvider";
+import { canReceiveOperationalNotifications } from "../services/roleAccess";
 import {
   useAcknowledgeAlertMutation,
   useAlertsQuery,
@@ -17,30 +18,12 @@ import {
 
 const AlertContext = createContext(null);
 
-const initialNotifications = [
-  {
-    id: "seed-1",
-    tone: "red",
-    titleKey: "notificationHighRiskPatient",
-    bodyKey: "notificationHighRiskPatientBody",
-  },
-  {
-    id: "seed-2",
-    tone: "amber",
-    titleKey: "notificationFollowupDue",
-    bodyKey: "notificationFollowupDueBody",
-  },
-  {
-    id: "seed-3",
-    tone: "emerald",
-    titleKey: "notificationDataQualityImproved",
-    bodyKey: "notificationDataQualityImprovedBody",
-  },
-];
+const initialNotifications = [];
 
 export const AlertProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userRole } = useAuth();
   const { t } = useI18n();
+  const canLoadOperationalAlerts = canReceiveOperationalNotifications(userRole);
 
   const [riskAlerts, setRiskAlerts] = useState([]);
   const [isAlertsLoading, setIsAlertsLoading] = useState(false);
@@ -53,8 +36,8 @@ export const AlertProvider = ({ children }) => {
   const alertsQuery = useAlertsQuery(
     { limit: 30 },
     {
-      enabled: isAuthenticated,
-      refetchInterval: isAuthenticated ? 60 * 1000 : false,
+      enabled: isAuthenticated && canLoadOperationalAlerts,
+      refetchInterval: isAuthenticated && canLoadOperationalAlerts ? 60 * 1000 : false,
     },
   );
   const acknowledgeAlertMutation = useAcknowledgeAlertMutation();
@@ -126,9 +109,9 @@ export const AlertProvider = ({ children }) => {
   );
 
   const loadRiskAlerts = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !canLoadOperationalAlerts) return;
     await alertsQuery.refetch();
-  }, [alertsQuery, isAuthenticated]);
+  }, [alertsQuery, canLoadOperationalAlerts, isAuthenticated]);
 
   const handleAcknowledgeAlert = useCallback(
     async (alertId) => {
@@ -175,7 +158,7 @@ export const AlertProvider = ({ children }) => {
   );
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !canLoadOperationalAlerts) {
       setRiskAlerts([]);
       setIsAlertsLoading(false);
       setAlertsError("");
@@ -208,6 +191,7 @@ export const AlertProvider = ({ children }) => {
     alertsQuery.error,
     alertsQuery.isFetching,
     alertsQuery.isLoading,
+    canLoadOperationalAlerts,
     isAuthenticated,
     normalizeAlertRecord,
     t,

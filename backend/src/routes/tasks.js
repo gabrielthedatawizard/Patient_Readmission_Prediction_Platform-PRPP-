@@ -8,11 +8,14 @@ const {
   appendSyncEvent,
   createTasks,
   getPatientForUser,
+  listPredictionsForPatient,
   listTasksForUser,
   updateTaskForUser
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { requireRoleFeature } = require('../middleware/roleAccess');
+const { buildTaskPatientSummary } = require('../config/roleAccess');
 const { logAudit } = require('../services/auditService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -33,7 +36,11 @@ function parseCsv(value) {
     .filter(Boolean);
 }
 
-router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/',
+  requirePermission('tasks:read'),
+  requireRoleFeature('taskWorkspace', 'This role does not use the operational task workspace.'),
+  asyncHandler(async (req, res) => {
   const statusFilters = parseCsv(req.query.status);
   const tasks = await listTasksForUser(req.user, {
     patientId: req.query.patientId,
@@ -61,10 +68,17 @@ router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) =
 
   const withPatient = includePatient
     ? await Promise.all(
-        scoped.map(async (task) => ({
-          ...task,
-          patient: await getPatientForUser(req.user, task.patientId)
-        }))
+        scoped.map(async (task) => {
+          const patient = await getPatientForUser(req.user, task.patientId);
+          const latestPrediction = patient
+            ? (await listPredictionsForPatient(req.user, task.patientId))[0] || null
+            : null;
+
+          return {
+            ...task,
+            patient: buildTaskPatientSummary(req.user, patient, { latestPrediction })
+          };
+        })
       )
     : scoped;
 
@@ -93,9 +107,14 @@ router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) =
       totalPages: Math.ceil(withPatient.length / limit)
     }
   });
-}));
+  })
+);
 
-router.post('/', requirePermission('tasks:write'), asyncHandler(async (req, res) => {
+router.post(
+  '/',
+  requirePermission('tasks:write'),
+  requireRoleFeature('taskMutations', 'This role cannot create operational tasks.'),
+  asyncHandler(async (req, res) => {
   const patientId = String(req.body.patientId || '').trim();
   const title = String(req.body.title || '').trim();
   const category = String(req.body.category || '').trim();
@@ -167,9 +186,14 @@ router.post('/', requirePermission('tasks:write'), asyncHandler(async (req, res)
   }
 
   return res.status(201).json({ task });
-}));
+  })
+);
 
-router.patch('/:id', requirePermission('tasks:write'), asyncHandler(async (req, res) => {
+router.patch(
+  '/:id',
+  requirePermission('tasks:write'),
+  requireRoleFeature('taskMutations', 'This role cannot update operational tasks.'),
+  asyncHandler(async (req, res) => {
   const patch = {};
 
   if (req.body.status !== undefined) {
@@ -234,6 +258,7 @@ router.patch('/:id', requirePermission('tasks:write'), asyncHandler(async (req, 
   }
 
   return res.json({ task });
-}));
+  })
+);
 
 module.exports = router;

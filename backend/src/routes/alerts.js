@@ -12,6 +12,7 @@ const {
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { requireRoleFeature } = require('../middleware/roleAccess');
 const { logAudit } = require('../services/auditService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -20,7 +21,11 @@ const ALLOWED_STATUS = new Set(['open', 'acknowledged', 'resolved']);
 
 router.use(requireAuth);
 
-router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/',
+  requirePermission('tasks:read'),
+  requireRoleFeature('notifications', 'This role does not use operational alerts.'),
+  asyncHandler(async (req, res) => {
   const status = req.query.status ? String(req.query.status).trim() : undefined;
   if (status && !ALLOWED_STATUS.has(status)) {
     return res.status(400).json({
@@ -50,9 +55,14 @@ router.get('/', requirePermission('tasks:read'), asyncHandler(async (req, res) =
     count: alerts.length,
     alerts
   });
-}));
+  })
+);
 
-router.patch('/:id/acknowledge', requirePermission('tasks:write'), asyncHandler(async (req, res) => {
+router.patch(
+  '/:id/acknowledge',
+  requirePermission('tasks:write'),
+  requireRoleFeature('notifications', 'This role does not acknowledge operational alerts.'),
+  asyncHandler(async (req, res) => {
   const current = await getAlertForUser(req.user, req.params.id);
   if (!current) {
     return res.status(404).json({
@@ -105,9 +115,14 @@ router.patch('/:id/acknowledge', requirePermission('tasks:write'), asyncHandler(
   }
 
   return res.json({ alert });
-}));
+  })
+);
 
-router.patch('/:id/resolve', requirePermission('tasks:write'), asyncHandler(async (req, res) => {
+router.patch(
+  '/:id/resolve',
+  requirePermission('tasks:write'),
+  requireRoleFeature('notifications', 'This role does not resolve operational alerts.'),
+  asyncHandler(async (req, res) => {
   const current = await getAlertForUser(req.user, req.params.id);
 
   if (!current) {
@@ -167,6 +182,7 @@ router.patch('/:id/resolve', requirePermission('tasks:write'), asyncHandler(asyn
   }
 
   return res.json({ alert });
-}));
+  })
+);
 
 module.exports = router;

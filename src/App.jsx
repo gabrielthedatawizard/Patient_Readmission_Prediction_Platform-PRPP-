@@ -26,6 +26,14 @@ import { useAlert } from "./context/AlertProvider";
 import { useI18n } from "./context/I18nProvider";
 import { useConnectivityStatus } from "./hooks/useConnectivityStatus";
 import { getAvatarStyle, getUserInitials, getUserRoleLabel } from "./services/userIdentity";
+import {
+  canAccessWorkspaceFeature,
+  canNavigateFromTaskToPatient,
+  canOverridePrediction,
+  canReceiveOperationalNotifications,
+  canStartDischarge,
+  getAllowedWorkspaceNavIds,
+} from "./services/roleAccess";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -184,7 +192,8 @@ const Layout = ({ children }) => {
     { id: "/tasks", label: t("tasks"), icon: ListChecks },
     { id: "/analytics", label: t("analytics"), icon: BarChart3 },
     { id: "/settings", label: t("settings"), icon: Settings2 },
-  ];
+  ].filter((item) => getAllowedWorkspaceNavIds(userRole).includes(item.id));
+  const canViewNotifications = canReceiveOperationalNotifications(userRole);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
@@ -255,17 +264,19 @@ const Layout = ({ children }) => {
                 </select>
               </div>
 
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
-              >
-                <Bell className="w-5 h-5 text-gray-700 dark:text-slate-100" />
-                {totalNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                    {totalNotifications}
-                  </span>
-                )}
-              </button>
+              {canViewNotifications ? (
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
+                >
+                  <Bell className="w-5 h-5 text-gray-700 dark:text-slate-100" />
+                  {totalNotifications > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                      {totalNotifications}
+                    </span>
+                  )}
+                </button>
+              ) : null}
 
               <div className="flex items-center gap-3 pl-3 border-l-2 border-gray-200 dark:border-slate-800">
                 <div className="text-right hidden sm:block">
@@ -380,8 +391,13 @@ const LandingRoute = () => {
 };
 
 const PatientsRoute = () => {
+  const { userRole } = useAuth();
   const { patients, isDataLoading, dataError, setSelectedPatient } = usePatient();
   const navigate = useNavigate();
+
+  if (!canAccessWorkspaceFeature(userRole, "patientDirectory")) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isDataLoading && !patients.length) {
     return <PatientCardSkeleton />;
@@ -394,18 +410,27 @@ const PatientsRoute = () => {
   return (
     <PatientsList
       patients={patients}
-      onPatientSelect={(patient) => {
-        setSelectedPatient(patient);
-        navigate(`/patients/${patient.id}`);
-      }}
+      onPatientSelect={
+        canAccessWorkspaceFeature(userRole, "patientDetail")
+          ? (patient) => {
+              setSelectedPatient(patient);
+              navigate(`/patients/${patient.id}`);
+            }
+          : undefined
+      }
     />
   );
 };
 
 const TasksRoute = () => {
+  const { userRole } = useAuth();
   const { patients, setSelectedPatient } = usePatient();
   const { tasks, handleTaskUpdate, isTasksLoading, taskError } = useTask();
   const navigate = useNavigate();
+
+  if (!canAccessWorkspaceFeature(userRole, "taskWorkspace")) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isTasksLoading && !tasks.length) {
     return <PatientCardSkeleton />;
@@ -420,19 +445,24 @@ const TasksRoute = () => {
       tasks={tasks}
       patients={patients}
       onTaskUpdate={handleTaskUpdate}
-      onPatientSelect={(patient) => {
-        if (!patient) {
-          return;
-        }
+      onPatientSelect={
+        canNavigateFromTaskToPatient(userRole)
+          ? (patient) => {
+              if (!patient) {
+                return;
+              }
 
-        setSelectedPatient(patient);
-        navigate(`/patients/${patient.id}`);
-      }}
+              setSelectedPatient(patient);
+              navigate(`/patients/${patient.id}`);
+            }
+          : undefined
+      }
     />
   );
 };
 
 const PatientDetailWrapper = () => {
+  const { userRole } = useAuth();
   const { id = "" } = useParams();
   const {
     patients,
@@ -447,10 +477,18 @@ const PatientDetailWrapper = () => {
   const routePatient = resolveRoutePatient(id, patients, selectedPatient);
 
   useEffect(() => {
+    if (!canAccessWorkspaceFeature(userRole, "patientDetail")) {
+      return;
+    }
+
     if (routePatient?.id && routePatient.id !== selectedPatient?.id) {
       setSelectedPatient(routePatient);
     }
-  }, [routePatient, selectedPatient?.id, setSelectedPatient]);
+  }, [routePatient, selectedPatient?.id, setSelectedPatient, userRole]);
+
+  if (!canAccessWorkspaceFeature(userRole, "patientDetail")) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isDataLoading && !routePatient) {
     return <PatientCardSkeleton />;
@@ -464,8 +502,12 @@ const PatientDetailWrapper = () => {
     <PatientDetail
       patient={routePatient}
       onBack={() => navigate("/patients")}
-      onStartDischarge={() => navigate(`/discharge/${routePatient.id}`)}
-      canOverridePrediction={true}
+      onStartDischarge={
+        canStartDischarge(userRole)
+          ? () => navigate(`/discharge/${routePatient.id}`)
+          : undefined
+      }
+      canOverridePrediction={canOverridePrediction(userRole)}
       onPredictionOverridden={(prediction) =>
         updatePatientPrediction(routePatient.id, prediction)
       }
@@ -476,6 +518,7 @@ const PatientDetailWrapper = () => {
 };
 
 const DischargeRoute = () => {
+  const { userRole } = useAuth();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const {
@@ -490,10 +533,18 @@ const DischargeRoute = () => {
   const routePatient = resolveRoutePatient(id, patients, selectedPatient);
 
   useEffect(() => {
+    if (!canAccessWorkspaceFeature(userRole, "dischargeWorkflow")) {
+      return;
+    }
+
     if (routePatient?.id && routePatient.id !== selectedPatient?.id) {
       setSelectedPatient(routePatient);
     }
-  }, [routePatient, selectedPatient?.id, setSelectedPatient]);
+  }, [routePatient, selectedPatient?.id, setSelectedPatient, userRole]);
+
+  if (!canAccessWorkspaceFeature(userRole, "dischargeWorkflow")) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isDataLoading && !routePatient) {
     return <PatientCardSkeleton />;
@@ -527,6 +578,16 @@ const DischargeRoute = () => {
   );
 };
 
+const AnalyticsRoute = () => {
+  const { userRole } = useAuth();
+
+  if (!canAccessWorkspaceFeature(userRole, "analyticsWorkspace")) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Analytics />;
+};
+
 const App = () => {
   return (
     <Routes>
@@ -544,7 +605,7 @@ const App = () => {
                 <Route path="/patients/:id" element={<PatientDetailWrapper />} />
                 <Route path="/discharge/:id" element={<DischargeRoute />} />
                 <Route path="/tasks" element={<TasksRoute />} />
-                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/analytics" element={<AnalyticsRoute />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

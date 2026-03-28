@@ -207,7 +207,7 @@ export function mapApiTasksToUiTasks(apiTasks = [], uiPatients = []) {
   const byPatientId = new Map(uiPatients.map((patient) => [patient.id, patient]));
 
   return apiTasks.map((task) => {
-    const patient = byPatientId.get(task.patientId);
+    const patient = task.patient || byPatientId.get(task.patientId) || null;
     const dueDateRaw = task.dueDate || new Date().toISOString();
     const parsedDueDate = new Date(dueDateRaw);
 

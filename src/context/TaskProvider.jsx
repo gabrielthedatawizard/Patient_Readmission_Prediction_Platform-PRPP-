@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { useAuth } from "./AuthProvider";
 import { usePatient } from "./PatientProvider";
+import { getTaskQueryFiltersForRole, shouldHydrateTaskWorkspace } from "../services/roleAccess";
 import { mapApiTasksToUiTasks } from "../services/uiMappers";
 import {
   getOfflineTasks,
@@ -22,7 +23,7 @@ import { useTasksQuery, useUpdateTaskMutation } from "../hooks/useTrip";
 const TaskContext = createContext(null);
 
 export const TaskProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userRole } = useAuth();
   const { patients } = usePatient();
   const { t } = useI18n();
   const [tasks, setTasks] = useState([]);
@@ -30,7 +31,9 @@ export const TaskProvider = ({ children }) => {
   const [taskError, setTaskError] = useState("");
   const [isUsingOfflineTasks, setIsUsingOfflineTasks] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
-  const tasksQuery = useTasksQuery({}, { enabled: isAuthenticated });
+  const taskQueryFilters = useMemo(() => getTaskQueryFiltersForRole(userRole), [userRole]);
+  const canHydrateTaskWorkspace = isAuthenticated && shouldHydrateTaskWorkspace(userRole);
+  const tasksQuery = useTasksQuery(taskQueryFilters, { enabled: canHydrateTaskWorkspace });
   const updateTaskMutation = useUpdateTaskMutation();
 
   const normalizeTaskDueDate = useCallback((rawDueDate) => {
@@ -68,6 +71,16 @@ export const TaskProvider = ({ children }) => {
       setIsTasksLoading(false);
       setTaskError("");
       setIsUsingOfflineTasks(false);
+      setPendingSyncCount(0);
+      return;
+    }
+
+    if (!canHydrateTaskWorkspace) {
+      setTasks([]);
+      setIsTasksLoading(false);
+      setTaskError("");
+      setIsUsingOfflineTasks(false);
+      setPendingSyncCount(0);
       return;
     }
 
@@ -84,6 +97,7 @@ export const TaskProvider = ({ children }) => {
     }
   }, [
     isAuthenticated,
+    canHydrateTaskWorkspace,
     liveTasks,
     tasks.length,
     tasksQuery.isFetching,
@@ -92,7 +106,7 @@ export const TaskProvider = ({ children }) => {
   ]);
 
   useEffect(() => {
-    if (!isAuthenticated || !tasksQuery.error || tasksQuery.isSuccess) {
+    if (!isAuthenticated || !canHydrateTaskWorkspace || !tasksQuery.error || tasksQuery.isSuccess) {
       return;
     }
 
@@ -131,16 +145,20 @@ export const TaskProvider = ({ children }) => {
     return () => {
       disposed = true;
     };
-  }, [isAuthenticated, normalizeTaskCollection, tasksQuery.error, tasksQuery.isSuccess]);
+  }, [canHydrateTaskWorkspace, isAuthenticated, normalizeTaskCollection, tasksQuery.error, tasksQuery.isSuccess]);
 
   const loadTasks = useCallback(async () => {
+    if (!canHydrateTaskWorkspace) {
+      return [];
+    }
+
     const result = await tasksQuery.refetch();
     const refreshed = normalizeTaskCollection(
       mapApiTasksToUiTasks(result.data || [], patients),
     );
     setTasks(refreshed);
     return refreshed;
-  }, [normalizeTaskCollection, patients, tasksQuery]);
+  }, [canHydrateTaskWorkspace, normalizeTaskCollection, patients, tasksQuery]);
 
   const handleTaskUpdate = useCallback(
     async (task, status, pushNotification) => {
@@ -198,7 +216,7 @@ export const TaskProvider = ({ children }) => {
 
   // Replay offline sync queue on reconnect
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    if (!isAuthenticated || !canHydrateTaskWorkspace) return undefined;
 
     let disposed = false;
 
@@ -233,7 +251,7 @@ export const TaskProvider = ({ children }) => {
       disposed = true;
       window.removeEventListener("online", onlineHandler);
     };
-  }, [isAuthenticated]);
+  }, [canHydrateTaskWorkspace, isAuthenticated]);
 
   const urgentTasks = useMemo(() => {
     return tasks

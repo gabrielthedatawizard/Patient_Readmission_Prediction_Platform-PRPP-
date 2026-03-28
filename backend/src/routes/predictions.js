@@ -17,6 +17,7 @@ const {
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
+const { requireRoleFeature } = require('../middleware/roleAccess');
 const { predictionRateLimit } = require('../middleware/rateLimit');
 const { logAudit } = require('../services/auditService');
 const { generatePrediction } = require('../services/mlService');
@@ -114,7 +115,12 @@ function mergeAnalysisSummary(featureAnalysis = {}, modelAnalysis = {}, dataQual
 
 router.use(requireAuth);
 
-router.post('/predict', predictionRateLimit, requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
+router.post(
+  '/predict',
+  predictionRateLimit,
+  requirePermission('predictions:generate'),
+  requireRoleFeature('predictionWorkflow', 'This role cannot generate discharge risk predictions.'),
+  asyncHandler(async (req, res) => {
   const patientIdInput = String(req.body.patientId || '').trim();
   const visitIdInput = String(req.body.visitId || '').trim();
 
@@ -276,9 +282,14 @@ router.post('/predict', predictionRateLimit, requirePermission('predictions:gene
     escalationRequired:
       prediction.confidence < 0.5 || Number(prediction.dataQuality?.completeness || 1) < 0.7
   });
-}));
+  })
+);
 
-router.get('/results/:patientId', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/results/:patientId',
+  requirePermission('predictions:read'),
+  requireRoleFeature('predictionReview', 'This role cannot review patient-level prediction results.'),
+  asyncHandler(async (req, res) => {
   const predictions = await listPredictionsForPatient(req.user, req.params.patientId);
 
   if (predictions.length === 0) {
@@ -308,9 +319,14 @@ router.get('/results/:patientId', requirePermission('predictions:read'), asyncHa
           : Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
   });
-}));
+  })
+);
 
-router.get('/history/:patientId', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/history/:patientId',
+  requirePermission('predictions:read'),
+  requireRoleFeature('predictionReview', 'This role cannot review patient-level prediction history.'),
+  asyncHandler(async (req, res) => {
   const predictions = await listPredictionsForPatient(req.user, req.params.patientId);
 
   return res.json({
@@ -325,9 +341,14 @@ router.get('/history/:patientId', requirePermission('predictions:read'), asyncHa
           : Number((Number(prediction.score || 0) / 100).toFixed(3))
     }))
   });
-}));
+  })
+);
 
-router.get('/recent', requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+router.get(
+  '/recent',
+  requirePermission('predictions:read'),
+  requireRoleFeature('predictionReview', 'This role cannot review recent patient-level predictions.'),
+  asyncHandler(async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
   const assignedTo = String(req.query.clinicianId || '').trim();
 
@@ -365,9 +386,15 @@ router.get('/recent', requirePermission('predictions:read'), asyncHandler(async 
     count: predictions.length,
     predictions
   });
-}));
+  })
+);
 
-router.post('/discharge-summary/extract', predictionRateLimit, requirePermission('predictions:generate'), asyncHandler(async (req, res) => {
+router.post(
+  '/discharge-summary/extract',
+  predictionRateLimit,
+  requirePermission('predictions:generate'),
+  requireRoleFeature('predictionWorkflow', 'This role cannot use discharge summary extraction.'),
+  asyncHandler(async (req, res) => {
   const patientId = String(req.body.patientId || '').trim();
   const notes = String(req.body.notes || '').trim();
 
@@ -417,9 +444,14 @@ router.post('/discharge-summary/extract', predictionRateLimit, requirePermission
     patientId,
     extraction
   });
-}));
+  })
+);
 
-router.post('/:predictionId/override', requirePermission('predictions:override'), asyncHandler(async (req, res) => {
+router.post(
+  '/:predictionId/override',
+  requirePermission('predictions:override'),
+  requireRoleFeature('predictionOverride', 'This role cannot override predictions.'),
+  asyncHandler(async (req, res) => {
   const newTier = String(req.body.newTier || '').trim();
   const reason = String(req.body.reason || '').trim();
   const allowedTiers = new Set(['Low', 'Medium', 'High']);
@@ -468,9 +500,15 @@ router.post('/:predictionId/override', requirePermission('predictions:override')
   });
 
   return res.json({ prediction });
-}));
+  })
+);
 
-router.post('/batch', predictionRateLimit, requirePermission('predictions:read'), asyncHandler(async (req, res) => {
+router.post(
+  '/batch',
+  predictionRateLimit,
+  requirePermission('predictions:read'),
+  requireRoleFeature('predictionReview', 'This role cannot review patient-level predictions.'),
+  asyncHandler(async (req, res) => {
   const patientIds = req.body.patientIds || [];
   if (!Array.isArray(patientIds)) {
     return res.status(400).json({
@@ -492,6 +530,7 @@ router.post('/batch', predictionRateLimit, requirePermission('predictions:read')
   );
 
   return res.json({ predictions: results });
-}));
+  })
+);
 
 module.exports = router;

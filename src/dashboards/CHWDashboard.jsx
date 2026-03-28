@@ -1,4 +1,4 @@
-import { AlertCircle, MapPin, Navigation, Phone, Users } from "lucide-react";
+import { AlertCircle, Lock, Navigation, Phone, Users } from "lucide-react";
 import { DashboardSkeleton, EmptyState, ErrorState, KPICard } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 
@@ -72,30 +72,37 @@ export const CHWDashboard = ({ chwId }) => {
                   </span>
                 </div>
 
-                <p className="text-sm text-neutral-700 mb-2 flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {visit.patient?.address || "Address unavailable"}
-                </p>
                 <p className="text-sm text-neutral-700 mb-3">
-                  Risk Score: <span className="font-semibold">{visit.patient?.riskScore || 0}</span>
+                  Risk Tier: <span className="font-semibold">{visit.patient?.riskTier || "Low"}</span>
                 </p>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openMaps(visit.patient?.latitude, visit.patient?.longitude)}
-                    className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm flex items-center gap-2"
-                  >
-                    <Navigation className="w-4 h-4" />
-                    Navigate
-                  </button>
-                  <button
-                    onClick={() => callPatient(visit.patient?.phone)}
-                    className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm flex items-center gap-2"
-                  >
-                    <Phone className="w-4 h-4" />
-                    Call
-                  </button>
-                </div>
+                {visit.patient?.phone || (visit.patient?.latitude && visit.patient?.longitude) ? (
+                  <div className="flex items-center gap-2">
+                    {visit.patient?.latitude && visit.patient?.longitude ? (
+                      <button
+                        onClick={() => openMaps(visit.patient?.latitude, visit.patient?.longitude)}
+                        className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm flex items-center gap-2"
+                      >
+                        <Navigation className="w-4 h-4" />
+                        Navigate
+                      </button>
+                    ) : null}
+                    {visit.patient?.phone ? (
+                      <button
+                        onClick={() => callPatient(visit.patient?.phone)}
+                        className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm flex items-center gap-2"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Call
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-600 flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    Contact and routing details are protected in the CHW workspace.
+                  </p>
+                )}
               </div>
             ))}
           </div>
