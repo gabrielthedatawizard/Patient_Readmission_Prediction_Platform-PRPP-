@@ -1,4 +1,5 @@
-const { prisma } = require('../lib/prisma');
+const { randomUUID } = require('crypto');
+const { prisma, getDatabaseSchemaCapabilities } = require('../lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';
 
@@ -63,6 +64,144 @@ function mapFacility(facility) {
     level: facility.level,
     dhis2OrgUnitId: facility.dhis2OrgUnitId || null,
     dhis2Code: facility.dhis2Code || null
+  };
+}
+
+const REGION_SELECT = {
+  code: true,
+  name: true
+};
+
+function isSchemaMismatchError(error) {
+  return error?.code === 'P2021' || error?.code === 'P2022';
+}
+
+function buildFacilitySelect(capabilities = {}) {
+  return {
+    id: true,
+    name: true,
+    district: true,
+    level: true,
+    region: {
+      select: REGION_SELECT
+    },
+    ...(capabilities.facilityDhis2Fields
+      ? {
+          dhis2OrgUnitId: true,
+          dhis2Code: true
+        }
+      : {})
+  };
+}
+
+function buildVisitSelect(capabilities = {}) {
+  return {
+    id: true,
+    patientId: true,
+    facilityId: true,
+    admissionDate: true,
+    dischargeDate: true,
+    diagnosis: true,
+    ward: true,
+    lengthOfStay: true,
+    createdAt: true,
+    updatedAt: true,
+    ...(capabilities.visitStructuredFields
+      ? {
+          diagnoses: true,
+          medications: true,
+          labResults: true,
+          vitalSigns: true,
+          socialFactors: true,
+          dischargeDisposition: true
+        }
+      : {})
+  };
+}
+
+function sanitizeVisitWrite(data = {}, capabilities = {}) {
+  if (capabilities.visitStructuredFields) {
+    return data;
+  }
+
+  const next = { ...data };
+  delete next.diagnoses;
+  delete next.medications;
+  delete next.labResults;
+  delete next.vitalSigns;
+  delete next.socialFactors;
+  delete next.dischargeDisposition;
+  return next;
+}
+
+function buildPredictionSelect(capabilities = {}) {
+  return {
+    id: true,
+    patientId: true,
+    visitId: true,
+    facilityId: true,
+    score: true,
+    tier: true,
+    factors: true,
+    explanation: true,
+    confidence: true,
+    confidenceLow: true,
+    confidenceHigh: true,
+    modelVersion: true,
+    modelType: true,
+    fallbackUsed: true,
+    dataQuality: true,
+    generatedById: true,
+    overrideTier: true,
+    overrideReason: true,
+    overriddenAt: true,
+    generatedAt: true,
+    ...(capabilities.predictionMlFields
+      ? {
+          probability: true,
+          method: true,
+          featureSnapshot: true,
+          analysisSummary: true
+        }
+      : {})
+  };
+}
+
+function sanitizePredictionWrite(data = {}, capabilities = {}) {
+  if (capabilities.predictionMlFields) {
+    return data;
+  }
+
+  const next = { ...data };
+  delete next.probability;
+  delete next.method;
+  delete next.featureSnapshot;
+  delete next.analysisSummary;
+  return next;
+}
+
+function createCompatibilityAlert(entry = {}) {
+  const timestamp = toDateIso(new Date());
+
+  return {
+    id: entry.id || `compat-alert-${randomUUID()}`,
+    patientId: entry.patientId,
+    predictionId: entry.predictionId || null,
+    facilityId: entry.facilityId,
+    score: Number(entry.score || 0),
+    tier: entry.tier || 'High',
+    threshold: Number(entry.threshold || 80),
+    severity: entry.severity || 'high',
+    message: entry.message || null,
+    channels: Array.isArray(entry.channels) ? entry.channels : [],
+    status: entry.status || 'open',
+    acknowledgedAt: null,
+    acknowledgedById: null,
+    resolvedAt: null,
+    resolvedById: null,
+    resolutionNote: null,
+    createdAt: timestamp,
+    updatedAt: timestamp
   };
 }
 
@@ -252,31 +391,19 @@ async function resolveAccessibleFacilityIds(user) {
 }
 
 async function getFacilityById(facilityId) {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const facility = await prisma.facility.findUnique({
     where: { id: facilityId },
-    include: {
-      region: {
-        select: {
-          code: true,
-          name: true
-        }
-      }
-    }
+    select: buildFacilitySelect(capabilities)
   });
 
   return mapFacility(facility);
 }
 
 async function listFacilities() {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const facilities = await prisma.facility.findMany({
-    include: {
-      region: {
-        select: {
-          code: true,
-          name: true
-        }
-      }
-    },
+    select: buildFacilitySelect(capabilities),
     orderBy: {
       name: 'asc'
     }
@@ -286,17 +413,13 @@ async function listFacilities() {
 }
 
 async function findExistingFacilityForSync(entry) {
-  if (entry.dhis2OrgUnitId) {
+  const capabilities = await getDatabaseSchemaCapabilities();
+  const facilitySelect = buildFacilitySelect(capabilities);
+
+  if (capabilities.facilityDhis2Fields && entry.dhis2OrgUnitId) {
     const exact = await prisma.facility.findUnique({
       where: { dhis2OrgUnitId: entry.dhis2OrgUnitId },
-      include: {
-        region: {
-          select: {
-            code: true,
-            name: true
-          }
-        }
-      }
+      select: facilitySelect
     });
 
     if (exact) {
@@ -304,17 +427,10 @@ async function findExistingFacilityForSync(entry) {
     }
   }
 
-  if (entry.dhis2Code) {
+  if (capabilities.facilityDhis2Fields && entry.dhis2Code) {
     const exact = await prisma.facility.findUnique({
       where: { dhis2Code: entry.dhis2Code },
-      include: {
-        region: {
-          select: {
-            code: true,
-            name: true
-          }
-        }
-      }
+      select: facilitySelect
     });
 
     if (exact) {
@@ -330,14 +446,7 @@ async function findExistingFacilityForSync(entry) {
           mode: 'insensitive'
         }
       },
-      include: {
-        region: {
-          select: {
-            code: true,
-            name: true
-          }
-        }
-      }
+      select: facilitySelect
     });
 
     if (exact) {
@@ -350,6 +459,8 @@ async function findExistingFacilityForSync(entry) {
 
 async function upsertFacilitiesFromSync(entries = [], options = {}) {
   const dryRun = options.dryRun === true;
+  const capabilities = await getDatabaseSchemaCapabilities();
+  const facilitySelect = buildFacilitySelect(capabilities);
   const syncedFacilities = [];
   let imported = 0;
   let updated = 0;
@@ -396,18 +507,15 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
           name: entry.name,
           level: entry.level,
           district: entry.district,
-          dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-          dhis2Code: entry.dhis2Code || null,
+          ...(capabilities.facilityDhis2Fields
+            ? {
+                dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+                dhis2Code: entry.dhis2Code || null
+              }
+            : {}),
           regionId: region.id
         },
-        include: {
-          region: {
-            select: {
-              code: true,
-              name: true
-            }
-          }
-        }
+        select: facilitySelect
       });
 
       syncedFacilities.push(mapFacility(saved));
@@ -443,18 +551,15 @@ async function upsertFacilitiesFromSync(entries = [], options = {}) {
         name: entry.name,
         level: entry.level,
         district: entry.district,
-        dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
-        dhis2Code: entry.dhis2Code || null,
+        ...(capabilities.facilityDhis2Fields
+          ? {
+              dhis2OrgUnitId: entry.dhis2OrgUnitId || null,
+              dhis2Code: entry.dhis2Code || null
+            }
+          : {}),
         regionId: region.id
       },
-      include: {
-        region: {
-          select: {
-            code: true,
-            name: true
-          }
-        }
-      }
+      select: facilitySelect
     });
 
     syncedFacilities.push(mapFacility(saved));
@@ -603,10 +708,12 @@ async function getVisitById(visitId) {
     return null;
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   const visit = await prisma.visit.findUnique({
     where: {
       id: visitId
-    }
+    },
+    select: buildVisitSelect(capabilities)
   });
 
   return mapVisit(visit);
@@ -633,10 +740,12 @@ async function listVisitsForPatient(user, patientId) {
     return [];
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   const visits = await prisma.visit.findMany({
     where: {
       patientId
     },
+    select: buildVisitSelect(capabilities),
     orderBy: {
       admissionDate: 'desc'
     }
@@ -723,8 +832,9 @@ async function createVisitForUser(user, patientId, payload = {}) {
     throw new Error('You do not have access to create an encounter in this facility.');
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   const visit = await prisma.visit.create({
-    data: {
+    data: sanitizeVisitWrite({
       id: payload.id || undefined,
       patientId,
       facilityId,
@@ -739,15 +849,17 @@ async function createVisitForUser(user, patientId, payload = {}) {
       dischargeDisposition: payload.dischargeDisposition || null,
       ward: payload.ward || 'General',
       lengthOfStay: payload.lengthOfStay ?? null
-    }
+    }, capabilities),
+    select: buildVisitSelect(capabilities)
   });
 
   return mapVisit(visit);
 }
 
 async function createPrediction(entry) {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const prediction = await prisma.prediction.create({
-    data: {
+    data: sanitizePredictionWrite({
       patientId: entry.patientId,
       visitId: entry.visitId || null,
       facilityId: entry.facilityId,
@@ -767,17 +879,20 @@ async function createPrediction(entry) {
       featureSnapshot: entry.featureSnapshot || null,
       analysisSummary: entry.analysisSummary || null,
       generatedById: entry.createdBy || null
-    }
+    }, capabilities),
+    select: buildPredictionSelect(capabilities)
   });
 
   return mapPrediction(prediction);
 }
 
 async function getPredictionForUser(user, predictionId) {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const prediction = await prisma.prediction.findUnique({
     where: {
       id: predictionId
-    }
+    },
+    select: buildPredictionSelect(capabilities)
   });
 
   if (!prediction) {
@@ -798,10 +913,12 @@ async function listPredictionsForPatient(user, patientId) {
     return [];
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   const predictions = await prisma.prediction.findMany({
     where: {
       patientId
     },
+    select: buildPredictionSelect(capabilities),
     orderBy: {
       generatedAt: 'desc'
     }
@@ -811,10 +928,12 @@ async function listPredictionsForPatient(user, patientId) {
 }
 
 async function updatePredictionOverrideForUser(user, predictionId, overridePayload) {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const current = await prisma.prediction.findUnique({
     where: {
       id: predictionId
-    }
+    },
+    select: buildPredictionSelect(capabilities)
   });
 
   if (!current) {
@@ -834,7 +953,8 @@ async function updatePredictionOverrideForUser(user, predictionId, overridePaylo
       overrideReason: overridePayload.reason,
       overriddenAt: new Date(),
       tier: overridePayload.newTier
-    }
+    },
+    select: buildPredictionSelect(capabilities)
   });
 
   const mapped = mapPrediction(updated);
@@ -983,37 +1103,55 @@ async function updateTaskForUser(user, taskId, patch) {
 }
 
 async function createRiskAlert(entry) {
-  if (entry.predictionId) {
-    const existing = await prisma.alert.findUnique({
-      where: {
-        predictionId: entry.predictionId
+  const capabilities = await getDatabaseSchemaCapabilities();
+  if (!capabilities.hasAlertTable) {
+    return createCompatibilityAlert(entry);
+  }
+
+  try {
+    if (entry.predictionId) {
+      const existing = await prisma.alert.findUnique({
+        where: {
+          predictionId: entry.predictionId
+        }
+      });
+
+      if (existing) {
+        return mapAlert(existing);
+      }
+    }
+
+    const created = await prisma.alert.create({
+      data: {
+        patientId: entry.patientId,
+        predictionId: entry.predictionId || null,
+        facilityId: entry.facilityId,
+        score: Number(entry.score || 0),
+        tier: entry.tier || 'High',
+        threshold: Number(entry.threshold || 80),
+        severity: entry.severity || 'high',
+        message: entry.message || null,
+        channels: Array.isArray(entry.channels) ? entry.channels : [],
+        status: entry.status || 'open'
       }
     });
 
-    if (existing) {
-      return mapAlert(existing);
+    return mapAlert(created);
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return createCompatibilityAlert(entry);
     }
+
+    throw error;
   }
-
-  const created = await prisma.alert.create({
-    data: {
-      patientId: entry.patientId,
-      predictionId: entry.predictionId || null,
-      facilityId: entry.facilityId,
-      score: Number(entry.score || 0),
-      tier: entry.tier || 'High',
-      threshold: Number(entry.threshold || 80),
-      severity: entry.severity || 'high',
-      message: entry.message || null,
-      channels: Array.isArray(entry.channels) ? entry.channels : [],
-      status: entry.status || 'open'
-    }
-  });
-
-  return mapAlert(created);
 }
 
 async function listAlertsForUser(user, filters = {}) {
+  const capabilities = await getDatabaseSchemaCapabilities();
+  if (!capabilities.hasAlertTable) {
+    return [];
+  }
+
   const accessibleFacilityIds = await resolveAccessibleFacilityIds(user);
   if (!accessibleFacilityIds.length) {
     return [];
@@ -1044,16 +1182,24 @@ async function listAlertsForUser(user, filters = {}) {
   const take = Math.min(Math.max(Number(filters.limit) || 100, 1), 500);
   const skip = Math.max(Number(filters.offset) || 0, 0);
 
-  const alerts = await prisma.alert.findMany({
-    where,
-    orderBy: {
-      createdAt: 'desc'
-    },
-    skip,
-    take
-  });
+  try {
+    const alerts = await prisma.alert.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take
+    });
 
-  return alerts.map(mapAlert);
+    return alerts.map(mapAlert);
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 async function getAlertForUser(user, alertId) {
@@ -1061,11 +1207,25 @@ async function getAlertForUser(user, alertId) {
     return null;
   }
 
-  const alert = await prisma.alert.findUnique({
-    where: {
-      id: alertId
+  const capabilities = await getDatabaseSchemaCapabilities();
+  if (!capabilities.hasAlertTable) {
+    return null;
+  }
+
+  let alert;
+  try {
+    alert = await prisma.alert.findUnique({
+      where: {
+        id: alertId
+      }
+    });
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return null;
     }
-  });
+
+    throw error;
+  }
 
   if (!alert) {
     return null;
@@ -1079,11 +1239,25 @@ async function getAlertForUser(user, alertId) {
 }
 
 async function updateAlertForUser(user, alertId, patch = {}) {
-  const current = await prisma.alert.findUnique({
-    where: {
-      id: alertId
+  const capabilities = await getDatabaseSchemaCapabilities();
+  if (!capabilities.hasAlertTable) {
+    return null;
+  }
+
+  let current;
+  try {
+    current = await prisma.alert.findUnique({
+      where: {
+        id: alertId
+      }
+    });
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return null;
     }
-  });
+
+    throw error;
+  }
 
   if (!current) {
     return null;
@@ -1119,12 +1293,21 @@ async function updateAlertForUser(user, alertId, patch = {}) {
     data.resolutionNote = patch.resolutionNote || null;
   }
 
-  const updated = await prisma.alert.update({
-    where: {
-      id: alertId
-    },
-    data
-  });
+  let updated;
+  try {
+    updated = await prisma.alert.update({
+      where: {
+        id: alertId
+      },
+      data
+    });
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 
   return mapAlert(updated);
 }
@@ -1134,14 +1317,28 @@ async function updateAlertChannels(alertId, channels = []) {
     return null;
   }
 
-  const updated = await prisma.alert.update({
-    where: {
-      id: alertId
-    },
-    data: {
-      channels: Array.isArray(channels) ? channels : []
+  const capabilities = await getDatabaseSchemaCapabilities();
+  if (!capabilities.hasAlertTable) {
+    return null;
+  }
+
+  let updated;
+  try {
+    updated = await prisma.alert.update({
+      where: {
+        id: alertId
+      },
+      data: {
+        channels: Array.isArray(channels) ? channels : []
+      }
+    });
+  } catch (error) {
+    if (isSchemaMismatchError(error)) {
+      return null;
     }
-  });
+
+    throw error;
+  }
 
   return mapAlert(updated);
 }
@@ -1248,8 +1445,10 @@ async function buildDataQualitySnapshot() {
 }
 
 async function buildFairnessSnapshot() {
+  const capabilities = await getDatabaseSchemaCapabilities();
   const predictions = await prisma.prediction.findMany({
-    include: {
+    select: {
+      ...buildPredictionSelect(capabilities),
       patient: {
         select: {
           gender: true

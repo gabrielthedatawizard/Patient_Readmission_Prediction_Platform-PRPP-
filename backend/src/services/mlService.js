@@ -4,6 +4,46 @@ const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/
 const ML_TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
 const ML_FALLBACK_ENABLED = process.env.ML_FALLBACK_ENABLED !== 'false';
 
+function isLoopbackHost(hostname) {
+  return ['localhost', '127.0.0.1', '::1'].includes(String(hostname || '').toLowerCase());
+}
+
+function hasUsableExternalMlService(url) {
+  try {
+    const parsed = new URL(String(url || ''));
+    return !isLoopbackHost(parsed.hostname);
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildFallbackPrediction(features = {}) {
+  const fallbackModel = predictReadmission(
+    {
+      ...features,
+      priorAdmissions12m: Math.max(features.priorAdmissions6mo, 0),
+      lengthOfStayDays: features.lengthOfStay
+    },
+    { forcePrimaryFailure: true }
+  );
+
+  return {
+    score: fallbackModel.score,
+    tier: fallbackModel.tier,
+    probability: fallbackModel.probability,
+    confidence: fallbackModel.confidence,
+    confidenceInterval: fallbackModel.confidenceInterval,
+    factors: fallbackModel.factors || [],
+    explanation: fallbackModel.explanation,
+    modelVersion: fallbackModel.modelVersion || 'rules-v1.0',
+    modelType: fallbackModel.modelType || 'rules_fallback',
+    fallbackUsed: true,
+    method: 'rules',
+    dataQuality: null,
+    analysisSummary: null
+  };
+}
+
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -156,6 +196,15 @@ async function postJson(url, body, timeoutMs) {
 
 async function generatePrediction(visitId, rawFeatures = {}) {
   const features = normalizeInputFeatures(rawFeatures);
+  const externalMlConfigured = hasUsableExternalMlService(ML_API_URL);
+
+  if (!externalMlConfigured) {
+    if (!ML_FALLBACK_ENABLED) {
+      throw new Error('ML service unavailable and fallback is disabled.');
+    }
+
+    return buildFallbackPrediction(features);
+  }
 
   try {
     const responsePayload = await postJson(
@@ -170,34 +219,15 @@ async function generatePrediction(visitId, rawFeatures = {}) {
       throw new Error('ML service unavailable and fallback is disabled.');
     }
 
-    // Unified fallback
-    const fallbackModel = predictReadmission(
-      {
-        ...features,
-        priorAdmissions12m: Math.max(features.priorAdmissions6mo, 0),
-        lengthOfStayDays: features.lengthOfStay
-      },
-      { forcePrimaryFailure: true }
-    );
-
-    return {
-      score: fallbackModel.score,
-      tier: fallbackModel.tier,
-      probability: fallbackModel.probability,
-      confidence: fallbackModel.confidence,
-      confidenceInterval: fallbackModel.confidenceInterval,
-      factors: fallbackModel.factors || [],
-      explanation: fallbackModel.explanation,
-      modelVersion: fallbackModel.modelVersion || 'rules-v1.0',
-      modelType: fallbackModel.modelType || 'rules_fallback',
-      fallbackUsed: true,
-      method: 'rules',
-      dataQuality: null,
-      analysisSummary: null,
-    };
+    return buildFallbackPrediction(features);
   }
 }
 
 module.exports = {
-  generatePrediction
+  generatePrediction,
+  getMlRuntimeConfig: () => ({
+    url: ML_API_URL,
+    fallbackEnabled: ML_FALLBACK_ENABLED,
+    externalServiceConfigured: hasUsableExternalMlService(ML_API_URL)
+  })
 };

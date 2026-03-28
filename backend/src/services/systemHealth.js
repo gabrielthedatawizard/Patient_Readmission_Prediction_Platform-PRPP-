@@ -9,8 +9,8 @@ const { getAuthConfigStatus } = require('../middleware/auth');
 const { getEncryptionConfigStatus } = require('../lib/encryption');
 const { getDhis2ConfigStatus } = require('../integrations/dhis2Client');
 const { getSmsGatewayStatus } = require('./smsGateway');
+const { getMlRuntimeConfig } = require('./mlService');
 
-const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
 const ML_HEALTH_TIMEOUT_MS = Number(process.env.ML_HEALTH_TIMEOUT_MS || process.env.ML_TIMEOUT_MS) || 2000;
 
 function conciseError(error) {
@@ -56,11 +56,25 @@ async function buildDatabaseHealth() {
 }
 
 async function buildMlHealth() {
+  const runtime = getMlRuntimeConfig();
+
   if (process.env.ENABLE_ML_PREDICTIONS === 'false') {
     return {
       status: 'disabled',
       enabled: false,
-      fallbackEnabled: process.env.ML_FALLBACK_ENABLED !== 'false'
+      fallbackEnabled: runtime.fallbackEnabled
+    };
+  }
+
+  if (!runtime.externalServiceConfigured) {
+    return {
+      status: runtime.fallbackEnabled ? 'fallback_only' : 'down',
+      enabled: true,
+      url: runtime.url,
+      fallbackEnabled: runtime.fallbackEnabled,
+      message: runtime.fallbackEnabled
+        ? 'External ML service is not configured for production; local rules fallback is active.'
+        : 'External ML service is not configured.'
     };
   }
 
@@ -68,7 +82,7 @@ async function buildMlHealth() {
   const timeoutHandle = setTimeout(() => controller.abort(), ML_HEALTH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${ML_API_URL}/health`, {
+    const response = await fetch(`${runtime.url}/health`, {
       method: 'GET',
       headers: {
         Accept: 'application/json'
@@ -85,8 +99,8 @@ async function buildMlHealth() {
     return {
       status: 'up',
       enabled: true,
-      url: ML_API_URL,
-      fallbackEnabled: process.env.ML_FALLBACK_ENABLED !== 'false',
+      url: runtime.url,
+      fallbackEnabled: runtime.fallbackEnabled,
       modelLoaded:
         payload.model_loaded ??
         payload.modelLoaded ??
@@ -98,8 +112,8 @@ async function buildMlHealth() {
     return {
       status: 'down',
       enabled: true,
-      url: ML_API_URL,
-      fallbackEnabled: process.env.ML_FALLBACK_ENABLED !== 'false',
+      url: runtime.url,
+      fallbackEnabled: runtime.fallbackEnabled,
       message: conciseError(error)
     };
   } finally {

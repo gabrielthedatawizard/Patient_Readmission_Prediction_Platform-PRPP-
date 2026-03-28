@@ -8,7 +8,7 @@ const ROLE_PERMISSIONS = {
   pharmacist: ['patients:read', 'predictions:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   hro: ['patients:read', 'patients:write', 'tasks:read', 'analytics:read', 'sync:pull', 'sync:push'],
   chw: ['patients:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
-  ml_engineer: ['patients:read', 'predictions:read', 'predictions:generate', 'analytics:read', 'audit:read', 'sync:pull']
+  ml_engineer: ['patients:read', 'predictions:read', 'predictions:generate', 'tasks:read', 'analytics:read', 'audit:read', 'sync:pull']
 };
 
 const ROLES = Object.keys(ROLE_PERMISSIONS);
