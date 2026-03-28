@@ -251,6 +251,21 @@ export async function fetchCurrentUser() {
   };
 }
 
+export async function fetchHealthStatus() {
+  return request("/health");
+}
+
+export async function fetchDhis2Status() {
+  return request("/integrations/dhis2/status");
+}
+
+export async function triggerDhis2Sync(body = {}) {
+  return request("/integrations/dhis2/sync", {
+    method: "POST",
+    body,
+  });
+}
+
 export async function logout() {
   try {
     await request('/auth/logout', { method: 'POST' });

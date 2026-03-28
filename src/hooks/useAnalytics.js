@@ -97,18 +97,54 @@ export function useMlMonitoringBundleQuery(options = {}) {
   return useQuery({
     queryKey: analyticsQueryKeys.monitoringBundle(),
     queryFn: async () => {
-      const [monitoring, quality, fairness, anomalies] = await Promise.all([
-        fetchMlMonitoring(),
-        fetchQualitySnapshot({}),
-        fetchFairnessSnapshot({}),
-        fetchAnomalies({}),
-      ]);
+      const labels = [
+        "ML monitoring",
+        "Data quality snapshot",
+        "Fairness snapshot",
+        "Operational anomalies",
+      ];
+      const [monitoringResult, qualityResult, fairnessResult, anomaliesResult] =
+        await Promise.allSettled([
+          fetchMlMonitoring(),
+          fetchQualitySnapshot({}),
+          fetchFairnessSnapshot({}),
+          fetchAnomalies({}),
+        ]);
+
+      const results = [monitoringResult, qualityResult, fairnessResult, anomaliesResult];
+      const issues = results
+        .map((result, index) =>
+          result.status === "fulfilled"
+            ? null
+            : {
+                source: labels[index],
+                message: result.reason?.message || `${labels[index]} is currently unavailable.`,
+              },
+        )
+        .filter(Boolean);
+
+      const monitoring =
+        monitoringResult.status === "fulfilled" ? monitoringResult.value : null;
+      const quality = qualityResult.status === "fulfilled" ? qualityResult.value : null;
+      const fairness =
+        fairnessResult.status === "fulfilled" ? fairnessResult.value : null;
+      const anomalies =
+        anomaliesResult.status === "fulfilled" ? anomaliesResult.value : [];
+
+      if (!monitoring && !quality && !fairness && !anomalies.length) {
+        const error = new Error(
+          issues[0]?.message || "Unable to load monitoring surfaces.",
+        );
+        error.issues = issues;
+        throw error;
+      }
 
       return {
         monitoring,
         quality,
         fairness,
         anomalies,
+        issues,
       };
     },
     staleTime: options.staleTime ?? TWO_MINUTES,

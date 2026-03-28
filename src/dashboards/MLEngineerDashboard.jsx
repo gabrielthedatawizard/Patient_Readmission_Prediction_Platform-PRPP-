@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/common/Button";
 import {
   DashboardSkeleton,
@@ -28,6 +29,13 @@ function formatPercent(value, digits = 1) {
 }
 
 function runtimeStatus(monitoring = {}) {
+  if (!monitoring || !Object.keys(monitoring).length) {
+    return {
+      label: "Unavailable",
+      detail: "Live monitoring telemetry is not available yet. Review integrations and offline status.",
+    };
+  }
+
   const fallbackRate = Number(monitoring.fallbackRate || 0);
   const coverage = Number(monitoring.predictionCoverage || 0);
 
@@ -133,6 +141,7 @@ function downloadBlob(blob, filename) {
 }
 
 export const MLEngineerDashboard = () => {
+  const navigate = useNavigate();
   const monitoringQuery = useMlMonitoringBundleQuery();
   const [isExporting, setIsExporting] = useState("");
   const [exportError, setExportError] = useState("");
@@ -152,6 +161,7 @@ export const MLEngineerDashboard = () => {
     () => monitoringQuery.data?.anomalies || [],
     [monitoringQuery.data?.anomalies],
   );
+  const queryIssues = monitoringQuery.data?.issues || monitoringQuery.error?.issues || [];
   const runtime = runtimeStatus(monitoring);
   const modelVersions = sortBreakdownEntries(monitoring.modelVersionBreakdown);
   const methods = sortBreakdownEntries(monitoring.methodBreakdown);
@@ -187,7 +197,31 @@ export const MLEngineerDashboard = () => {
   }
 
   if (monitoringQuery.error && !monitoringData) {
-    return <ErrorState error={monitoringQuery.error.message} onRetry={refreshAll} />;
+    return (
+      <div className="space-y-6 p-6">
+        <ErrorState error={monitoringQuery.error.message} onRetry={refreshAll} />
+        <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Operational fallback</h2>
+          <p className="mt-2 text-sm leading-7 text-slate-600">
+            Monitoring feeds are unavailable right now. You can still review connectivity,
+            DHIS2 status, offline sync readiness, and other operational signals from the
+            workspace settings page.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={() => navigate("/settings")}>
+              Open settings
+            </Button>
+            <Button
+              variant="ghost"
+              icon={<RefreshCw className="w-4 h-4" />}
+              onClick={refreshAll}
+            >
+              Retry monitoring
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -230,6 +264,29 @@ export const MLEngineerDashboard = () => {
       {exportError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {exportError}
+        </div>
+      ) : null}
+
+      {queryIssues.length ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
+              <div>
+                <h2 className="text-sm font-semibold text-amber-900">
+                  Some monitoring feeds are unavailable
+                </h2>
+                <p className="mt-1 text-sm text-amber-800">
+                  {queryIssues.map((issue) => issue.source).join(", ")} are not responding
+                  cleanly. The dashboard is showing the operational data that could still be
+                  recovered.
+                </p>
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => navigate("/settings")}>
+              Review integrations
+            </Button>
+          </div>
         </div>
       ) : null}
 

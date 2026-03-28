@@ -1,7 +1,22 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
-import { Activity, Menu, Globe, Bell, Settings, LogOut } from "lucide-react";
+import {
+  Activity,
+  ArrowUpCircle,
+  BarChart3,
+  Bell,
+  ChevronRight,
+  Globe,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  Menu,
+  Settings2,
+  Users,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 
 // Context Hooks
 import { useAuth } from "./context/AuthProvider";
@@ -9,10 +24,13 @@ import { usePatient } from "./context/PatientProvider";
 import { useTask } from "./context/TaskProvider";
 import { useAlert } from "./context/AlertProvider";
 import { useI18n } from "./context/I18nProvider";
+import { useConnectivityStatus } from "./hooks/useConnectivityStatus";
+import { getAvatarStyle, getUserInitials, getUserRoleLabel } from "./services/userIdentity";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import SettingsPage from "./pages/SettingsPage";
 
 // Components
 import Sidebar from "./components/layout/Sidebar";
@@ -128,19 +146,45 @@ const RoleDashboard = () => {
 
 const Layout = ({ children }) => {
   const { currentUser, userRole, handleLogout } = useAuth();
-  const { language, setLanguage, t } = useI18n();
+  const {
+    language,
+    setLanguage,
+    t,
+  } = useI18n();
+  const { selectedFacility, isUsingOfflineData } = usePatient();
+  const { pendingSyncCount, isUsingOfflineTasks } = useTask();
   const { riskAlerts, notifications, showNotifications, setShowNotifications } = useAlert();
-  
+  const isOnline = useConnectivityStatus();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const userInitials = currentUser?.fullName
-    ? currentUser.fullName.split(" ").map(n => n[0]).join("")
-    : "U";
+  const userInitials = getUserInitials(currentUser?.fullName, t("userFallback"));
+  const avatarStyle = getAvatarStyle(userRole);
+  const roleLabel = getUserRoleLabel(userRole, t);
+  const usingOfflineSnapshot = isUsingOfflineData || isUsingOfflineTasks;
+  const statusCopy = language === "sw"
+    ? {
+        online: "Mtandaoni",
+        offline: "Offline",
+        queued: "Foleni ya sync",
+        cached: "Inatumia cache",
+      }
+    : {
+        online: "Online",
+        offline: "Offline",
+        queued: "Sync queue",
+        cached: "Using cache",
+      };
 
   const totalNotifications = notifications.length + riskAlerts.length;
+  const navItems = [
+    { id: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+    { id: "/patients", label: t("patients"), icon: Users },
+    { id: "/tasks", label: t("tasks"), icon: ListChecks },
+    { id: "/analytics", label: t("analytics"), icon: BarChart3 },
+    { id: "/settings", label: t("settings"), icon: Settings2 },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
@@ -166,11 +210,39 @@ const Layout = ({ children }) => {
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
+                  <p className="mt-1 hidden text-xs font-medium text-slate-500 lg:block">
+                    {selectedFacility?.name || t("facilityFallback")}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden xl:flex items-center gap-2">
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  isOnline
+                    ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                    : "border-amber-100 bg-amber-50 text-amber-700"
+                }`}>
+                  {isOnline ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                  {isOnline ? statusCopy.online : statusCopy.offline}
+                </span>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  pendingSyncCount > 0
+                    ? "border-sky-100 bg-sky-50 text-sky-700"
+                    : "border-slate-200 bg-white text-slate-600"
+                }`}>
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                  {statusCopy.queued}: {pendingSyncCount}
+                </span>
+                {usingOfflineSnapshot ? (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                    {statusCopy.cached}
+                  </span>
+                ) : null}
+              </div>
+
               <div className="px-2 py-1.5 bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium flex items-center gap-2">
                 <Globe className="w-4 h-4" />
                 <select
@@ -198,11 +270,19 @@ const Layout = ({ children }) => {
               <div className="flex items-center gap-3 pl-3 border-l-2 border-gray-200 dark:border-slate-800">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold dark:text-slate-100">{currentUser?.fullName}</p>
-                  <p className="text-xs text-gray-500 dark:text-slate-400">{userRole}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">{roleLabel}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-teal-100 border text-teal-800 flex items-center justify-center font-bold">
-                  {userInitials}
-                </div>
+                {currentUser?.profilePicture ? (
+                  <img
+                    src={currentUser.profilePicture}
+                    alt={currentUser.fullName}
+                    className="h-10 w-10 rounded-2xl object-cover ring-2 ring-teal-500/30"
+                  />
+                ) : (
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br ${avatarStyle.gradient} text-sm font-bold text-white shadow-md`}>
+                    {userInitials}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -218,13 +298,24 @@ const Layout = ({ children }) => {
           footer={
             (!sidebarCollapsed || isMobileSidebarOpen) && (
               <div className="p-4 mt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                <button
-                  onClick={() => navigate("/settings")}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 transition-all"
-                >
-                  <Settings className="w-5 h-5" />
-                  <span className="font-medium text-sm">{t("settings")}</span>
-                </button>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {selectedFacility?.region || t("nationalView")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {selectedFacility?.name || t("facilityFallback")}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      isOnline ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {isOnline ? statusCopy.online : statusCopy.offline}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                      {statusCopy.queued}: {pendingSyncCount}
+                    </span>
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 transition-all mt-2"
@@ -237,12 +328,7 @@ const Layout = ({ children }) => {
           }
         >
           <nav className="p-4 space-y-1.5">
-            {[
-              { id: "/dashboard", label: "Dashboard", icon: Activity },
-              { id: "/patients", label: "Patients", icon: Activity },
-              { id: "/tasks", label: "Tasks", icon: Activity },
-              { id: "/analytics", label: "Analytics", icon: Activity },
-            ].map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname.startsWith(item.id);
 
@@ -459,7 +545,7 @@ const App = () => {
                 <Route path="/discharge/:id" element={<DischargeRoute />} />
                 <Route path="/tasks" element={<TasksRoute />} />
                 <Route path="/analytics" element={<Analytics />} />
-                <Route path="/settings" element={<Card className="p-8"><p>Settings Page</p></Card>} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Layout>
