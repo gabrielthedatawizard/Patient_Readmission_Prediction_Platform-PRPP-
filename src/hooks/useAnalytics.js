@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { fetchAuditLogs } from "../services/apiClient";
+import { useWorkspace } from "../context/WorkspaceProvider";
 import {
   exportTrainingDataset,
   fetchAnomalies,
@@ -24,7 +25,7 @@ export const analyticsQueryKeys = {
     "quality-fairness",
     params,
   ],
-  monitoringBundle: () => ["trip", "analytics", "ml-monitoring"],
+  monitoringBundle: (params = {}) => ["trip", "analytics", "ml-monitoring", params],
   auditLogs: (params = {}) => ["trip", "analytics", "audit", params],
 };
 
@@ -32,18 +33,19 @@ export function useAnalyticsOverviewQuery(
   { days = 30, facilityId } = {},
   options = {},
 ) {
+  const { scopeQuery } = useWorkspace();
   return useQuery({
-    queryKey: analyticsQueryKeys.overview({ days, facilityId }),
+    queryKey: analyticsQueryKeys.overview({ days, facilityId, ...scopeQuery }),
     queryFn: async () => {
       const [kpis, facilities, anomalies, forecast, automation, quality, fairness] =
         await Promise.all([
-          fetchDashboardKPIs({ days, facilityId }),
-          fetchFacilityComparison({ days }),
-          fetchAnomalies({ facilityId }),
-          fetchBedForecast({ facilityId, days: 7 }),
-          fetchAutomationSummary({ days, facilityId }),
-          fetchQualitySnapshot({ facilityId }),
-          fetchFairnessSnapshot({ facilityId }),
+          fetchDashboardKPIs({ days, facilityId, scope: scopeQuery }),
+          fetchFacilityComparison({ days, scope: scopeQuery }),
+          fetchAnomalies({ facilityId, scope: scopeQuery }),
+          fetchBedForecast({ facilityId, days: 7, scope: scopeQuery }),
+          fetchAutomationSummary({ days, facilityId, scope: scopeQuery }),
+          fetchQualitySnapshot({ facilityId, scope: scopeQuery }),
+          fetchFairnessSnapshot({ facilityId, scope: scopeQuery }),
         ]);
 
       return {
@@ -70,12 +72,13 @@ export function useQualityFairnessQuery(
   { facilityId } = {},
   options = {},
 ) {
+  const { scopeQuery } = useWorkspace();
   return useQuery({
-    queryKey: analyticsQueryKeys.qualityFairness({ facilityId }),
+    queryKey: analyticsQueryKeys.qualityFairness({ facilityId, ...scopeQuery }),
     queryFn: async () => {
       const [quality, fairness] = await Promise.all([
-        fetchQualitySnapshot({ facilityId }),
-        fetchFairnessSnapshot({ facilityId }),
+        fetchQualitySnapshot({ facilityId, scope: scopeQuery }),
+        fetchFairnessSnapshot({ facilityId, scope: scopeQuery }),
       ]);
 
       return {
@@ -94,8 +97,9 @@ export function useQualityFairnessQuery(
 }
 
 export function useMlMonitoringBundleQuery(options = {}) {
+  const { scopeQuery } = useWorkspace();
   return useQuery({
-    queryKey: analyticsQueryKeys.monitoringBundle(),
+    queryKey: analyticsQueryKeys.monitoringBundle(scopeQuery),
     queryFn: async () => {
       const labels = [
         "ML monitoring",
@@ -105,10 +109,10 @@ export function useMlMonitoringBundleQuery(options = {}) {
       ];
       const [monitoringResult, qualityResult, fairnessResult, anomaliesResult] =
         await Promise.allSettled([
-          fetchMlMonitoring(),
-          fetchQualitySnapshot({}),
-          fetchFairnessSnapshot({}),
-          fetchAnomalies({}),
+          fetchMlMonitoring({ scope: scopeQuery }),
+          fetchQualitySnapshot({ scope: scopeQuery }),
+          fetchFairnessSnapshot({ scope: scopeQuery }),
+          fetchAnomalies({ scope: scopeQuery }),
         ]);
 
       const results = [monitoringResult, qualityResult, fairnessResult, anomaliesResult];
@@ -175,8 +179,9 @@ export function useAuditLogsQuery(
 }
 
 export function useTrainingDatasetExportMutation(options = {}) {
+  const { scopeQuery } = useWorkspace();
   return useMutation({
-    mutationFn: (variables) => exportTrainingDataset(variables),
+    mutationFn: (variables) => exportTrainingDataset({ ...variables, scope: scopeQuery }),
     onSuccess: (result, variables) => {
       if (typeof options.onSuccess === "function") {
         options.onSuccess(result, variables);

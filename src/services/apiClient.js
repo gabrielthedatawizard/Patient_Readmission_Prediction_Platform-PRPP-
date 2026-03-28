@@ -255,8 +255,28 @@ export async function fetchHealthStatus() {
   return request("/health");
 }
 
+export async function fetchWorkspaceContext() {
+  return request("/workspace/context");
+}
+
 export async function fetchDhis2Status() {
   return request("/integrations/dhis2/status");
+}
+
+export async function fetchDhis2HierarchyTree() {
+  return request("/integrations/dhis2/tree");
+}
+
+export async function fetchDhis2Facilities(filters = {}) {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request(`/integrations/dhis2/facilities${suffix}`);
 }
 
 export async function triggerDhis2Sync(body = {}) {

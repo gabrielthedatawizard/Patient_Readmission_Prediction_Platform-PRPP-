@@ -8,6 +8,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { I18nProvider } from "./context/I18nProvider";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthProvider";
+import { WorkspaceProvider } from "./context/WorkspaceProvider";
 import { PatientProvider } from "./context/PatientProvider";
 import { TaskProvider } from "./context/TaskProvider";
 import { AlertProvider } from "./context/AlertProvider";
@@ -26,13 +27,15 @@ root.render(
             <ThemeProvider>
               <I18nProvider>
                 <AuthProvider>
-                  <PatientProvider>
-                    <TaskProvider>
-                      <AlertProvider>
-                        <App />
-                      </AlertProvider>
-                    </TaskProvider>
-                  </PatientProvider>
+                  <WorkspaceProvider>
+                    <PatientProvider>
+                      <TaskProvider>
+                        <AlertProvider>
+                          <App />
+                        </AlertProvider>
+                      </TaskProvider>
+                    </PatientProvider>
+                  </WorkspaceProvider>
                 </AuthProvider>
               </I18nProvider>
             </ThemeProvider>

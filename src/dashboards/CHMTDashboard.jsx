@@ -1,14 +1,15 @@
 import { Building2, ClipboardList, TrendingUp, Users } from "lucide-react";
 import { DashboardSkeleton, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
+import { useWorkspace } from "../context/WorkspaceProvider";
 
 export const CHMTDashboard = ({ district = "" }) => {
-  const districtQuery = district ? `&district=${encodeURIComponent(district)}` : "";
+  const { currentScope, scopeLabel } = useWorkspace();
   const { data: kpis, loading, error, refresh } = useDashboardData(
-    `/analytics/national/kpis?days=30${districtQuery}`,
+    "/analytics/national/kpis?days=30",
     240000,
   );
-  const { data: facilities } = useDashboardData(`/analytics/facility-rankings?days=30${districtQuery}`, 240000);
+  const { data: facilities } = useDashboardData("/analytics/facility-rankings?days=30", 240000);
 
   if (loading && !kpis) {
     return <DashboardSkeleton cards={3} />;
@@ -21,7 +22,9 @@ export const CHMTDashboard = ({ district = "" }) => {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold text-neutral-900">District Dashboard</h1>
-        <p className="text-neutral-600 mt-1">Council Health Management Team {district ? `- ${district}` : ""}</p>
+        <p className="text-neutral-600 mt-1">
+          Council Health Management Team - {currentScope.district || district || scopeLabel.title}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

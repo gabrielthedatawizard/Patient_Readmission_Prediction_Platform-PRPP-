@@ -8,8 +8,10 @@ import {
   ErrorState,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
+import { useWorkspace } from "../context/WorkspaceProvider";
 
 export const MoHNationalDashboard = () => {
+  const { scopeLabel } = useWorkspace();
   const { data: kpis, loading, error, lastRefresh, refresh } = useDashboardData(
     "/analytics/national/kpis?days=30",
     300000,
@@ -39,7 +41,9 @@ export const MoHNationalDashboard = () => {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">National Dashboard</h1>
-          <p className="text-neutral-600 mt-1">Tanzania Readmission Intelligence Platform - National Overview</p>
+          <p className="text-neutral-600 mt-1">
+            Tanzania Readmission Intelligence Platform - {scopeLabel.title}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button

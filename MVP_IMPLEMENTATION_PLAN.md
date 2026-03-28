@@ -1,6 +1,6 @@
 # TRIP MVP Implementation Plan
 
-Last updated: 2026-03-27
+Last updated: 2026-03-28
 Source of truth: `TRIP_Blueprint_v2_SourceVerified.docx` plus direct repo audit of the linked PRPP repository.
 
 ## Working Rules
@@ -394,6 +394,166 @@ Done when:
 
 Remaining external dependency:
 - Requires a de-identified pilot-facility dataset and formal clinical review to move from `partial` to `done`.
+
+## 11. Hierarchy Truth, DHIS2 Interactive Demo, and Sandbox Separation
+
+Status: `partial`
+
+Why this phase matters:
+- The current strategic direction requires TRIP to treat DHIS2 as the hierarchy and aggregate context layer rather than as patient-level operational data.
+- The working system needed a clean split between workspace scope, operational records, and safe demo/sandbox behavior.
+- RHMT, CHMT, MoH, and ML roles need to see the correct level of the health system without inheriting stale facility labels or over-broad patient access.
+
+Current repo state:
+- A dedicated workspace-scope backend and frontend layer now exists.
+- DHIS2 hierarchy data can now be browsed as an in-app navigation model instead of only appearing as sync counts.
+- Aggregate analytics and ML-monitoring surfaces now honor the selected hierarchy scope and can switch into an admin-only sandbox mode without mixing demo behavior into normal operations.
+- Patient/task/discharge care workflows still stay on the existing operational path for safety; sandbox mode does not yet replace those facility-care flows.
+
+Deliverables completed in this phase:
+- Added `GET /api/workspace/context` to expose the user role, allowed hierarchy scope, default facility source, and allowed operational modes.
+- Added role-filtered DHIS2 hierarchy endpoints:
+  - `GET /api/integrations/dhis2/tree`
+  - `GET /api/integrations/dhis2/facilities`
+- Added a dedicated frontend `WorkspaceProvider` so the shell, dashboards, analytics, and settings all read from the same scope contract instead of leaking facility identity from patient state.
+- Added an interactive workspace scope bar for roles that can browse hierarchy or switch operational mode.
+- Updated MoH, RHMT, CHMT, analytics, and ML-monitoring views so they follow the active hierarchy scope and no longer rely on stale shell labels.
+- Added a safe aggregate-level sandbox overlay for `moh` and `ml_engineer` so demo hierarchy and model-practice workflows can be exercised without contaminating normal operational data.
+- Added a manual DHIS2 hierarchy import action in Settings so synced demo facilities become visible and usable in the workspace.
+
+Done when:
+- Shell labels always match the active hierarchy scope.
+- DHIS2 demo hierarchy is interactive for the roles allowed to browse it.
+- Sandbox mode stays clearly separated from normal operational data.
+- Aggregate dashboards and ML monitoring respect selected hierarchy scope without widening access.
+
+Future roadmap after this phase:
+- Add district assignment fields on users for exact CHMT scoping.
+- Add ward assignment fields for clinician and nurse precision.
+- Add zonal hierarchy support and HFR as a canonical facility-source option.
+- Add real Tanzania DHIS2 credentials and mediator connectors for GoT-HoMIS / Afya eHMS.
+- Add deeper offline-first support and optional local inference for low-connectivity sites.
+
+Do not implement yet:
+- DHIS2 indicator write-back
+- In-process scheduler/cron inside the app runtime
+- Full national role taxonomy rewrite
+- Mixing sandbox records into normal operational tables
+- Treating DHIS2 org-unit data itself as patient-level ML training data
+
+## 12. MVP Close-Out Slice Tracker
+
+Status: `active roadmap`
+
+Use this section as the next-session tracker after the current hierarchy phase. These slices are ordered to finish the MVP without destabilizing the working system.
+
+### Slice 12A. Production Schema Reconciliation
+
+Status: `planned`
+
+Goal:
+- Remove the remaining compatibility-only behavior in production by reconciling the live Prisma schema with the fields and tables the current app already expects.
+
+Focus:
+- Alert persistence
+- Newer facility metadata
+- Any compatibility fallbacks still masking old production schema state
+
+Done when:
+- The production database natively supports the current app contract and compatibility fallbacks are reduced.
+
+### Slice 12B. End-to-End High-Risk Workflow Verification
+
+Status: `planned`
+
+Goal:
+- Prove one complete workflow from prediction through discharge, task creation, alerting, and audit trail without manual debugging.
+
+Focus:
+- Discharge workflow
+- Risk scoring
+- Task generation
+- Alert persistence
+- Audit visibility
+
+Done when:
+- At least one clinician-to-follow-up workflow passes end to end in the deployed app.
+
+### Slice 12C. Live Notification Completion
+
+Status: `planned`
+
+Goal:
+- Finish the operational notification path now that the gateway abstraction exists.
+
+Focus:
+- Configure `ALERT_SMS_RECIPIENTS`
+- Run a real provider smoke test
+- Confirm alert-to-SMS audit visibility
+
+Done when:
+- A live high-risk alert can produce a verified outbound SMS delivery attempt without crashing the alert flow.
+
+### Slice 12D. ML Runtime Decision for MVP
+
+Status: `planned`
+
+Goal:
+- Choose the true MVP inference mode and make the app honest about it.
+
+Focus:
+- Either deploy the external ML service properly
+- Or intentionally ship `fallback_only` as the MVP runtime mode
+
+Done when:
+- `/api/health` reflects the chosen production ML mode and the UI copy matches reality.
+
+### Slice 12E. Role Precision and Hierarchy Refinement
+
+Status: `planned`
+
+Goal:
+- Tighten the remaining role-scope approximations without forcing a disruptive role-model rewrite.
+
+Focus:
+- District assignment fields for CHMT
+- Ward assignment fields for clinician and nurse
+- Better shell labels and hierarchy drill-down semantics where needed
+
+Done when:
+- RHMT, CHMT, clinician, and nurse scopes are enforceable with fewer inferred fallbacks.
+
+### Slice 12F. Dashboard Polish and Inert Control Cleanup
+
+Status: `planned`
+
+Goal:
+- Remove placeholder or misleading controls and finish the highest-impact workflow polish.
+
+Focus:
+- Buttons that do not currently perform useful actions
+- Low-value placeholder cards
+- Notification and settings affordances
+- Profile and identity treatment without pretending unsupported features exist
+
+Done when:
+- Core role dashboards feel coherent and no primary control appears clickable without purpose.
+
+### Slice 12G. Real-Data Activation and Clinical Readiness
+
+Status: `blocked externally`
+
+Goal:
+- Move from technically ready to clinically credible.
+
+Focus:
+- De-identified pilot-facility dataset
+- Real-data ingestion and temporal retraining
+- Final validation gate
+- Clinical review and sign-off
+
+Done when:
+- Synthetic artifacts are replaced and the model passes the agreed validation threshold on real data.
 
 ## Recommended First Build Slice
 

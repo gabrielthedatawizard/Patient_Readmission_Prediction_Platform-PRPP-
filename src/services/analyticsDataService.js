@@ -1,86 +1,92 @@
 import { requestBlob, requestJson } from "./apiClient";
+import { appendScopeToPath } from "./workspaceScope";
 
-export async function fetchDashboardKPIs({ facilityId, days = 30 } = {}) {
+function withScope(path, scope) {
+  return appendScopeToPath(path, scope || {});
+}
+
+export async function fetchDashboardKPIs({ facilityId, days = 30, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
   query.set("days", String(days));
 
-  return requestJson(`/analytics/dashboard?${query.toString()}`);
+  return requestJson(withScope(`/analytics/dashboard?${query.toString()}`, scope));
 }
 
-export async function fetchFacilityComparison({ days = 30 } = {}) {
+export async function fetchFacilityComparison({ days = 30, scope } = {}) {
   const query = new URLSearchParams();
   query.set("days", String(days));
-  const payload = await requestJson(`/analytics/facilities?${query.toString()}`);
+  const payload = await requestJson(withScope(`/analytics/facilities?${query.toString()}`, scope));
   return payload?.facilities || [];
 }
 
-export async function fetchAnomalies({ facilityId } = {}) {
+export async function fetchAnomalies({ facilityId, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  const payload = await requestJson(`/analytics/anomalies${suffix}`);
+  const payload = await requestJson(withScope(`/analytics/anomalies${suffix}`, scope));
   return payload?.anomalies || [];
 }
 
-export async function fetchBedForecast({ facilityId, days = 7 } = {}) {
+export async function fetchBedForecast({ facilityId, days = 7, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
   query.set("days", String(days));
 
-  return requestJson(`/analytics/bed-forecast?${query.toString()}`);
+  return requestJson(withScope(`/analytics/bed-forecast?${query.toString()}`, scope));
 }
 
-export async function fetchAutomationSummary({ facilityId, days = 30 } = {}) {
+export async function fetchAutomationSummary({ facilityId, days = 30, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
   query.set("days", String(days));
 
-  return requestJson(`/analytics/automation-summary?${query.toString()}`);
+  return requestJson(withScope(`/analytics/automation-summary?${query.toString()}`, scope));
 }
 
-export async function fetchQualitySnapshot({ facilityId } = {}) {
+export async function fetchQualitySnapshot({ facilityId, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return requestJson(`/analytics/quality${suffix}`);
+  return requestJson(withScope(`/analytics/quality${suffix}`, scope));
 }
 
-export async function fetchFairnessSnapshot({ facilityId } = {}) {
+export async function fetchFairnessSnapshot({ facilityId, scope } = {}) {
   const query = new URLSearchParams();
   if (facilityId) {
     query.set("facilityId", facilityId);
   }
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return requestJson(`/analytics/fairness${suffix}`);
+  return requestJson(withScope(`/analytics/fairness${suffix}`, scope));
 }
 
-export async function fetchMlMonitoring() {
-  return requestJson("/analytics/ml/monitoring");
+export async function fetchMlMonitoring({ scope } = {}) {
+  return requestJson(withScope("/analytics/ml/monitoring", scope));
 }
 
 export async function exportTrainingDataset({
   format = "csv",
   labelledOnly = true,
+  scope,
 } = {}) {
   const query = new URLSearchParams({
     format,
     labelledOnly: String(labelledOnly),
   });
 
-  return requestBlob(`/analytics/ml/training-dataset?${query.toString()}`, {
+  return requestBlob(withScope(`/analytics/ml/training-dataset?${query.toString()}`, scope), {
     headers: {
       Accept: format === "csv" ? "text/csv" : "application/json",
     },

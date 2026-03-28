@@ -97,13 +97,35 @@ async function buildPredictionIndex(user, patients) {
   return new Map(entries);
 }
 
+function createScopedFacilitySet(options = {}) {
+  const facilityIds = new Set();
+
+  if (options.facilityId) {
+    facilityIds.add(String(options.facilityId));
+  }
+
+  if (Array.isArray(options.facilityIds)) {
+    options.facilityIds
+      .filter(Boolean)
+      .forEach((facilityId) => facilityIds.add(String(facilityId)));
+  }
+
+  return facilityIds.size ? facilityIds : null;
+}
+
+function filterPatientsByFacilityScope(patients = [], options = {}) {
+  const scopedFacilities = createScopedFacilitySet(options);
+  if (!scopedFacilities) {
+    return patients;
+  }
+
+  return patients.filter((patient) => scopedFacilities.has(String(patient.facilityId || '')));
+}
+
 async function getDashboardKPIs(user, options = {}) {
   const { startDate, endDate } = normalizeDateRange(options);
-  const facilityId = options.facilityId || null;
-  const allPatients = await listPatientsForUser(user, {
-    ...(facilityId ? { facilityId } : {})
-  });
-  const patients = allPatients.filter((patient) =>
+  const allPatients = await listPatientsForUser(user, {});
+  const patients = filterPatientsByFacilityScope(allPatients, options).filter((patient) =>
     isInWindow(extractPatientTimestamp(patient), startDate, endDate)
   );
 
@@ -150,7 +172,7 @@ async function getDashboardKPIs(user, options = {}) {
 async function getFacilityComparison(user, options = {}) {
   const { startDate, endDate } = normalizeDateRange(options);
   const patients = await listPatientsForUser(user, {});
-  const scopedPatients = patients.filter((patient) =>
+  const scopedPatients = filterPatientsByFacilityScope(patients, options).filter((patient) =>
     isInWindow(extractPatientTimestamp(patient), startDate, endDate)
   );
   const predictionByPatient = await buildPredictionIndex(user, scopedPatients);
@@ -214,11 +236,13 @@ async function detectAnomalies(user, options = {}) {
   const now = new Date();
   const current = await getDashboardKPIs(user, {
     facilityId: options.facilityId,
+    facilityIds: options.facilityIds,
     startDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
     endDate: now
   });
   const previous = await getDashboardKPIs(user, {
     facilityId: options.facilityId,
+    facilityIds: options.facilityIds,
     startDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
     endDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   });
@@ -259,8 +283,15 @@ async function getBedForecast(user, options = {}) {
   const requestedDays = Number(options.days || 7);
   const horizonDays = clamp(Number.isFinite(requestedDays) ? requestedDays : 7, 3, 14);
   const facilityId = options.facilityId || null;
+  const facilityIds = createScopedFacilitySet(options);
 
-  const patients = await listPatientsForUser(user, facilityId ? { facilityId } : {});
+  const patients = filterPatientsByFacilityScope(
+    await listPatientsForUser(user, {}),
+    {
+      facilityId,
+      facilityIds: facilityIds ? Array.from(facilityIds) : undefined
+    }
+  );
   if (!patients.length) {
     return {
       generatedAt: new Date().toISOString(),
@@ -275,7 +306,7 @@ async function getBedForecast(user, options = {}) {
     (patient) => !['discharged', 'followup'].includes(String(patient.status || '').toLowerCase())
   );
 
-  const facilityIds = facilityId
+  const forecastFacilityIds = facilityId
     ? [facilityId]
     : Array.from(new Set(patients.map((patient) => patient.facilityId).filter(Boolean)));
 
@@ -283,7 +314,7 @@ async function getBedForecast(user, options = {}) {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const facilityForecasts = await Promise.all(
-    facilityIds.map(async (id) => {
+    forecastFacilityIds.map(async (id) => {
       const facility = await getFacilityById(id);
       const capacity = FACILITY_BED_CAPACITY[id] || estimateCapacityByLevel(facility?.level);
       const facilityPatients = patients.filter((patient) => patient.facilityId === id);
@@ -401,7 +432,7 @@ async function getBedForecast(user, options = {}) {
 
 async function getAutomationSummary(user, options = {}) {
   const { startDate, endDate } = normalizeDateRange(options);
-  const patients = await listPatientsForUser(user, options.facilityId ? { facilityId: options.facilityId } : {});
+  const patients = filterPatientsByFacilityScope(await listPatientsForUser(user, {}), options);
   const scopedPatients = patients.filter((patient) =>
     isInWindow(getPatientFacilityTimestamp(patient), startDate, endDate)
   );

@@ -26,6 +26,8 @@ import {
   exportFacilitiesCsv,
 } from "../../services/exportService";
 import { isFeatureEnabled } from "../../services/featureFlags";
+import { useAuth } from "../../context/AuthProvider";
+import { useWorkspace } from "../../context/WorkspaceProvider";
 import {
   useAnalyticsOverviewQuery,
   useAuditLogsQuery,
@@ -43,6 +45,8 @@ function formatPercent(value, digits = 1) {
 }
 
 const Analytics = () => {
+  const { userRole } = useAuth();
+  const { scopeLabel, currentScope } = useWorkspace();
   const [dateRange, setDateRange] = useState("30d");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
@@ -114,15 +118,18 @@ const Analytics = () => {
     const configuredTabs = [
       { id: "overview", label: "Overview", icon: BarChart3 },
       { id: "facilities", label: "Facility Comparison", icon: Building2 },
-      { id: "model", label: "Model Monitoring", icon: Activity },
     ];
+
+    if (["moh", "ml-engineer"].includes(String(userRole || ""))) {
+      configuredTabs.push({ id: "model", label: "Model Monitoring", icon: Activity });
+    }
 
     if (auditTrailEnabled) {
       configuredTabs.push({ id: "audit", label: "Audit Trail", icon: History });
     }
 
     return configuredTabs;
-  }, [auditTrailEnabled]);
+  }, [auditTrailEnabled, userRole]);
 
   const filteredFacilities = useMemo(() => {
     if (selectedRegion === "all") {
@@ -296,7 +303,9 @@ const Analytics = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics and Benchmarking</h1>
-          <p className="text-gray-600 mt-1">Performance metrics, model trends, and facility comparison</p>
+          <p className="text-gray-600 mt-1">
+            {scopeLabel.title} • {currentScope.operationalMode === "sandbox" ? "Sandbox intelligence" : "Performance metrics, model trends, and facility comparison"}
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <select

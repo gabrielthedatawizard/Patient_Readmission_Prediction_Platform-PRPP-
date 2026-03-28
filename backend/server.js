@@ -27,6 +27,7 @@ const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
 const integrationsRoutes = require('./src/routes/integrations');
+const workspaceRoutes = require('./src/routes/workspace');
 const { buildHealthSnapshot, isPlatformReady } = require('./src/services/systemHealth');
 
 const app = express();
@@ -188,6 +189,7 @@ app.get('/api', (req, res) => {
       alerts: '/api/alerts',
       chw: '/api/chw',
       analytics: '/api/analytics',
+      workspace: '/api/workspace',
       mlTrainingDataset: '/api/analytics/ml/training-dataset',
       mlMonitoring: '/api/analytics/ml/monitoring',
       audit: '/api/audit',
@@ -204,6 +206,7 @@ app.use('/api/tasks', tasksRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/chw', chwRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/workspace', workspaceRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/integrations', integrationsRoutes);

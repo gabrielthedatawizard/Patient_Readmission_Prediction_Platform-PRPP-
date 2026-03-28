@@ -20,6 +20,7 @@ import {
 
 // Context Hooks
 import { useAuth } from "./context/AuthProvider";
+import { useWorkspace } from "./context/WorkspaceProvider";
 import { usePatient } from "./context/PatientProvider";
 import { useTask } from "./context/TaskProvider";
 import { useAlert } from "./context/AlertProvider";
@@ -46,9 +47,7 @@ import PageTransition from "./components/PageTransition";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
 import Card from "./components/common/Card";
-
-// Data
-import { SAMPLE_FACILITIES } from "./data/facilities";
+import WorkspaceScopeBar from "./components/workspace/WorkspaceScopeBar";
 
 // Lazy Loaded Dashboards & Views
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
@@ -66,12 +65,6 @@ const CHWDashboard = lazy(() => import("./dashboards/CHWDashboard"));
 const PharmacistDashboard = lazy(() => import("./dashboards/PharmacistDashboard"));
 const HRODashboard = lazy(() => import("./dashboards/HRODashboard"));
 const MLEngineerDashboard = lazy(() => import("./dashboards/MLEngineerDashboard"));
-
-const DEFAULT_FACILITY = SAMPLE_FACILITIES[0] || {
-  name: "TRIP Facility",
-  region: "Unknown",
-  district: "Unknown",
-};
 
 const resolveRoutePatient = (patientId, patients, selectedPatient) =>
   patients.find((patient) => patient.id === patientId) ||
@@ -101,6 +94,7 @@ const ProtectedRoute = ({ children }) => {
 
 const RoleDashboard = () => {
   const { userRole, currentUser } = useAuth();
+  const { currentScope } = useWorkspace();
   const { setSelectedPatient } = usePatient();
   const navigate = useNavigate();
 
@@ -108,9 +102,9 @@ const RoleDashboard = () => {
     case "moh":
       return <MoHNationalDashboard />;
     case "rhmt":
-      return <RHMTDashboard region={currentUser?.regionCode || DEFAULT_FACILITY.region} />;
+      return <RHMTDashboard region={currentScope.regionName || currentScope.regionCode || currentUser?.regionCode || ""} />;
     case "chmt":
-      return <CHMTDashboard district={DEFAULT_FACILITY.district} />;
+      return <CHMTDashboard district={currentScope.district || ""} />;
     case "facility-manager":
       return <FacilityManagerDashboard facilityId={currentUser?.facilityId} />;
     case "clinician":
@@ -159,9 +153,10 @@ const Layout = ({ children }) => {
     setLanguage,
     t,
   } = useI18n();
-  const { selectedFacility, isUsingOfflineData } = usePatient();
+  const { isUsingOfflineData } = usePatient();
   const { pendingSyncCount, isUsingOfflineTasks } = useTask();
   const { riskAlerts, notifications, showNotifications, setShowNotifications } = useAlert();
+  const { scopeLabel, canBrowseHierarchy, canSwitchOperationalMode } = useWorkspace();
   const isOnline = useConnectivityStatus();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -220,7 +215,7 @@ const Layout = ({ children }) => {
                 <div className="min-w-0">
                   <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
                   <p className="mt-1 hidden text-xs font-medium text-slate-500 lg:block">
-                    {selectedFacility?.name || t("facilityFallback")}
+                    {scopeLabel.title || t("facilityFallback")}
                   </p>
                 </div>
               </div>
@@ -311,10 +306,10 @@ const Layout = ({ children }) => {
               <div className="p-4 mt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    {selectedFacility?.region || t("nationalView")}
+                    {scopeLabel.badge || t("nationalView")}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-slate-900">
-                    {selectedFacility?.name || t("facilityFallback")}
+                    {scopeLabel.title || t("facilityFallback")}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -374,6 +369,7 @@ const Layout = ({ children }) => {
           <ErrorBoundary>
             <Suspense fallback={<PatientCardSkeleton />}>
               <PageTransition viewKey={location.pathname}>
+                {(canBrowseHierarchy || canSwitchOperationalMode) ? <WorkspaceScopeBar /> : null}
                 {children}
               </PageTransition>
             </Suspense>

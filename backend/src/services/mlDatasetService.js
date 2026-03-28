@@ -171,6 +171,12 @@ function serializeRowsToCsv(rows = []) {
 function parseDatasetOptions(query = {}) {
   return {
     facilityId: String(query.facilityId || '').trim() || undefined,
+    facilityIds: Array.isArray(query.facilityIds)
+      ? query.facilityIds.filter(Boolean).map((value) => String(value))
+      : String(query.facilityIds || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
     limitPatients: Math.min(Math.max(Number(query.limitPatients) || 250, 1), 2000),
     labelledOnly: normalizeBooleanQuery(query.labelledOnly, false),
     includeIdentifiers: normalizeBooleanQuery(query.includeIdentifiers, false)
@@ -268,10 +274,12 @@ async function buildTrainingDataset(user, query = {}) {
   ensureMlExportAccess(user);
 
   const options = parseDatasetOptions(query);
-  const patients = (await listPatientsForUser(user, { facilityId: options.facilityId })).slice(
-    0,
-    options.limitPatients
-  );
+  const allPatients = await listPatientsForUser(user, { facilityId: options.facilityId });
+  const facilityScope = options.facilityIds.length ? new Set(options.facilityIds) : null;
+  const patients = (facilityScope
+    ? allPatients.filter((patient) => facilityScope.has(String(patient.facilityId || '')))
+    : allPatients
+  ).slice(0, options.limitPatients);
   const rows = [];
 
   for (const patient of patients) {

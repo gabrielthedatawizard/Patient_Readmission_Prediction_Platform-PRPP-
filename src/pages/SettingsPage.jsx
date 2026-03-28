@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthProvider";
 import { useI18n } from "../context/I18nProvider";
 import { usePatient } from "../context/PatientProvider";
 import { useTask } from "../context/TaskProvider";
+import { useWorkspace } from "../context/WorkspaceProvider";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import { requestJson } from "../services/apiClient";
@@ -161,12 +162,21 @@ function HealthPill({ label, status = "unknown" }) {
 function SettingsPage() {
   const queryClient = useQueryClient();
   const { currentUser, userRole } = useAuth();
-  const { selectedFacility, isUsingOfflineData } = usePatient();
+  const { isUsingOfflineData } = usePatient();
   const {
     pendingSyncCount,
     setPendingSyncCount,
     isUsingOfflineTasks,
   } = useTask();
+  const {
+    currentScope,
+    scopeLabel,
+    facilities,
+    treeCounts,
+    facilityDirectoryCount,
+    canSwitchOperationalMode,
+    setOperationalMode,
+  } = useWorkspace();
   const { language, t } = useI18n();
   const isOnline = useConnectivityStatus();
   const [syncFeedback, setSyncFeedback] = useState("");
@@ -198,6 +208,20 @@ function SettingsPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "dhis2", "status"] });
+    },
+  });
+
+  const dhis2ImportMutation = useMutation({
+    mutationFn: () => requestJson("/integrations/dhis2/sync", {
+      method: "POST",
+      body: { dryRun: false },
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "dhis2", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "workspace", "tree"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "workspace", "facilities"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "workspace", "context"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "analytics"] });
     },
   });
 
@@ -261,7 +285,7 @@ function SettingsPage() {
                   {copy.roleSupport}: {roleLabel}
                 </span>
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
-                  {t("facility")}: {selectedFacility?.name || t("facilityFallback")}
+                  {t("facility")}: {scopeLabel.title || t("facilityFallback")}
                 </span>
               </div>
             </div>
@@ -312,7 +336,7 @@ function SettingsPage() {
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("facility")}</p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{selectedFacility?.name || t("facilityFallback")}</p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{scopeLabel.title || t("facilityFallback")}</p>
                 </div>
               </div>
             </div>
@@ -397,6 +421,118 @@ function SettingsPage() {
 
       <Card className="space-y-5 rounded-[26px] border border-slate-200/80 bg-white/95" hover={false}>
         <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-sky-50 p-3 text-sky-700">
+            <Database className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-950">Workspace scope and hierarchy</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              TRIP now separates hierarchy scope from patient state. The shell, dashboards, and DHIS2 explorer all read from this same scope contract.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Current scope</p>
+                <p className="mt-2 text-lg font-bold text-slate-950">{scopeLabel.title}</p>
+                <p className="mt-1 text-sm text-slate-600">{scopeLabel.subtitle}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Facility source</p>
+                <p className="mt-2 text-lg font-bold text-slate-950">
+                  {currentScope.facilitySource === "dhis2_demo"
+                    ? "DHIS2 demo"
+                    : currentScope.facilitySource === "dhis2_live"
+                      ? "DHIS2 live"
+                      : "Seeded local"}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {facilityDirectoryCount} visible facilities in the active scope
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Regions</p>
+                <p className="mt-2 text-2xl font-bold text-slate-950">{treeCounts?.regions || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Districts</p>
+                <p className="mt-2 text-2xl font-bold text-slate-950">{treeCounts?.districts || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Facilities</p>
+                <p className="mt-2 text-2xl font-bold text-slate-950">{treeCounts?.facilities || 0}</p>
+              </div>
+            </div>
+
+            {canSwitchOperationalMode ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operational mode</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {["normal", "sandbox"].map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setOperationalMode(mode)}
+                      className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                        currentScope.operationalMode === mode
+                          ? "border-teal-500 bg-teal-50 text-teal-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {mode === "sandbox" ? "Sandbox walkthroughs" : "Normal operations"}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-slate-600">
+                  Sandbox mode affects aggregate intelligence and model practice surfaces without mixing demo cases into normal operational records.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-950">Visible facilities</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  The active scope now drives which facilities are navigable in the workspace.
+                </p>
+              </div>
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                {facilityDirectoryCount} in scope
+              </span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {facilities.slice(0, 12).map((facility) => (
+                <div key={facility.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">{facility.name}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+                    {facility.regionCode || "UNKNOWN"} | {facility.district || "Unknown district"}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {facility.dhis2OrgUnitId ? "DHIS2-linked facility" : "Local facility record"}
+                  </p>
+                </div>
+              ))}
+              {!facilities.length ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 md:col-span-2">
+                  No facilities are visible in the current scope yet. Importing a DHIS2 hierarchy snapshot will make the demo hierarchy interactive across the workspace.
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="space-y-5 rounded-[26px] border border-slate-200/80 bg-white/95" hover={false}>
+        <div className="flex items-start gap-3">
           <div className="rounded-2xl bg-cyan-50 p-3 text-cyan-700">
             <Database className="h-5 w-5" />
           </div>
@@ -456,6 +592,15 @@ function SettingsPage() {
                 >
                   {copy.dhis2DryRun}
                 </Button>
+                <Button
+                  variant="primary"
+                  icon={<Database className="h-4 w-4" />}
+                  onClick={() => dhis2ImportMutation.mutate()}
+                  loading={dhis2ImportMutation.isPending}
+                  disabled={!dhis2Status?.configured}
+                >
+                  Import hierarchy snapshot
+                </Button>
                 {dhis2Status?.baseUrl ? (
                   <a
                     href={dhis2Status.baseUrl}
@@ -475,9 +620,21 @@ function SettingsPage() {
                 </div>
               ) : null}
 
+              {dhis2ImportMutation.isSuccess ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                  DHIS2 hierarchy snapshot imported successfully. The workspace navigator and aggregate dashboards can now use the imported facility hierarchy.
+                </div>
+              ) : null}
+
               {dhis2SyncMutation.isError ? (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
                   {copy.dhis2DryRunFailure} {dhis2SyncMutation.error?.message || ""}
+                </div>
+              ) : null}
+
+              {dhis2ImportMutation.isError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                  Live hierarchy import failed. {dhis2ImportMutation.error?.message || ""}
                 </div>
               ) : null}
             </div>

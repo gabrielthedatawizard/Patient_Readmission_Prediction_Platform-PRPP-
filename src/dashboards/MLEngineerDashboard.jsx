@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/common/Button";
+import { useWorkspace } from "../context/WorkspaceProvider";
 import {
   DashboardSkeleton,
   EmptyState,
@@ -142,6 +143,7 @@ function downloadBlob(blob, filename) {
 
 export const MLEngineerDashboard = () => {
   const navigate = useNavigate();
+  const { scopeLabel, currentScope } = useWorkspace();
   const monitoringQuery = useMlMonitoringBundleQuery();
   const [isExporting, setIsExporting] = useState("");
   const [exportError, setExportError] = useState("");
@@ -230,7 +232,7 @@ export const MLEngineerDashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">ML Operations Dashboard</h1>
           <p className="text-neutral-600 mt-1">
-            Model health, data readiness, fallback behavior, and training export operations
+            {scopeLabel.title} • {currentScope.operationalMode === "sandbox" ? "Sandbox model workspace" : "Model health, data readiness, fallback behavior, and training export operations"}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
