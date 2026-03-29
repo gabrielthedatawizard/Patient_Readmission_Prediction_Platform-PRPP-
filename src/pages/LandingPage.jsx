@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
-import OptimizedImage from "../design-system/components/OptimizedImage";
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
 
@@ -113,33 +112,65 @@ const LandingPage = ({ onLogin }) => {
     },
   ];
 
+  const heroSignals =
+    language === "sw"
+      ? [
+          { label: "Kesi hatarishi leo", value: "18" },
+          { label: "Simu za ufuatiliaji", value: "42" },
+          { label: "Vituo vinavyoripoti", value: "27" },
+        ]
+      : [
+          { label: "High-risk cases today", value: "18" },
+          { label: "Follow-up calls due", value: "42" },
+          { label: "Facilities reporting", value: "27" },
+        ];
+
+  const heroWorkflow =
+    language === "sw"
+      ? [
+          "Ukaguzi wa kuondoka wodini",
+          "Uhakiki wa dawa na elimu",
+          "Mpango wa simu na CHW baada ya kuondoka",
+        ]
+      : [
+          "Ward discharge review",
+          "Medication and education check",
+          "Post-discharge calls and CHW follow-up",
+        ];
+
   const careSnapshots = [
     {
-      image: "/images/impact-consultation.svg",
-      alt:
-        language === "sw"
-          ? "Daktari akipitia taarifa za mgonjwa kabla ya kuondoka hospitalini."
-          : "Clinician reviewing patient discharge information before discharge.",
+      eyebrow: language === "sw" ? "Uamuzi wa kliniki" : "Clinical decision support",
       title: t("landingFeature1Title"),
       description: t("landingFeature1Desc"),
+      metric: language === "sw" ? "Kesi 12 zimepitiwa leo" : "12 cases reviewed today",
+      tone: "from-teal-600 to-cyan-600",
+      highlights:
+        language === "sw"
+          ? ["Muhtasari wa hatari", "Checklist ya kuondoka", "Hatua za kliniki"]
+          : ["Risk snapshot", "Discharge checklist", "Clinical actions"],
     },
     {
-      image: "/images/impact-medication.svg",
-      alt:
-        language === "sw"
-          ? "Muuguzi na mfamasia wakikagua hatua za dawa na elimu ya mgonjwa."
-          : "Nurse and pharmacist reviewing medication and patient education steps.",
+      eyebrow: language === "sw" ? "Usalama wa dawa" : "Medication safety",
       title: t("landingFeature2Title"),
       description: t("landingFeature2Desc"),
+      metric: language === "sw" ? "Mapitio 8 ya dawa yamekamilika" : "8 medication reviews completed",
+      tone: "from-sky-600 to-indigo-600",
+      highlights:
+        language === "sw"
+          ? ["Dawa za kuendelea", "Elimu ya mgonjwa", "Tahadhari za allergy"]
+          : ["Continue meds", "Patient education", "Allergy alerts"],
     },
     {
-      image: "/images/impact-community.svg",
-      alt:
-        language === "sw"
-          ? "Mfuatiliaji wa jamii akiratibu huduma baada ya mgonjwa kuondoka."
-          : "Community follow-up coordination after a patient leaves the facility.",
+      eyebrow: language === "sw" ? "Ufuatiliaji wa jamii" : "Community follow-up",
       title: t("landingFeature4Title"),
       description: t("landingFeature4Desc"),
+      metric: language === "sw" ? "Ziara 6 za nyumbani zimepangwa" : "6 home visits scheduled",
+      tone: "from-emerald-600 to-teal-700",
+      highlights:
+        language === "sw"
+          ? ["Simu ya siku 3", "Ziara ya CHW", "Kengele za kukosa huduma"]
+          : ["Day-3 calls", "CHW visits", "Missed follow-up alerts"],
     },
   ];
 
@@ -326,14 +357,79 @@ const LandingPage = ({ onLogin }) => {
               </button>
             </div>
 
-            <div className="mt-12 max-w-5xl mx-auto overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-2xl shadow-teal-100/70">
-              <OptimizedImage
-                src="/images/hero-tanzania-care.svg"
-                alt={t("landingHeroImageAlt")}
-                className="h-64 sm:h-72 lg:h-80"
-                imgClassName="object-cover"
-                loading="eager"
-              />
+            <div className="mt-12 max-w-5xl mx-auto overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl shadow-teal-100/70">
+              <div className="grid gap-0 lg:grid-cols-[1.25fr,0.95fr]">
+                <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,_rgba(45,212,191,0.28),_transparent_30%),linear-gradient(140deg,_#0f766e,_#0f172a)] px-6 py-8 text-white sm:px-8 sm:py-10">
+                  <div className="absolute -right-12 top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                  <div className="absolute -left-10 bottom-6 h-28 w-28 rounded-full bg-cyan-300/15 blur-2xl" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-teal-100">
+                    {language === "sw" ? "Mtazamo wa kituo hai" : "Live facility command view"}
+                  </p>
+                  <h3 className="mt-4 text-2xl font-bold sm:text-3xl">
+                    {language === "sw"
+                      ? "TRIP huweka timu, hatari, na ufuatiliaji kwenye mwonekano mmoja."
+                      : "TRIP brings teams, risk, and follow-up into one live view."}
+                  </h3>
+                  <p className="mt-4 max-w-xl text-sm leading-7 text-teal-50/90 sm:text-base">
+                    {language === "sw"
+                      ? "Badala ya vielelezo vya bandia, ukurasa huu sasa unaonyesha jinsi jukwaa linavyopanga maamuzi ya kuondoka, kazi za ufuatiliaji, na mwonekano wa vituo."
+                      : "Instead of abstract filler art, this view now shows how the platform organizes discharge review, follow-up work, and facility visibility."}
+                  </p>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                    {heroSignals.map((signal) => (
+                      <div key={signal.label} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-50/70">
+                          {signal.label}
+                        </p>
+                        <p className="mt-2 text-2xl font-bold text-white">{signal.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 px-6 py-8 sm:px-8 sm:py-10">
+                  <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-lg">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          {language === "sw" ? "Mtiririko wa siku" : "Daily care flow"}
+                        </p>
+                        <p className="mt-1 text-lg font-bold text-slate-950">TRIP Platform</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        {language === "sw" ? "Hai" : "Live"}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      {heroWorkflow.map((step, index) => (
+                        <div key={step} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-sm font-bold text-white">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{step}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {index === 0
+                                ? language === "sw"
+                                  ? "Hatari, hatua, na utayari wa kuondoka"
+                                  : "Risk, actions, and discharge readiness"
+                                : index === 1
+                                  ? language === "sw"
+                                    ? "Dawa, elimu, na makabidhiano"
+                                    : "Medication, education, and handoff checks"
+                                  : language === "sw"
+                                    ? "Simu, ziara, na tahadhari za jamii"
+                                    : "Calls, visits, and community escalation"}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="mt-16 pt-8 border-t border-gray-100">
@@ -394,12 +490,22 @@ const LandingPage = ({ onLogin }) => {
                 key={snapshot.title}
                 className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-xl"
               >
-                <OptimizedImage
-                  src={snapshot.image}
-                  alt={snapshot.alt}
-                  className="h-52 w-full"
-                  imgClassName="object-cover"
-                />
+                <div className={`bg-gradient-to-br ${snapshot.tone} px-5 py-6 text-white`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/80">
+                    {snapshot.eyebrow}
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-white/90">{snapshot.metric}</p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {snapshot.highlights.map((highlight) => (
+                      <span
+                        key={highlight}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white"
+                      >
+                        {highlight}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <div className="p-5 sm:p-6">
                   <h3 className="text-lg font-bold text-gray-900">
                     {snapshot.title}
@@ -485,13 +591,30 @@ const LandingPage = ({ onLogin }) => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-blue-500 rounded-3xl transform rotate-3 opacity-10" />
               <div className="relative bg-white p-6 sm:p-8 rounded-3xl shadow-xl">
-                <div className="mb-6 overflow-hidden rounded-[24px] border border-gray-100">
-                  <OptimizedImage
-                    src="/images/hero-tanzania-care.svg"
-                    alt={t("landingHeroImageAlt")}
-                    className="h-52 sm:h-56"
-                    imgClassName="object-cover"
-                  />
+                <div className="mb-6 rounded-[24px] border border-slate-200 bg-slate-950 p-5 text-white shadow-inner">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-200">
+                    {language === "sw" ? "Muhtasari wa utendaji" : "Operational snapshot"}
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-100/70">
+                        {language === "sw" ? "Hatari ya juu" : "High risk"}
+                      </p>
+                      <p className="mt-2 text-3xl font-bold">12</p>
+                      <p className="mt-1 text-xs text-slate-200">
+                        {language === "sw" ? "Kesi zinahitaji hatua leo" : "Cases requiring action today"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-100/70">
+                        {language === "sw" ? "Ufuatiliaji" : "Follow-up"}
+                      </p>
+                      <p className="mt-2 text-3xl font-bold">91%</p>
+                      <p className="mt-1 text-xs text-slate-200">
+                        {language === "sw" ? "Kazi zilizokamilika ndani ya muda" : "Tasks completed on time"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4 mb-6">

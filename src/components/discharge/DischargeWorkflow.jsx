@@ -1243,16 +1243,23 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     </div>
   );
 
-  const stepComponents = [
-    ClinicalReadinessStep,
-    MedicationStep,
-    EducationStep,
-    FollowupStep,
-    ReferralStep,
-    SummaryStep
-  ];
-
-  const CurrentStepComponent = stepComponents[currentStep];
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case 0:
+        return ClinicalReadinessStep();
+      case 1:
+        return MedicationStep();
+      case 2:
+        return EducationStep();
+      case 3:
+        return FollowupStep();
+      case 4:
+        return ReferralStep();
+      case 5:
+      default:
+        return SummaryStep();
+    }
+  };
 
   const handleCompleteDischarge = async () => {
     markStepComplete(currentStep);
@@ -1360,7 +1367,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-6">
           {steps[currentStep].label}
         </h2>
-        <CurrentStepComponent />
+        {renderCurrentStep()}
       </Card>
 
       {/* Navigation Buttons */}

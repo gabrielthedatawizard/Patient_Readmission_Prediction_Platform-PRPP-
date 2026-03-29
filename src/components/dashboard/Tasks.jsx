@@ -26,6 +26,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [actionError, setActionError] = useState("");
+  const canOpenPatient = typeof onPatientSelect === "function";
 
   const priorityLabels = {
     high: language === "sw" ? "Kipaumbele cha juu" : "High priority",
@@ -90,6 +91,7 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
     ).length,
     completed: normalizedTasks.filter((task) => task.status === "completed").length,
   };
+  const filtersActive = filter !== "all" || priorityFilter !== "all";
 
   const getTaskIcon = (category, type) => {
     switch (category) {
@@ -162,9 +164,23 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
           <Button
             variant="secondary"
             icon={<Filter className="w-4 h-4" />}
-            onClick={() => setFilter((previous) => (previous === "all" ? "pending" : "all"))}
+            onClick={() => {
+              if (filtersActive) {
+                setFilter("all");
+                setPriorityFilter("all");
+                return;
+              }
+
+              setFilter("pending");
+            }}
           >
-            {t("filter")}
+            {filtersActive
+              ? language === "sw"
+                ? "Ondoa vichujio"
+                : "Reset filters"
+              : language === "sw"
+                ? "Onyesha kazi zinazosubiri"
+                : "Show pending"}
           </Button>
         </div>
       </div>
@@ -197,7 +213,9 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
         ].map((entry) => (
           <button
             key={entry.id}
+            type="button"
             onClick={() => setFilter(entry.id)}
+            aria-pressed={filter === entry.id}
             className={`rounded-lg px-4 py-2 font-medium transition-all ${
               filter === entry.id
                 ? "bg-teal-600 text-white"
@@ -363,4 +381,3 @@ const Tasks = ({ onPatientSelect, onTaskUpdate, tasks = [], patients = [] }) => 
 };
 
 export default Tasks;
-  const canOpenPatient = typeof onPatientSelect === "function";

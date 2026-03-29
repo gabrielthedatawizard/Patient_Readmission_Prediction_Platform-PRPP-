@@ -6,6 +6,7 @@ const Sidebar = ({
   onClose,
   collapsed = false,
   title = "TRIP",
+  header,
   children,
   footer,
 }) => {
@@ -27,8 +28,9 @@ const Sidebar = ({
           w-screen max-w-none transform transition-transform duration-300 ease-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           shadow-2xl
-          lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100vh-4rem)]
-          lg:translate-x-0 lg:shadow-none lg:max-w-none lg:w-auto lg:rounded-r-3xl
+          lg:sticky lg:top-20 lg:bottom-auto lg:my-4 lg:ml-4 lg:h-[calc(100vh-6rem)]
+          lg:translate-x-0 lg:max-w-none lg:w-auto lg:rounded-3xl lg:border lg:border-slate-200 lg:bg-white/92 lg:shadow-[0_20px_40px_rgba(15,23,42,0.08)]
+          dark:lg:border-slate-800 dark:lg:bg-slate-950/92
           ${collapsed ? "lg:w-[5.25rem]" : "lg:w-72"}
         `}
       >
@@ -47,6 +49,7 @@ const Sidebar = ({
         </div>
 
         <div className="h-full flex flex-col overflow-hidden lg:pt-3">
+          {header}
           <div className="flex-1 overflow-y-auto">{children}</div>
           {footer}
         </div>

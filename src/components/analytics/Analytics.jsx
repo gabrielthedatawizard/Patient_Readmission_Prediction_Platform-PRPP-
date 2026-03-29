@@ -586,8 +586,9 @@ const Analytics = () => {
                 setDateRange("30d");
                 setSelectedRegion("all");
               }}
+              disabled={dateRange === "30d" && selectedRegion === "all"}
             >
-              Filter
+              Reset filters
             </Button>
           </div>
 

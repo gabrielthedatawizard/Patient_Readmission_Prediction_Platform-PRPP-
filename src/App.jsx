@@ -12,6 +12,8 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   Users,
   Wifi,
@@ -48,6 +50,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
 import Card from "./components/common/Card";
 import WorkspaceScopeBar from "./components/workspace/WorkspaceScopeBar";
+import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
 
 // Lazy Loaded Dashboards & Views
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
@@ -69,6 +72,16 @@ const MLEngineerDashboard = lazy(() => import("./dashboards/MLEngineerDashboard"
 const resolveRoutePatient = (patientId, patients, selectedPatient) =>
   patients.find((patient) => patient.id === patientId) ||
   (selectedPatient?.id === patientId ? selectedPatient : null);
+
+const SIDEBAR_PREFERENCE_KEY = "trip_sidebar_collapsed_v2";
+
+function readSidebarPreference() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY) === "collapsed";
+}
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isBootstrapping } = useAuth();
@@ -158,7 +171,7 @@ const Layout = ({ children }) => {
   const { riskAlerts, notifications, showNotifications, setShowNotifications } = useAlert();
   const { scopeLabel, canBrowseHierarchy, canSwitchOperationalMode } = useWorkspace();
   const isOnline = useConnectivityStatus();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarPreference);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -181,6 +194,26 @@ const Layout = ({ children }) => {
       };
 
   const totalNotifications = notifications.length + riskAlerts.length;
+  const navToggleCopy =
+    language === "sw"
+      ? {
+          open: "Panua menyu",
+          close: "Finya menyu",
+          shortcut: "Ctrl+B",
+          mobile: "Fungua menyu",
+          rail: "Urambazaji",
+          quickSettings: "Mipangilio",
+          quickLogout: "Ondoka",
+        }
+      : {
+          open: "Expand menu",
+          close: "Collapse menu",
+          shortcut: "Ctrl+B",
+          mobile: "Open menu",
+          rail: "Navigation",
+          quickSettings: "Settings",
+          quickLogout: "Logout",
+        };
   const navItems = [
     { id: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { id: "/patients", label: t("patients"), icon: Users },
@@ -189,6 +222,22 @@ const Layout = ({ children }) => {
     { id: "/settings", label: t("settings"), icon: Settings2 },
   ].filter((item) => getAllowedWorkspaceNavIds(userRole).includes(item.id));
   const canViewNotifications = canReceiveOperationalNotifications(userRole);
+  const toggleDesktopSidebar = React.useCallback(() => {
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }, []);
+
+  useKeyboardShortcut("b", toggleDesktopSidebar);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      SIDEBAR_PREFERENCE_KEY,
+      sidebarCollapsed ? "collapsed" : "expanded",
+    );
+  }, [sidebarCollapsed]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
@@ -198,15 +247,28 @@ const Layout = ({ children }) => {
             <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
+                aria-label={navToggleCopy.mobile}
+                aria-expanded={isMobileSidebarOpen}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:hover:bg-slate-800 dark:focus-visible:ring-offset-slate-950"
               >
                 <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
               </button>
               <button
-                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-                className="hidden lg:inline-flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
+                type="button"
+                onClick={toggleDesktopSidebar}
+                aria-label={sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}
+                title={`${sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close} (${navToggleCopy.shortcut})`}
+                className="hidden lg:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900 dark:focus-visible:ring-offset-slate-950"
               >
-                <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="w-4 h-4" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4" />
+                )}
+                <span>{sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  {navToggleCopy.shortcut}
+                </span>
               </button>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center">
@@ -301,8 +363,40 @@ const Layout = ({ children }) => {
           onClose={() => setIsMobileSidebarOpen(false)}
           collapsed={sidebarCollapsed}
           title={t("navigation")}
+          header={
+            <div className="hidden lg:block px-3 pt-3">
+              <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900`}>
+                {!sidebarCollapsed ? (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {navToggleCopy.rail}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {scopeLabel.badge || t("nationalView")}
+                    </p>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={toggleDesktopSidebar}
+                  aria-label={sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}
+                  title={`${sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close} (${navToggleCopy.shortcut})`}
+                  className={`group relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900 dark:focus-visible:ring-offset-slate-950 ${sidebarCollapsed ? "" : "shrink-0"}`}
+                >
+                  {sidebarCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" />
+                  )}
+                  <span className="pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-xl group-hover:block group-focus-visible:block dark:bg-slate-100 dark:text-slate-950">
+                    {sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}
+                  </span>
+                </button>
+              </div>
+            </div>
+          }
           footer={
-            (!sidebarCollapsed || isMobileSidebarOpen) && (
+            (!sidebarCollapsed || isMobileSidebarOpen) ? (
               <div className="p-4 mt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -323,12 +417,42 @@ const Layout = ({ children }) => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 transition-all mt-2"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="font-medium text-sm">{t("logout")}</span>
                 </button>
+              </div>
+            ) : (
+              <div className="mt-3 border-t border-slate-200 p-3 dark:border-slate-800">
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/settings")}
+                    aria-label={navToggleCopy.quickSettings}
+                    title={navToggleCopy.quickSettings}
+                    className="group relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900 dark:focus-visible:ring-offset-slate-950"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    <span className="pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-xl group-hover:block group-focus-visible:block dark:bg-slate-100 dark:text-slate-950">
+                      {navToggleCopy.quickSettings}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    aria-label={navToggleCopy.quickLogout}
+                    title={navToggleCopy.quickLogout}
+                    className="group relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition-all hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-950 dark:focus-visible:ring-offset-slate-950"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-xl group-hover:block group-focus-visible:block dark:bg-slate-100 dark:text-slate-950">
+                      {navToggleCopy.quickLogout}
+                    </span>
+                  </button>
+                </div>
               </div>
             )
           }
@@ -341,24 +465,34 @@ const Layout = ({ children }) => {
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => {
                     navigate(item.id);
                     setIsMobileSidebarOpen(false);
                   }}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={item.label}
+                  title={sidebarCollapsed && !isMobileSidebarOpen ? item.label : undefined}
                   className={`
-                    w-full flex items-center ${sidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "gap-3"}
+                    group relative w-full flex items-center ${sidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "gap-3"}
                     px-3 py-2.5 rounded-xl transition-all
                     ${
                       isActive
                         ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white"
                         : "hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300"
                     }
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
                   `}
                 >
                   <Icon className="w-4 h-4" />
                   {(!sidebarCollapsed || isMobileSidebarOpen) && (
                     <span className="font-medium text-sm">{item.label}</span>
                   )}
+                  {sidebarCollapsed && !isMobileSidebarOpen ? (
+                    <span className="pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-xl group-hover:block group-focus-visible:block dark:bg-slate-100 dark:text-slate-950">
+                      {item.label}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
