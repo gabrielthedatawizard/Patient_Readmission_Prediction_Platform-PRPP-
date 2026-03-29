@@ -89,6 +89,7 @@ async function buildSchemaHealth(database) {
       facilityDhis2Fields: Boolean(capabilities.facilityDhis2Fields),
       visitStructuredFields: Boolean(capabilities.visitStructuredFields),
       predictionMlFields: Boolean(capabilities.predictionMlFields),
+      userScopeAssignments: Boolean(capabilities.userScopeAssignments),
       hasAlertTable: Boolean(capabilities.hasAlertTable)
     },
     missing

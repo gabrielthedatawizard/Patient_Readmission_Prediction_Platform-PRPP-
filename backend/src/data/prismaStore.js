@@ -31,6 +31,12 @@ function mapStatusToDb(status) {
   return status;
 }
 
+function normalizeRole(role) {
+  return String(role || '')
+    .trim()
+    .toLowerCase();
+}
+
 function toPublicUser(user) {
   if (!user) {
     return null;
@@ -46,6 +52,8 @@ function toPublicUser(user) {
     role,
     facilityId: user.facilityId || null,
     regionCode,
+    district: user.district || null,
+    ward: user.ward || null,
     mfaEnabled: Boolean(user.mfaEnabled)
   };
 }
@@ -71,6 +79,31 @@ const REGION_SELECT = {
   code: true,
   name: true
 };
+
+function buildUserSelect(capabilities = {}) {
+  return {
+    id: true,
+    email: true,
+    passwordHash: true,
+    fullName: true,
+    facilityId: true,
+    mfaEnabled: true,
+    role: {
+      select: {
+        slug: true
+      }
+    },
+    region: {
+      select: REGION_SELECT
+    },
+    ...(capabilities.userScopeAssignments
+      ? {
+          district: true,
+          ward: true
+        }
+      : {})
+  };
+}
 
 function isSchemaMismatchError(error) {
   return error?.code === 'P2021' || error?.code === 'P2022';
@@ -98,6 +131,135 @@ function normalizeText(value) {
   return String(value || '')
     .trim()
     .toLowerCase();
+}
+
+function getAssignedDistrict(user) {
+  const district = String(user?.district || '').trim();
+  return district || null;
+}
+
+function getAssignedWard(user) {
+  const role = normalizeRole(user?.role);
+  if (role !== 'clinician' && role !== 'nurse') {
+    return null;
+  }
+
+  const ward = String(user?.ward || '').trim();
+  return ward || null;
+}
+
+function buildWardScopedPatientConstraint(user, accessibleFacilityIds = []) {
+  const ward = getAssignedWard(user);
+  if (!ward) {
+    return null;
+  }
+
+  const visitScope =
+    accessibleFacilityIds.length > 0
+      ? {
+          facilityId: {
+            in: accessibleFacilityIds
+          }
+        }
+      : user?.facilityId
+        ? {
+            facilityId: String(user.facilityId)
+          }
+        : {};
+
+  return {
+    OR: [
+      {
+        visits: {
+          none: {}
+        }
+      },
+      {
+        visits: {
+          some: {
+            ...visitScope,
+            ward,
+            dischargeDate: null
+          }
+        }
+      },
+      {
+        AND: [
+          {
+            visits: {
+              none: {
+                dischargeDate: null
+              }
+            }
+          },
+          {
+            visits: {
+              some: {
+                ...visitScope,
+                ward
+              }
+            }
+          }
+        ]
+      }
+    ]
+  };
+}
+
+async function patientMatchesAssignedWard(user, patient) {
+  const wardConstraint = buildWardScopedPatientConstraint(
+    user,
+    patient?.facilityId ? [String(patient.facilityId)] : []
+  );
+
+  if (!wardConstraint || !patient?.id) {
+    return true;
+  }
+
+  const match = await prisma.patient.findFirst({
+    where: {
+      id: patient.id,
+      facilityId: patient.facilityId,
+      AND: [wardConstraint]
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return Boolean(match);
+}
+
+async function canAccessPatientId(user, patientId, facilityId = null) {
+  if (!patientId) {
+    return false;
+  }
+
+  const patient = facilityId
+    ? {
+        id: patientId,
+        facilityId
+      }
+    : await getPatientById(patientId);
+
+  if (!patient) {
+    return false;
+  }
+
+  if (!(await canAccessFacility(user, patient.facilityId))) {
+    return false;
+  }
+
+  return patientMatchesAssignedWard(user, patient);
+}
+
+function canAccessVisitWard(user, visit) {
+  const assignedWard = getAssignedWard(user);
+  if (!assignedWard) {
+    return true;
+  }
+
+  return String(visit?.ward || '').trim() === assignedWard;
 }
 
 function buildFacilitySyncIndex(facilities = [], capabilities = {}) {
@@ -451,7 +613,8 @@ async function resolveAccessibleFacilityIds(user) {
     return [];
   }
 
-  if (user.role === 'moh' || user.role === 'ml_engineer') {
+  const role = normalizeRole(user.role);
+  if (role === 'moh' || role === 'ml_engineer') {
     const facilities = await prisma.facility.findMany({
       select: { id: true }
     });
@@ -459,13 +622,19 @@ async function resolveAccessibleFacilityIds(user) {
     return facilities.map((facility) => facility.id);
   }
 
-  if (user.role === 'rhmt' || user.role === 'chmt') {
+  if (role === 'rhmt' || role === 'chmt') {
+    const where = {
+      region: {
+        code: user.regionCode
+      }
+    };
+    const district = getAssignedDistrict(user);
+    if (role === 'chmt' && district) {
+      where.district = district;
+    }
+
     const facilities = await prisma.facility.findMany({
-      where: {
-        region: {
-          code: user.regionCode
-        }
-      },
+      where,
       select: { id: true }
     });
 
@@ -696,22 +865,12 @@ async function getUserByEmail(email) {
     return null;
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   return prisma.user.findUnique({
     where: {
       email: String(email).toLowerCase()
     },
-    include: {
-      role: {
-        select: {
-          slug: true
-        }
-      },
-      region: {
-        select: {
-          code: true
-        }
-      }
-    }
+    select: buildUserSelect(capabilities)
   });
 }
 
@@ -720,20 +879,10 @@ async function getUserById(id) {
     return null;
   }
 
+  const capabilities = await getDatabaseSchemaCapabilities();
   return prisma.user.findUnique({
     where: { id },
-    include: {
-      role: {
-        select: {
-          slug: true
-        }
-      },
-      region: {
-        select: {
-          code: true
-        }
-      }
-    }
+    select: buildUserSelect(capabilities)
   });
 }
 
@@ -747,7 +896,11 @@ async function canAccessPatient(user, patient) {
     return false;
   }
 
-  return canAccessFacility(user, patient.facilityId);
+  if (!(await canAccessFacility(user, patient.facilityId))) {
+    return false;
+  }
+
+  return patientMatchesAssignedWard(user, patient);
 }
 
 async function listPatientsForUser(user, filters = {}) {
@@ -762,6 +915,10 @@ async function listPatientsForUser(user, filters = {}) {
       in: accessibleFacilityIds
     }
   };
+  const wardConstraint = buildWardScopedPatientConstraint(user, accessibleFacilityIds);
+  if (wardConstraint) {
+    where.AND = [wardConstraint];
+  }
 
   if (filters.facilityId) {
     if (!accessibleFacilityIds.includes(filters.facilityId)) {
@@ -812,8 +969,7 @@ async function getPatientForUser(user, patientId) {
     return null;
   }
 
-  const canAccess = await canAccessPatient(user, patient);
-  if (!canAccess) {
+  if (!(await canAccessPatient(user, patient))) {
     return null;
   }
 
@@ -847,6 +1003,10 @@ async function getVisitForUser(user, visitId) {
     return null;
   }
 
+  if (!canAccessVisitWard(user, visit)) {
+    return null;
+  }
+
   return visit;
 }
 
@@ -868,7 +1028,9 @@ async function listVisitsForPatient(user, patientId) {
     }
   });
 
-  return visits.map(mapVisit);
+  return visits
+    .map(mapVisit)
+    .filter((visit) => canAccessVisitWard(user, visit));
 }
 
 async function createPatientForUser(user, payload) {
@@ -948,6 +1110,11 @@ async function createVisitForUser(user, patientId, payload = {}) {
   if (!(await canAccessFacility(user, facilityId))) {
     throw new Error('You do not have access to create an encounter in this facility.');
   }
+  const assignedWard = getAssignedWard(user);
+  const requestedWard = String(payload.ward || '').trim();
+  if (assignedWard && requestedWard && requestedWard !== assignedWard) {
+    throw new Error('You do not have access to record encounters outside your assigned ward.');
+  }
 
   const capabilities = await getDatabaseSchemaCapabilities();
   const visit = await prisma.visit.create({
@@ -964,7 +1131,7 @@ async function createVisitForUser(user, patientId, payload = {}) {
       vitalSigns: payload.vitalSigns || null,
       socialFactors: payload.socialFactors || null,
       dischargeDisposition: payload.dischargeDisposition || null,
-      ward: payload.ward || 'General',
+      ward: requestedWard || assignedWard || 'General',
       lengthOfStay: payload.lengthOfStay ?? null
     }, capabilities),
     select: buildVisitSelect(capabilities)
@@ -1016,7 +1183,7 @@ async function getPredictionForUser(user, predictionId) {
     return null;
   }
 
-  if (!(await canAccessFacility(user, prediction.facilityId))) {
+  if (!(await canAccessPatientId(user, prediction.patientId, prediction.facilityId))) {
     return null;
   }
 
@@ -1057,7 +1224,7 @@ async function updatePredictionOverrideForUser(user, predictionId, overridePaylo
     return null;
   }
 
-  if (!(await canAccessFacility(user, current.facilityId))) {
+  if (!(await canAccessPatientId(user, current.patientId, current.facilityId))) {
     return null;
   }
 
@@ -1151,7 +1318,19 @@ async function listTasksForUser(user, filters = {}) {
     }
   });
 
-  return tasks.map(mapTask);
+  const mappedTasks = tasks.map(mapTask);
+  if (!getAssignedWard(user)) {
+    return mappedTasks;
+  }
+
+  const visibility = await Promise.all(
+    mappedTasks.map(async (task) => ({
+      task,
+      allowed: await canAccessPatientId(user, task.patientId, task.facilityId)
+    }))
+  );
+
+  return visibility.filter((entry) => entry.allowed).map((entry) => entry.task);
 }
 
 async function getTaskForUser(user, taskId) {
@@ -1169,7 +1348,7 @@ async function getTaskForUser(user, taskId) {
     return null;
   }
 
-  if (!(await canAccessFacility(user, task.facilityId))) {
+  if (!(await canAccessPatientId(user, task.patientId, task.facilityId))) {
     return null;
   }
 
@@ -1187,7 +1366,7 @@ async function updateTaskForUser(user, taskId, patch) {
     return null;
   }
 
-  if (!(await canAccessFacility(user, current.facilityId))) {
+  if (!(await canAccessPatientId(user, current.patientId, current.facilityId))) {
     return null;
   }
 
@@ -1317,7 +1496,19 @@ async function listAlertsForUser(user, filters = {}) {
       take
     });
 
-    return alerts.map(mapAlert);
+    const mappedAlerts = alerts.map(mapAlert);
+    if (!getAssignedWard(user)) {
+      return mappedAlerts;
+    }
+
+    const visibility = await Promise.all(
+      mappedAlerts.map(async (alert) => ({
+        alert,
+        allowed: await canAccessPatientId(user, alert.patientId, alert.facilityId)
+      }))
+    );
+
+    return visibility.filter((entry) => entry.allowed).map((entry) => entry.alert);
   } catch (error) {
     if (isSchemaMismatchError(error)) {
       return [];
@@ -1356,7 +1547,7 @@ async function getAlertForUser(user, alertId) {
     return null;
   }
 
-  if (!(await canAccessFacility(user, alert.facilityId))) {
+  if (!(await canAccessPatientId(user, alert.patientId, alert.facilityId))) {
     return null;
   }
 
@@ -1388,7 +1579,7 @@ async function updateAlertForUser(user, alertId, patch = {}) {
     return null;
   }
 
-  if (!(await canAccessFacility(user, current.facilityId))) {
+  if (!(await canAccessPatientId(user, current.patientId, current.facilityId))) {
     return null;
   }
 

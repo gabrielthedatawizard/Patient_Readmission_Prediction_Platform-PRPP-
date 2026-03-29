@@ -566,7 +566,7 @@ Done when:
 
 ### Slice 12E. Role Precision and Hierarchy Refinement
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Tighten the remaining role-scope approximations without forcing a disruptive role-model rewrite.
@@ -575,6 +575,18 @@ Focus:
 - District assignment fields for CHMT
 - Ward assignment fields for clinician and nurse
 - Better shell labels and hierarchy drill-down semantics where needed
+
+Progress:
+- Added optional `district` and `ward` user assignment fields to the Prisma schema and seeded demo users with concrete CHMT and clinician/nurse assignments.
+- Extended auth/public-user payloads and workspace context so assignment data is available without leaking stale facility labels.
+- Tightened CHMT access from broad region scope to district scope when a district assignment exists.
+- Tightened clinician/nurse patient, task, prediction, alert, and visit access to assigned wards when visit data is present, while preserving compatibility for legacy rows with no visit history.
+- Surfaced user-scope assignment schema readiness in health/settings compatibility reporting.
+
+Verification:
+- backend `node --check` on `prismaStore.js`, `store.js`, `workspaceScopeService.js`, and `systemHealth.js`
+- frontend `lint`
+- frontend `build`
 
 Done when:
 - RHMT, CHMT, clinician, and nurse scopes are enforceable with fewer inferred fallbacks.

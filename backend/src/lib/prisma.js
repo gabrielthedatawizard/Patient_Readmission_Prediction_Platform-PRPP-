@@ -58,7 +58,7 @@ async function detectDatabaseSchemaCapabilities(client) {
       SELECT table_name AS "tableName", column_name AS "columnName"
       FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND table_name IN ('Patient', 'Facility', 'Visit', 'Prediction', 'Alert')
+        AND table_name IN ('Patient', 'Facility', 'Visit', 'Prediction', 'Alert', 'User')
     `);
 
     const columnsByTable = new Map();
@@ -106,6 +106,11 @@ async function detectDatabaseSchemaCapabilities(client) {
         requiredColumns: ['probability', 'method', 'featureSnapshot', 'analysisSummary'],
         description: 'Prediction ML metadata columns'
       },
+      userScopeAssignments: {
+        table: 'User',
+        requiredColumns: ['district', 'ward'],
+        description: 'User district and ward assignment columns'
+      },
       hasAlertTable: {
         table: 'Alert',
         requiredColumns: [],
@@ -144,6 +149,7 @@ async function detectDatabaseSchemaCapabilities(client) {
       facilityDhis2Fields: false,
       visitStructuredFields: false,
       predictionMlFields: false,
+      userScopeAssignments: false,
       hasAlertTable: false,
       status: 'unknown',
       missing: [],

@@ -1246,6 +1246,7 @@ function SettingsPage() {
                       ["Facility DHIS2 fields", schemaStatus.capabilities?.facilityDhis2Fields],
                       ["Structured visit fields", schemaStatus.capabilities?.visitStructuredFields],
                       ["Prediction ML fields", schemaStatus.capabilities?.predictionMlFields],
+                      ["User scope assignments", schemaStatus.capabilities?.userScopeAssignments],
                       ["Alert table", schemaStatus.capabilities?.hasAlertTable],
                     ].map(([label, enabled]) => (
                       <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">

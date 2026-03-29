@@ -49,7 +49,7 @@ export function buildScopeLabel(scope = {}, currentUser = null) {
     return {
       title: scope.facilityName || "Facility workspace",
       subtitle:
-        [scope.district, scope.regionName || scope.regionCode].filter(Boolean).join(" • ") ||
+        [scope.district, scope.regionName || scope.regionCode].filter(Boolean).join(" | ") ||
         "Facility operations",
       badge:
         scope.facilitySource === "dhis2_demo"
@@ -64,7 +64,7 @@ export function buildScopeLabel(scope = {}, currentUser = null) {
     return {
       title: scope.district || "District workspace",
       subtitle:
-        [scope.regionName || scope.regionCode, "District view"].filter(Boolean).join(" • ") ||
+        [scope.regionName || scope.regionCode, "District view"].filter(Boolean).join(" | ") ||
         "District oversight",
       badge: "District scope",
     };
@@ -81,7 +81,7 @@ export function buildScopeLabel(scope = {}, currentUser = null) {
   return {
     title: "Tanzania National View",
     subtitle:
-      currentUser?.role === "ml-engineer"
+      currentUser?.role === "ml-engineer" || currentUser?.role === "ml_engineer"
         ? "Anonymised national model workspace"
         : "National intelligence workspace",
     badge: "National scope",

@@ -23,13 +23,13 @@ const facilities = [
 
 const roleAssignments = {
   facility_manager: { facilityId: 'FAC-MNH-001' },
-  clinician: { facilityId: 'FAC-ARH-001' },
-  nurse: { facilityId: 'FAC-ARH-001' },
+  clinician: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
+  nurse: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
   pharmacist: { facilityId: 'FAC-MWZ-001' },
   hro: { facilityId: 'FAC-DOD-001' },
   chw: { facilityId: 'FAC-DOD-001' },
   rhmt: { regionCode: 'DAR' },
-  chmt: { regionCode: 'ARU' }
+  chmt: { regionCode: 'ARU', district: 'Arusha' }
 };
 
 const patientSeeds = [
@@ -204,6 +204,8 @@ async function seedUsers(roleMap, regionMap) {
         roleId: role.id,
         facilityId: assignment.facilityId || null,
         regionId,
+        district: assignment.district || null,
+        ward: assignment.ward || null,
         mfaEnabled: false,
         mfaSecret: null
       },
@@ -214,6 +216,8 @@ async function seedUsers(roleMap, regionMap) {
         roleId: role.id,
         facilityId: assignment.facilityId || null,
         regionId,
+        district: assignment.district || null,
+        ward: assignment.ward || null,
         mfaEnabled: false,
         mfaSecret: null
       }

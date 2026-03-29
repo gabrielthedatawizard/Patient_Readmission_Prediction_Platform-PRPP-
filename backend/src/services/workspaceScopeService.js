@@ -42,15 +42,24 @@ function filterFacilitiesForUser(user, facilities = []) {
   const role = normalizeRole(user?.role);
   const regionCode = normalizeRegionCode(user?.regionCode);
   const facilityId = normalizeText(user?.facilityId);
+  const district = normalizeText(user?.district);
 
   if (role === 'moh' || role === 'ml_engineer') {
     return facilities;
   }
 
   if (role === 'rhmt' || role === 'chmt') {
-    return facilities.filter(
-      (facility) => normalizeRegionCode(facility?.regionCode) === regionCode
-    );
+    return facilities.filter((facility) => {
+      if (normalizeRegionCode(facility?.regionCode) !== regionCode) {
+        return false;
+      }
+
+      if (role === 'chmt' && district) {
+        return normalizeText(facility?.district) === district;
+      }
+
+      return true;
+    });
   }
 
   if (!facilityId) {
@@ -284,7 +293,8 @@ function buildWorkspaceContext(user, facilities = [], dhis2Status = {}) {
     assignments: {
       regionCode: normalizeRegionCode(user?.regionCode) || null,
       district: deriveDistrictForUser(user, selection.accessibleFacilities),
-      facilityId: normalizeText(user?.facilityId) || null
+      facilityId: normalizeText(user?.facilityId) || null,
+      ward: normalizeText(user?.ward) ? String(user.ward).trim() : null
     },
     capabilities: {
       canBrowseHierarchy,

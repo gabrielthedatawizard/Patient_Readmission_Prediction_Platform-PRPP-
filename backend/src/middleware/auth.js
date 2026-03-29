@@ -169,7 +169,9 @@ function signAccessToken(user) {
       sub: user.id,
       role: user.role,
       facilityId: user.facilityId,
-      regionCode: user.regionCode
+      regionCode: user.regionCode,
+      district: user.district || null,
+      ward: user.ward || null
     },
     getJwtSecret(),
     {

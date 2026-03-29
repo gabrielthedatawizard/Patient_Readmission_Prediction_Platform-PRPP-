@@ -13,23 +13,22 @@ const facilities = [
   { id: 'FAC-MBE-001', name: 'Mbeya Zonal Hospital', regionCode: 'MBE', district: 'Mbeya', level: 'zonal_referral' }
 ];
 
-const roleToFacility = {
-  facility_manager: 'FAC-MNH-001',
-  clinician: 'FAC-ARH-001',
-  nurse: 'FAC-ARH-001',
-  pharmacist: 'FAC-MWZ-001',
-  hro: 'FAC-DOD-001',
-  chw: 'FAC-DOD-001'
-};
-
-const roleToRegion = {
-  rhmt: 'DAR',
-  chmt: 'ARU'
+const roleAssignments = {
+  facility_manager: { facilityId: 'FAC-MNH-001' },
+  clinician: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
+  nurse: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
+  pharmacist: { facilityId: 'FAC-MWZ-001' },
+  hro: { facilityId: 'FAC-DOD-001' },
+  chw: { facilityId: 'FAC-DOD-001' },
+  rhmt: { regionCode: 'DAR' },
+  chmt: { regionCode: 'ARU', district: 'Arusha' }
 };
 
 const users = ROLES.map((role, index) => {
-  const facilityId = roleToFacility[role] || null;
-  const regionCode = roleToRegion[role] || (facilityId ? getFacilityById(facilityId)?.regionCode || null : null);
+  const assignment = roleAssignments[role] || {};
+  const facilityId = assignment.facilityId || null;
+  const regionCode =
+    assignment.regionCode || (facilityId ? getFacilityById(facilityId)?.regionCode || null : null);
 
   return {
     id: `USR-${String(index + 1).padStart(4, '0')}`,
@@ -39,6 +38,8 @@ const users = ROLES.map((role, index) => {
     role,
     facilityId,
     regionCode,
+    district: assignment.district || null,
+    ward: assignment.ward || null,
     mfaEnabled: false,
     createdAt: new Date().toISOString()
   };
@@ -274,6 +275,70 @@ function mapFacility(facility) {
   };
 }
 
+function normalizeRole(role) {
+  return String(role || '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function getAssignedDistrict(user) {
+  const district = String(user?.district || '').trim();
+  return district || null;
+}
+
+function getAssignedWard(user) {
+  const role = normalizeRole(user?.role);
+  if (role !== 'clinician' && role !== 'nurse') {
+    return null;
+  }
+
+  const ward = String(user?.ward || '').trim();
+  return ward || null;
+}
+
+function patientMatchesAssignedWard(user, patientId, facilityId = null) {
+  const assignedWard = getAssignedWard(user);
+  if (!assignedWard) {
+    return true;
+  }
+
+  const relevantVisits = visits.filter((visit) => {
+    if (String(visit.patientId) !== String(patientId)) {
+      return false;
+    }
+
+    if (facilityId && String(visit.facilityId) !== String(facilityId)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (!relevantVisits.length) {
+    return true;
+  }
+
+  const activeVisits = relevantVisits.filter((visit) => !visit.dischargeDate);
+  const visitsToCheck = activeVisits.length ? activeVisits : relevantVisits;
+
+  return visitsToCheck.some((visit) => normalizeText(visit.ward) === normalizeText(assignedWard));
+}
+
+function canAccessVisitWard(user, visit) {
+  const assignedWard = getAssignedWard(user);
+  if (!assignedWard) {
+    return true;
+  }
+
+  return normalizeText(visit?.ward) === normalizeText(assignedWard);
+}
+
 function getFacilityById(facilityId) {
   return mapFacility(facilities.find((facility) => facility.id === facilityId) || null);
 }
@@ -379,6 +444,8 @@ function toPublicUser(user) {
     role: user.role,
     facilityId: user.facilityId,
     regionCode: user.regionCode,
+    district: user.district || null,
+    ward: user.ward || null,
     mfaEnabled: user.mfaEnabled
   };
 }
@@ -395,7 +462,15 @@ function canAccessFacility(user, facilityId) {
   }
 
   if (user.role === 'rhmt' || user.role === 'chmt') {
-    return user.regionCode === facility.regionCode;
+    if (user.regionCode !== facility.regionCode) {
+      return false;
+    }
+
+    if (user.role === 'chmt' && getAssignedDistrict(user)) {
+      return normalizeText(user.district) === normalizeText(facility.district);
+    }
+
+    return true;
   }
 
   return user.facilityId === facilityId;
@@ -406,7 +481,8 @@ function canAccessPatient(user, patient) {
     return false;
   }
 
-  return canAccessFacility(user, patient.facilityId);
+  return canAccessFacility(user, patient.facilityId) &&
+    patientMatchesAssignedWard(user, patient.id, patient.facilityId);
 }
 
 function listPatientsForUser(user, filters = {}) {
@@ -460,7 +536,7 @@ function getVisitById(visitId) {
 function getVisitForUser(user, visitId) {
   const visit = getVisitById(visitId);
 
-  if (!visit || !canAccessFacility(user, visit.facilityId)) {
+  if (!visit || !canAccessFacility(user, visit.facilityId) || !canAccessVisitWard(user, visit)) {
     return null;
   }
 
@@ -476,6 +552,7 @@ function listVisitsForPatient(user, patientId) {
 
   return visits
     .filter((visit) => visit.patientId === patientId)
+    .filter((visit) => canAccessVisitWard(user, visit))
     .sort((left, right) => new Date(right.admissionDate).getTime() - new Date(left.admissionDate).getTime());
 }
 
@@ -572,6 +649,11 @@ function createVisitForUser(user, patientId, payload = {}) {
   if (!canAccessFacility(user, facilityId)) {
     throw new Error('You do not have access to create an encounter in this facility.');
   }
+  const assignedWard = getAssignedWard(user);
+  const requestedWard = String(payload.ward || '').trim();
+  if (assignedWard && requestedWard && normalizeText(requestedWard) !== normalizeText(assignedWard)) {
+    throw new Error('You do not have access to record encounters outside your assigned ward.');
+  }
 
   const visit = {
     id: payload.id || randomUUID(),
@@ -586,7 +668,7 @@ function createVisitForUser(user, patientId, payload = {}) {
     vitalSigns: payload.vitalSigns || null,
     socialFactors: payload.socialFactors || null,
     dischargeDisposition: payload.dischargeDisposition || null,
-    ward: payload.ward || 'General',
+    ward: requestedWard || assignedWard || 'General',
     lengthOfStay: payload.lengthOfStay ?? null,
     createdAt: nowIso(),
     updatedAt: nowIso()
@@ -636,6 +718,10 @@ function getPredictionForUser(user, predictionId) {
   const prediction = getPredictionById(predictionId);
 
   if (!prediction || !canAccessFacility(user, prediction.facilityId)) {
+    return null;
+  }
+
+  if (!patientMatchesAssignedWard(user, prediction.patientId, prediction.facilityId)) {
     return null;
   }
 
@@ -705,6 +791,10 @@ function listTasksForUser(user, filters = {}) {
       return false;
     }
 
+    if (!patientMatchesAssignedWard(user, task.patientId, task.facilityId)) {
+      return false;
+    }
+
     if (filters.patientId && task.patientId !== filters.patientId) {
       return false;
     }
@@ -736,6 +826,10 @@ function getTaskForUser(user, taskId) {
     return null;
   }
 
+  if (!patientMatchesAssignedWard(user, task.patientId, task.facilityId)) {
+    return null;
+  }
+
   return task;
 }
 
@@ -743,6 +837,10 @@ function updateTaskForUser(user, taskId, patch) {
   const task = tasks.find((item) => item.id === taskId);
 
   if (!task || !canAccessFacility(user, task.facilityId)) {
+    return null;
+  }
+
+  if (!patientMatchesAssignedWard(user, task.patientId, task.facilityId)) {
     return null;
   }
 
@@ -813,6 +911,10 @@ function listAlertsForUser(user, filters = {}) {
       return false;
     }
 
+    if (!patientMatchesAssignedWard(user, alert.patientId, alert.facilityId)) {
+      return false;
+    }
+
     if (filters.patientId && String(alert.patientId) !== String(filters.patientId)) {
       return false;
     }
@@ -844,12 +946,20 @@ function getAlertForUser(user, alertId) {
     return null;
   }
 
+  if (!patientMatchesAssignedWard(user, alert.patientId, alert.facilityId)) {
+    return null;
+  }
+
   return alert;
 }
 
 function updateAlertForUser(user, alertId, patch = {}) {
   const alert = alerts.find((item) => item.id === alertId) || null;
   if (!alert || !canAccessFacility(user, alert.facilityId)) {
+    return null;
+  }
+
+  if (!patientMatchesAssignedWard(user, alert.patientId, alert.facilityId)) {
     return null;
   }
 
@@ -924,8 +1034,8 @@ function listAuditLogsForUser(user, options = {}) {
       return true;
     }
 
-    if (user.role === 'rhmt') {
-      return log.regionCode === user.regionCode;
+    if (user.role === 'rhmt' || user.role === 'chmt') {
+      return canAccessFacility(user, log.facilityId);
     }
 
     return log.facilityId === user.facilityId;
