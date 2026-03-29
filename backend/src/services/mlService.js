@@ -3,6 +3,7 @@ const { predictReadmission } = require('./riskEngine');
 const ML_API_URL = (process.env.ML_API_URL || 'http://localhost:5001').replace(/\/$/, '');
 const ML_TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
 const ML_FALLBACK_ENABLED = process.env.ML_FALLBACK_ENABLED !== 'false';
+const SUPPORTED_RUNTIME_MODES = new Set(['auto', 'fallback_only', 'external_required']);
 
 function isLoopbackHost(hostname) {
   return ['localhost', '127.0.0.1', '::1'].includes(String(hostname || '').toLowerCase());
@@ -15,6 +16,71 @@ function hasUsableExternalMlService(url) {
   } catch (error) {
     return false;
   }
+}
+
+function getRequestedMlRuntimeMode() {
+  const configured = String(process.env.ML_RUNTIME_MODE || 'auto').trim().toLowerCase();
+  return SUPPORTED_RUNTIME_MODES.has(configured) ? configured : 'auto';
+}
+
+function resolveMlRuntimeConfig() {
+  const requestedMode = getRequestedMlRuntimeMode();
+  const externalServiceConfigured = hasUsableExternalMlService(ML_API_URL);
+
+  const runtime = {
+    url: ML_API_URL,
+    requestedMode,
+    fallbackEnabled: ML_FALLBACK_ENABLED,
+    externalServiceConfigured,
+    effectiveMode: 'misconfigured',
+    canUseExternalService: false,
+    fallbackOnError: false,
+    message: 'ML runtime is not configured.'
+  };
+
+  if (requestedMode === 'fallback_only') {
+    if (!ML_FALLBACK_ENABLED) {
+      runtime.message = 'ML_RUNTIME_MODE=fallback_only requires ML_FALLBACK_ENABLED=true.';
+      return runtime;
+    }
+
+    runtime.effectiveMode = 'fallback_only';
+    runtime.message = 'Configured to use the local rules fallback only.';
+    return runtime;
+  }
+
+  if (requestedMode === 'external_required') {
+    if (!externalServiceConfigured) {
+      runtime.message =
+        'ML_RUNTIME_MODE=external_required but ML_API_URL does not point to a usable external service.';
+      return runtime;
+    }
+
+    runtime.effectiveMode = 'external_ml';
+    runtime.canUseExternalService = true;
+    runtime.message = 'Configured to require the external ML service.';
+    return runtime;
+  }
+
+  if (externalServiceConfigured) {
+    runtime.effectiveMode = ML_FALLBACK_ENABLED ? 'external_with_fallback' : 'external_ml';
+    runtime.canUseExternalService = true;
+    runtime.fallbackOnError = ML_FALLBACK_ENABLED;
+    runtime.message = ML_FALLBACK_ENABLED
+      ? 'External ML is preferred and the local rules fallback remains available.'
+      : 'External ML is active and fallback is disabled.';
+    return runtime;
+  }
+
+  if (ML_FALLBACK_ENABLED) {
+    runtime.effectiveMode = 'fallback_only';
+    runtime.message = 'No usable external ML service is configured; using the local rules fallback only.';
+    return runtime;
+  }
+
+  runtime.message =
+    'No usable external ML service is configured and fallback is disabled.';
+  return runtime;
 }
 
 function buildFallbackPrediction(features = {}) {
@@ -196,27 +262,29 @@ async function postJson(url, body, timeoutMs) {
 
 async function generatePrediction(visitId, rawFeatures = {}) {
   const features = normalizeInputFeatures(rawFeatures);
-  const externalMlConfigured = hasUsableExternalMlService(ML_API_URL);
+  const runtime = resolveMlRuntimeConfig();
 
-  if (!externalMlConfigured) {
-    if (!ML_FALLBACK_ENABLED) {
-      throw new Error('ML service unavailable and fallback is disabled.');
-    }
+  if (runtime.effectiveMode === 'misconfigured') {
+    throw new Error(runtime.message);
+  }
 
+  if (runtime.effectiveMode === 'fallback_only') {
     return buildFallbackPrediction(features);
   }
 
   try {
     const responsePayload = await postJson(
-      `${ML_API_URL}/api/v1/predict`,
+      `${runtime.url}/api/v1/predict`,
       { visitId, features },
       ML_TIMEOUT_MS
     );
 
     return normalizeExternalPrediction(responsePayload, features);
   } catch (error) {
-    if (!ML_FALLBACK_ENABLED) {
-      throw new Error('ML service unavailable and fallback is disabled.');
+    if (!runtime.fallbackOnError) {
+      throw new Error(
+        `External ML service is unavailable and fallback is disabled for the current runtime mode: ${String(error?.message || error)}`
+      );
     }
 
     return buildFallbackPrediction(features);
@@ -225,9 +293,5 @@ async function generatePrediction(visitId, rawFeatures = {}) {
 
 module.exports = {
   generatePrediction,
-  getMlRuntimeConfig: () => ({
-    url: ML_API_URL,
-    fallbackEnabled: ML_FALLBACK_ENABLED,
-    externalServiceConfigured: hasUsableExternalMlService(ML_API_URL)
-  })
+  getMlRuntimeConfig: resolveMlRuntimeConfig
 };

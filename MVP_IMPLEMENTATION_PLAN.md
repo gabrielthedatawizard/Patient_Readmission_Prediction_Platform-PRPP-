@@ -532,7 +532,7 @@ Done when:
 
 ### Slice 12D. ML Runtime Decision for MVP
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Choose the true MVP inference mode and make the app honest about it.
@@ -540,6 +540,26 @@ Goal:
 Focus:
 - Either deploy the external ML service properly
 - Or intentionally ship `fallback_only` as the MVP runtime mode
+
+Progress update on 2026-03-29:
+- Added a config-driven ML runtime decision layer in `backend/src/services/mlService.js` with explicit modes:
+  - `auto`
+  - `fallback_only`
+  - `external_required`
+- The runtime now computes an explicit effective mode instead of inferring behavior only from `ML_API_URL`.
+- Updated `backend/src/services/systemHealth.js` so `/api/health` exposes:
+  - `requestedMode`
+  - `runtimeMode`
+  - `externalServiceConfigured`
+  - `fallbackEnabled`
+  - a mode-specific health message
+- Updated `src/pages/SettingsPage.jsx` and `src/dashboards/MLEngineerDashboard.jsx` so ML engineer and MoH users can see the actual runtime decision rather than guessing from fallback rate alone.
+- Added `ML_RUNTIME_MODE` to `backend/.env.example` and documented the production choice in `DEPLOYMENT.md`.
+
+Verification status:
+- backend syntax checks on the ML runtime and health services
+- frontend `lint`
+- frontend `build`
 
 Done when:
 - `/api/health` reflects the chosen production ML mode and the UI copy matches reality.

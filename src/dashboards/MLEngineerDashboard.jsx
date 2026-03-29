@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
@@ -24,12 +25,41 @@ import {
   useTrainingDatasetExportMutation,
 } from "../hooks/useAnalytics";
 import { trackEvent } from "../services/analytics";
+import { requestJson } from "../services/apiClient";
 
 function formatPercent(value, digits = 1) {
   return `${(Number(value || 0) * 100).toFixed(digits)}%`;
 }
 
-function runtimeStatus(monitoring = {}) {
+function runtimeStatus(monitoring = {}, runtime = {}) {
+  if (runtime?.enabled === false) {
+    return {
+      label: "Disabled",
+      detail: runtime.message || "ML predictions are disabled in this environment.",
+    };
+  }
+
+  if (runtime?.status === "fallback_only") {
+    return {
+      label: "Fallback only",
+      detail: runtime.message || "Predictions are currently served by the local rules fallback.",
+    };
+  }
+
+  if (runtime?.status === "down") {
+    return {
+      label: "Unavailable",
+      detail: runtime.message || "ML runtime is unavailable.",
+    };
+  }
+
+  if (runtime?.status === "degraded") {
+    return {
+      label: "Degraded",
+      detail: runtime.message || "External ML is unhealthy and fallback protection is active.",
+    };
+  }
+
   if (!monitoring || !Object.keys(monitoring).length) {
     return {
       label: "Unavailable",
@@ -145,6 +175,11 @@ export const MLEngineerDashboard = () => {
   const navigate = useNavigate();
   const { scopeLabel, currentScope } = useWorkspace();
   const monitoringQuery = useMlMonitoringBundleQuery();
+  const healthQuery = useQuery({
+    queryKey: ["trip", "system", "health"],
+    queryFn: () => requestJson("/health"),
+    staleTime: 60 * 1000,
+  });
   const [isExporting, setIsExporting] = useState("");
   const [exportError, setExportError] = useState("");
   const exportMutation = useTrainingDatasetExportMutation();
@@ -163,8 +198,9 @@ export const MLEngineerDashboard = () => {
     () => monitoringQuery.data?.anomalies || [],
     [monitoringQuery.data?.anomalies],
   );
+  const mlRuntime = healthQuery.data?.services?.ml || null;
   const queryIssues = monitoringQuery.data?.issues || monitoringQuery.error?.issues || [];
-  const runtime = runtimeStatus(monitoring);
+  const runtime = runtimeStatus(monitoring, mlRuntime);
   const modelVersions = sortBreakdownEntries(monitoring.modelVersionBreakdown);
   const methods = sortBreakdownEntries(monitoring.methodBreakdown);
   const tiers = sortBreakdownEntries(monitoring.tierBreakdown);
@@ -232,7 +268,7 @@ export const MLEngineerDashboard = () => {
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">ML Operations Dashboard</h1>
           <p className="text-neutral-600 mt-1">
-            {scopeLabel.title} • {currentScope.operationalMode === "sandbox" ? "Sandbox model workspace" : "Model health, data readiness, fallback behavior, and training export operations"}
+            {scopeLabel.title} | {currentScope.operationalMode === "sandbox" ? "Sandbox model workspace" : "Model health, data readiness, fallback behavior, and training export operations"}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -288,6 +324,27 @@ export const MLEngineerDashboard = () => {
             <Button variant="secondary" onClick={() => navigate("/settings")}>
               Review integrations
             </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {mlRuntime ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Runtime mode</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {mlRuntime.message || "ML runtime status is available from the live health endpoint."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                Requested: {mlRuntime.requestedMode || "auto"}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-700">
+                Effective: {mlRuntime.runtimeMode || mlRuntime.status || "unknown"}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}

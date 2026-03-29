@@ -79,6 +79,7 @@ Recommended:
 - `CORS_ORIGIN=https://your-domain.vercel.app` (or custom domain)
 - `FRONTEND_URL=https://your-domain.vercel.app`
 - `JWT_EXPIRES_IN=8h`
+- `ML_RUNTIME_MODE=fallback_only` if you are intentionally shipping the local rules engine, or `auto` / `external_required` when a real external ML service is deployed
 - `ML_FALLBACK_ENABLED=true`
 
 Optional SMS escalation:
@@ -118,6 +119,9 @@ Optional frontend override:
   - Email: `clinician@trip.go.tz`
   - Password: `Trip@2026`
 - If DHIS2 is configured, `GET /api/integrations/dhis2/status` returns a configured snapshot for `moh` or `ml_engineer` users
+- `GET /api/health` should show the intended ML runtime mode explicitly:
+  - `fallback_only` when the rules engine is the chosen MVP runtime
+  - `up` with `runtimeMode=external_ml` or `external_with_fallback` when an external service is active
 
 ## Notes
 

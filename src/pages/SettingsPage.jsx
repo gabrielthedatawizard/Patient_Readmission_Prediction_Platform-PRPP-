@@ -1280,6 +1280,41 @@ function SettingsPage() {
                 </div>
               ) : null}
 
+              {canReviewSchema && services.ml ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        ML runtime decision
+                      </p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {services.ml.message || "ML runtime status is available from the live health endpoint."}
+                      </p>
+                    </div>
+                    <HealthPill label="ML" status={services.ml.status || "unknown"} />
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      ["Requested mode", services.ml.requestedMode || "auto"],
+                      ["Effective mode", services.ml.runtimeMode || services.ml.status || "unknown"],
+                      ["External configured", services.ml.externalServiceConfigured ? "Yes" : "No"],
+                      ["Fallback enabled", services.ml.fallbackEnabled ? "Yes" : "No"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Runtime URL</p>
+                    <p className="mt-2 break-all text-sm font-medium text-slate-900">{services.ml.url || "-"}</p>
+                  </div>
+                </div>
+              ) : null}
+
               {dryRunSummary ? (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">

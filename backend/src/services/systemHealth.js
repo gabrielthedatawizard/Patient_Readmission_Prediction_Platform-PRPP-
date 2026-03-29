@@ -102,19 +102,38 @@ async function buildMlHealth() {
     return {
       status: 'disabled',
       enabled: false,
-      fallbackEnabled: runtime.fallbackEnabled
+      url: runtime.url,
+      requestedMode: runtime.requestedMode,
+      runtimeMode: 'disabled',
+      fallbackEnabled: runtime.fallbackEnabled,
+      externalServiceConfigured: runtime.externalServiceConfigured,
+      message: 'ML predictions are disabled in this environment.'
     };
   }
 
-  if (!runtime.externalServiceConfigured) {
+  if (runtime.effectiveMode === 'misconfigured') {
     return {
-      status: runtime.fallbackEnabled ? 'fallback_only' : 'down',
+      status: 'down',
       enabled: true,
       url: runtime.url,
+      requestedMode: runtime.requestedMode,
+      runtimeMode: runtime.effectiveMode,
       fallbackEnabled: runtime.fallbackEnabled,
-      message: runtime.fallbackEnabled
-        ? 'External ML service is not configured for production; local rules fallback is active.'
-        : 'External ML service is not configured.'
+      externalServiceConfigured: runtime.externalServiceConfigured,
+      message: runtime.message
+    };
+  }
+
+  if (runtime.effectiveMode === 'fallback_only') {
+    return {
+      status: 'fallback_only',
+      enabled: true,
+      url: runtime.url,
+      requestedMode: runtime.requestedMode,
+      runtimeMode: runtime.effectiveMode,
+      externalServiceConfigured: runtime.externalServiceConfigured,
+      fallbackEnabled: runtime.fallbackEnabled,
+      message: runtime.message
     };
   }
 
@@ -140,7 +159,11 @@ async function buildMlHealth() {
       status: 'up',
       enabled: true,
       url: runtime.url,
+      requestedMode: runtime.requestedMode,
+      runtimeMode: runtime.effectiveMode,
+      externalServiceConfigured: runtime.externalServiceConfigured,
       fallbackEnabled: runtime.fallbackEnabled,
+      message: runtime.message,
       modelLoaded:
         payload.model_loaded ??
         payload.modelLoaded ??
@@ -150,11 +173,16 @@ async function buildMlHealth() {
     };
   } catch (error) {
     return {
-      status: 'down',
+      status: runtime.fallbackOnError ? 'degraded' : 'down',
       enabled: true,
       url: runtime.url,
+      requestedMode: runtime.requestedMode,
+      runtimeMode: runtime.effectiveMode,
+      externalServiceConfigured: runtime.externalServiceConfigured,
       fallbackEnabled: runtime.fallbackEnabled,
-      message: conciseError(error)
+      message: runtime.fallbackOnError
+        ? `External ML health check failed; runtime can still fall back to local rules. ${conciseError(error)}`
+        : conciseError(error)
     };
   } finally {
     clearTimeout(timeoutHandle);
