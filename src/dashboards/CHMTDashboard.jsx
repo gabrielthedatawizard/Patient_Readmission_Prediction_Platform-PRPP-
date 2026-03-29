@@ -1,5 +1,5 @@
 import { Building2, ClipboardList, TrendingUp, Users } from "lucide-react";
-import { DashboardSkeleton, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
+import { DashboardSkeleton, EmptyState, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useWorkspace } from "../context/WorkspaceProvider";
 
@@ -36,7 +36,15 @@ export const CHMTDashboard = ({ district = "" }) => {
 
       <div className="bg-white rounded-xl border border-neutral-200 p-6">
         <h2 className="text-xl font-bold mb-4">Facility Performance in District</h2>
-        <FacilityRankingTable facilities={facilities?.all || []} />
+        {(facilities?.all || []).length ? (
+          <FacilityRankingTable facilities={facilities?.all || []} />
+        ) : (
+          <EmptyState
+            message={`No facility performance data is visible for ${
+              currentScope.district || district || scopeLabel.title
+            }. Import a hierarchy snapshot or switch to a district with reporting facilities.`}
+          />
+        )}
       </div>
     </div>
   );

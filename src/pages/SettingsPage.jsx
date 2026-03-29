@@ -69,6 +69,8 @@ const SETTINGS_COPY = {
       "TRIP already has the backend integration routes. This page surfaces the live connection state and gives administrators a safe dry-run path.",
     integrationRestricted:
       "DHIS2 and notification verification controls are limited to ML engineer and MoH roles in the current MVP.",
+    integrationOfflineBlocked:
+      "Integration actions pause while the workspace is offline. Review cached status here, then reconnect before running sync or notification tests.",
     dhis2Connected: "Configured",
     dhis2NotConnected: "Not configured",
     dhis2DryRun: "Run DHIS2 dry-run sync",
@@ -144,6 +146,8 @@ const SETTINGS_COPY = {
       "TRIP tayari ina njia za backend za integration. Ukurasa huu unaonyesha hali ya muunganisho wa moja kwa moja na njia salama ya dry-run.",
     integrationRestricted:
       "Udhibiti wa DHIS2 na uhakiki wa notification umewekewa kikomo kwa wajibu wa ML engineer na MoH katika MVP ya sasa.",
+    integrationOfflineBlocked:
+      "Vitendo vya integration vinasimama wakati workspace iko offline. Kagua hali iliyohifadhiwa hapa, kisha reunganisha kabla ya kuendesha sync au notification tests.",
     dhis2Connected: "Imewekwa",
     dhis2NotConnected: "Haijawekwa",
     dhis2DryRun: "Endesha dry-run ya DHIS2",
@@ -362,6 +366,7 @@ function SettingsPage() {
   const services = systemHealthQuery.data?.services || {};
   const schemaStatus = services.schema || null;
   const workflow = workflowQuery.data || null;
+  const integrationActionsBlocked = !isOnline;
 
   const serviceCards = useMemo(
     () => [
@@ -991,6 +996,7 @@ function SettingsPage() {
                   icon={<RefreshCw className="h-4 w-4" />}
                   onClick={() => dhis2SyncMutation.mutate()}
                   loading={dhis2SyncMutation.isPending}
+                  disabled={integrationActionsBlocked}
                 >
                   {copy.dhis2DryRun}
                 </Button>
@@ -999,7 +1005,7 @@ function SettingsPage() {
                   icon={<Database className="h-4 w-4" />}
                   onClick={() => dhis2ImportMutation.mutate()}
                   loading={dhis2ImportMutation.isPending}
-                  disabled={!dhis2Status?.configured}
+                  disabled={!dhis2Status?.configured || integrationActionsBlocked}
                 >
                   Import hierarchy snapshot
                 </Button>
@@ -1015,6 +1021,12 @@ function SettingsPage() {
                   </a>
                 ) : null}
               </div>
+
+              {integrationActionsBlocked ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  {copy.integrationOfflineBlocked}
+                </div>
+              ) : null}
 
               {dhis2SyncMutation.isSuccess ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -1109,6 +1121,7 @@ function SettingsPage() {
                     icon={<RefreshCw className="h-4 w-4" />}
                     onClick={() => notificationDryRunMutation.mutate()}
                     loading={notificationDryRunMutation.isPending}
+                    disabled={integrationActionsBlocked}
                   >
                     {copy.notificationsDryRun}
                   </Button>
@@ -1117,7 +1130,7 @@ function SettingsPage() {
                     icon={<Check className="h-4 w-4" />}
                     onClick={() => notificationLiveMutation.mutate()}
                     loading={notificationLiveMutation.isPending}
-                    disabled={!notificationStatus?.liveSendAllowed}
+                    disabled={!notificationStatus?.liveSendAllowed || integrationActionsBlocked}
                   >
                     {copy.notificationsLiveTest}
                   </Button>

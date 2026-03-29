@@ -14,6 +14,8 @@ import { useI18n } from "../context/I18nProvider";
 export const PharmacistDashboard = ({ pharmacistId }) => {
   const { language } = useI18n();
   const [doneTaskId, setDoneTaskId] = useState(null);
+  const [taskFeedback, setTaskFeedback] = useState("");
+  const [taskError, setTaskError] = useState("");
   const { data: tasksResponse, loading, error, refresh } = useDashboardData(
     `/tasks?assignedTo=${encodeURIComponent(pharmacistId || "self")}&include=patient`,
     120000,
@@ -31,12 +33,24 @@ export const PharmacistDashboard = ({ pharmacistId }) => {
   );
 
   const handleMarkDone = async (taskId) => {
+    setTaskFeedback("");
+    setTaskError("");
     setDoneTaskId(taskId);
     try {
       await updateTask(taskId, { status: "completed" });
       await refresh();
+      setTaskFeedback(
+        language === "sw"
+          ? "Kazi ya dawa imekamilishwa."
+          : "Medication task completed successfully.",
+      );
     } catch (err) {
-      // no-op for dashboard quick completion
+      setTaskError(
+        err?.message ||
+          (language === "sw"
+            ? "Imeshindikana kukamilisha kazi ya dawa kutoka dashibodini."
+            : "Unable to complete the medication task from the dashboard."),
+      );
     } finally {
       setDoneTaskId(null);
     }
@@ -85,12 +99,24 @@ export const PharmacistDashboard = ({ pharmacistId }) => {
         <h2 className="mb-4 text-xl font-bold text-neutral-900">
           {language === "sw" ? "Foleni ya upatanishaji wa dawa" : "Medication reconciliation queue"}
         </h2>
+        {taskFeedback ? (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {taskFeedback}
+          </div>
+        ) : null}
+        {taskError ? (
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {taskError}
+          </div>
+        ) : null}
         {pending.length ? (
           <TaskQueue tasks={pending} onMarkDone={handleMarkDone} doneTaskId={doneTaskId} variant="warning" />
         ) : (
           <EmptyState
             message={
-              language === "sw" ? "Hakuna kazi za dawa zinazosubiri." : "No pending medication tasks."
+              language === "sw"
+                ? "Hakuna kazi za dawa zinazosubiri katika kituo au ward iliyo ndani ya scope yako."
+                : "No pending medication tasks are currently in your facility or ward scope."
             }
           />
         )}

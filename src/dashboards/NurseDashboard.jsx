@@ -33,6 +33,8 @@ function calculateAvgTime(tasks = []) {
 export const NurseDashboard = ({ nurseId }) => {
   const { language } = useI18n();
   const [doneTaskId, setDoneTaskId] = useState(null);
+  const [taskFeedback, setTaskFeedback] = useState("");
+  const [taskError, setTaskError] = useState("");
 
   const { data: tasksResponse, loading, error, refresh } = useDashboardData(
     `/tasks?assignedTo=${encodeURIComponent(nurseId || "self")}&include=patient`,
@@ -73,19 +75,27 @@ export const NurseDashboard = ({ nurseId }) => {
   });
 
   const handleMarkDone = async (taskId) => {
+    setTaskFeedback("");
+    setTaskError("");
     setDoneTaskId(taskId);
     try {
       await updateTask(taskId, { status: "completed" });
       await refresh();
+      setTaskFeedback(
+        language === "sw"
+          ? "Kazi imekamilishwa na dashibodi imeboreshwa."
+          : "Task completed and the dashboard has been refreshed.",
+      );
     } catch (err) {
-      // no-op for dashboard quick action
+      setTaskError(
+        err?.message ||
+          (language === "sw"
+            ? "Imeshindikana kukamilisha kazi kutoka dashibodini."
+            : "Unable to complete the task from the dashboard."),
+      );
     } finally {
       setDoneTaskId(null);
     }
-  };
-
-  const handleStepComplete = () => {
-    // Placeholder for checklist API mutation.
   };
 
   if (loading && !tasksResponse) {
@@ -154,6 +164,18 @@ export const NurseDashboard = ({ nurseId }) => {
           {language === "sw" ? "Foleni ya kazi yenye kipaumbele" : "Task queue - prioritized"}
         </h2>
 
+        {taskFeedback ? (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {taskFeedback}
+          </div>
+        ) : null}
+
+        {taskError ? (
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {taskError}
+          </div>
+        ) : null}
+
         {overdueTasks.length ? (
           <div className="mb-6">
             <h3 className="mb-3 font-semibold text-red-700">
@@ -184,9 +206,23 @@ export const NurseDashboard = ({ nurseId }) => {
             ? "Checklist ya utekelezaji wa wanaoondoka leo"
             : "Today's discharges - execution checklist"}
         </h2>
+        <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          {language === "sw"
+            ? "Checklist hii inaonyesha utayari wa kuondoka kulingana na data ya sasa. Tumia workflow ya mgonjwa kuhifadhi mabadiliko rasmi ya utekelezaji."
+            : "This checklist reflects discharge readiness from current data. Use the patient workflow to persist official execution updates."}
+        </div>
         {todayDischarges.length ? (
           todayDischarges.map((patient) => (
-            <DischargeChecklist key={patient.id} patient={patient} onStepComplete={handleStepComplete} />
+            <DischargeChecklist
+              key={patient.id}
+              patient={patient}
+              interactive={false}
+              readOnlyMessage={
+                language === "sw"
+                  ? "Mwonekano wa checklist hapa ni wa mapitio pekee."
+                  : "Checklist actions are review-only in this dashboard view."
+              }
+            />
           ))
         ) : (
           <EmptyState

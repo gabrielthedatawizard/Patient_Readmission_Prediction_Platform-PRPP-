@@ -1,5 +1,5 @@
 import { Building2, MapPin, TrendingDown, Users } from "lucide-react";
-import { DashboardSkeleton, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
+import { DashboardSkeleton, EmptyState, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useWorkspace } from "../context/WorkspaceProvider";
 
@@ -48,7 +48,15 @@ export const RHMTDashboard = ({ region = "" }) => {
           <MapPin className="w-5 h-5 text-teal-600" />
           Regional Facility Ranking
         </h2>
-        <FacilityRankingTable facilities={rankings?.all || []} />
+        {(rankings?.all || []).length ? (
+          <FacilityRankingTable facilities={rankings?.all || []} />
+        ) : (
+          <EmptyState
+            message={`No facility ranking data is visible for ${
+              currentScope.regionName || region || currentScope.regionCode || scopeLabel.title
+            }. Import a hierarchy snapshot or switch to a scope with reporting facilities.`}
+          />
+        )}
       </div>
     </div>
   );

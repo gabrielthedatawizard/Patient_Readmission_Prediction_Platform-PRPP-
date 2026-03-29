@@ -593,7 +593,7 @@ Done when:
 
 ### Slice 12F. Dashboard Polish and Inert Control Cleanup
 
-Status: `planned`
+Status: `partial`
 
 Goal:
 - Remove placeholder or misleading controls and finish the highest-impact workflow polish.
@@ -606,6 +606,16 @@ Focus:
 
 Done when:
 - Core role dashboards feel coherent and no primary control appears clickable without purpose.
+
+Progress:
+- Nurse discharge checklist controls in the dashboard are now explicitly read-only until a persistent checklist mutation path exists.
+- Nurse and pharmacist quick task actions now return visible success and failure feedback instead of failing silently.
+- DHIS2 sync/import and notification verification controls now disable cleanly while offline instead of inviting dead-end clicks.
+- RHMT and CHMT ranking panels now use scope-aware empty states when no facilities are reporting.
+
+Verification:
+- `npm run lint`
+- `npm run build`
 
 ### Slice 12G. Real-Data Activation and Clinical Readiness
 
