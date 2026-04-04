@@ -1,6 +1,10 @@
 const { randomUUID } = require('crypto');
 const { ROLES } = require('../config/roles');
 const { hashSync } = require('../lib/passwordHash');
+const { buildFacilityHierarchyTree } = require('../services/facilityHierarchyService');
+const {
+  detectReadmissionEvent
+} = require('../services/readmissionIntelligenceService');
 
 const DEMO_PASSWORD = 'Trip@2026';
 const DEFAULT_PASSWORD_HASH = hashSync(DEMO_PASSWORD, 10);
@@ -249,6 +253,9 @@ const visits = [
 ];
 
 const predictions = [];
+const dischargeWorkflows = [];
+const followUpSchedules = [];
+const readmissionEvents = [];
 const tasks = [];
 const alerts = [];
 const auditLogs = [];

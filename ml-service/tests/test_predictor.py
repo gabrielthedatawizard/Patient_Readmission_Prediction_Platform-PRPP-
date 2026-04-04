@@ -36,9 +36,11 @@ class TripPredictorTestCase(unittest.TestCase):
                 "phoneAccess": False,
                 "transportationDifficulty": True,
                 "livesAlone": True,
-                "hasHeartFailure": True,
-                "hasDiabetes": True,
-                "hasCkd": True,
+                "hasMalaria": True,
+                "hasHiv": True,
+                "hasTb": True,
+                "hasSam": True,
+                "hasSickleCell": True,
             },
         )
         low_risk = self.predictor.predict(
@@ -60,9 +62,11 @@ class TripPredictorTestCase(unittest.TestCase):
                 "phoneAccess": True,
                 "transportationDifficulty": False,
                 "livesAlone": False,
-                "hasHeartFailure": False,
-                "hasDiabetes": False,
-                "hasCkd": False,
+                "hasMalaria": False,
+                "hasHiv": False,
+                "hasTb": False,
+                "hasSam": False,
+                "hasSickleCell": False,
             },
         )
 

@@ -1,5 +1,5 @@
 {
-  "model_version": "trip-clinical-v2.0",
+  "model_version": "trip-tz-submodels-v2.1",
   "model_type": "logistic_regression",
   "trained_at": "2026-03-27T07:16:16.266343+00:00",
   "dataset_rows": 5000,
@@ -182,7 +182,6 @@
   "artifacts": {
     "model": "trip_readmission_model.joblib",
     "preprocessor": "trip_preprocessor.joblib",
-    "explainer": "trip_shap_explainer.joblib",
-    "metadata": "model_metadata.json"
+    "explainer": "trip_shap_explainer.joblib"
   }
 }

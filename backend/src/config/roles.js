@@ -1,8 +1,11 @@
 const ROLE_PERMISSIONS = {
   moh: ['*'],
+  auditor: ['patients:read', 'predictions:read', 'tasks:read', 'analytics:read', 'audit:read', 'sync:pull'],
   rhmt: ['patients:read', 'predictions:read', 'predictions:generate', 'tasks:read', 'analytics:read', 'audit:read', 'sync:pull'],
-  chmt: ['patients:read', 'predictions:read', 'predictions:generate', 'tasks:read', 'analytics:read', 'sync:pull'],
+  chmt: ['predictions:read', 'tasks:read', 'analytics:read', 'sync:pull'],
+  dhio: ['tasks:read', 'analytics:read', 'sync:pull'],
   facility_manager: ['patients:read', 'patients:write', 'predictions:read', 'predictions:generate', 'tasks:read', 'tasks:write', 'analytics:read', 'sync:pull', 'sync:push'],
+  tfadmin: ['tasks:read', 'analytics:read', 'audit:read', 'sync:pull', 'sync:push'],
   clinician: ['patients:read', 'patients:write', 'predictions:read', 'predictions:generate', 'predictions:override', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   nurse: ['patients:read', 'predictions:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],
   pharmacist: ['patients:read', 'predictions:read', 'tasks:read', 'tasks:write', 'sync:pull', 'sync:push'],

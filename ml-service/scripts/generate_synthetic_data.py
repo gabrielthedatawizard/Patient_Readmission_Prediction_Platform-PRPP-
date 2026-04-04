@@ -46,9 +46,11 @@ FEATURE_COLUMNS = [
     "readmitted_30d",
 ]
 
-ICD_CODES_HF = ["I50.9", "I50.1", "I50.22", "I50.32", "I50.42"]
-ICD_CODES_DM = ["E11.9", "E11.65", "E11.69", "E13.9"]
-ICD_CODES_CKD = ["N18.3", "N18.4", "N18.5", "N18.9"]
+ICD_CODES_MALARIA = ["B50", "B51", "B52", "B53", "B54"]
+ICD_CODES_HIV = ["B20", "B21", "B22", "B23", "B24"]
+ICD_CODES_TB = ["A15", "A16", "A17", "A18", "A19"]
+ICD_CODES_SAM = ["E43", "E44", "E45", "E46"]
+ICD_CODES_SICKLE = ["D57"]
 ICD_CODES_OTHER = [
     "J44.1", "J18.9", "I10", "I25.10", "J06.9", "K21.0",
     "M54.5", "G47.33", "F32.9", "E78.5", "Z96.1",
@@ -94,9 +96,9 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
         charlson += rng.randint(0, 2)
     charlson = min(charlson, 12)
 
-    prior_admissions = max(0, int(rng.expovariate(0.6)))
-    if has_hf:
-        prior_admissions += rng.randint(0, 2)
+    prior_admissions = max(0, int(rng.expovariate(0.7)))
+    if has_sickle_cell or has_hiv:
+        prior_admissions += rng.randint(0, 3)
     prior_admissions = min(prior_admissions, 10)
 
     los = max(1, int(rng.gauss((7 if neonatal_case else 5) + charlson * 0.8, 3)))
@@ -121,12 +123,8 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     bp_dia = max(40, min(130, int(rng.gauss(58 if neonatal_case else (78 if not has_hf else 92), 12))))
 
     high_risk_meds = 0
-    if has_hf:
-        high_risk_meds += rng.randint(0, 2)
-    if has_dm:
-        high_risk_meds += rng.randint(0, 1)
-    if has_ckd:
-        high_risk_meds += rng.randint(0, 1)
+    if has_hiv: high_risk_meds += rng.randint(1, 3)
+    if has_tb: high_risk_meds += rng.randint(1, 2)
     high_risk_meds = min(high_risk_meds, 5)
 
     icu_days = 0
@@ -164,7 +162,7 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     log_odds += 0.2 if lives_alone else 0
 
     # Add noise
-    log_odds += rng.gauss(0, 0.3)
+    log_odds += rng.gauss(0, 0.4)
 
     prob = sigmoid(log_odds)
     readmitted = 1 if rng.random() < prob else 0

@@ -26,12 +26,12 @@ const ART_MEDICATION_PATTERNS = [
 ];
 
 const DIAGNOSIS_GROUPS = [
-  { name: 'heartFailure', prefixes: ['I50'], charlsonWeight: 2 },
-  { name: 'diabetes', prefixes: ['E10', 'E11', 'E13', 'O24'], charlsonWeight: 1 },
-  { name: 'ckd', prefixes: ['N18'], charlsonWeight: 2 },
+  { name: 'malaria', prefixes: ['B50', 'B51', 'B52', 'B53', 'B54'], charlsonWeight: 1 },
+  { name: 'hiv', prefixes: ['B20', 'B21', 'B22', 'B23', 'B24'], charlsonWeight: 2 },
+  { name: 'tb', prefixes: ['A15', 'A16', 'A17', 'A18', 'A19'], charlsonWeight: 1 },
+  { name: 'sam', prefixes: ['E43', 'E44', 'E45', 'E46'], charlsonWeight: 1 },
+  { name: 'sickleCell', prefixes: ['D57'], charlsonWeight: 2 },
   { name: 'copd', prefixes: ['J44'], charlsonWeight: 1 },
-  { name: 'ischemicHeartDisease', prefixes: ['I20', 'I21', 'I25'], charlsonWeight: 1 },
-  { name: 'stroke', prefixes: ['I63', 'I64', 'G45'], charlsonWeight: 1 },
   { name: 'cancer', prefixes: ['C'], charlsonWeight: 2 }
 ];
 

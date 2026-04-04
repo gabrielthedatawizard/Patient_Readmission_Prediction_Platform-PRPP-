@@ -384,12 +384,12 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
         xgb_pipeline = Pipeline([
             ("preprocessor", build_preprocessor()),
             ("classifier", xgb.XGBClassifier(
-                n_estimators=200,
-                max_depth=5,
+                n_estimators=100,
+                max_depth=4,
                 learning_rate=0.1,
                 subsample=0.8,
                 colsample_bytree=0.8,
-                scale_pos_weight=max(1.0, (1 - df[TARGET].mean()) / df[TARGET].mean()),
+                scale_pos_weight=max(1.0, (1 - df[TARGET].mean()) / max(0.01, df[TARGET].mean())),
                 eval_metric="logloss",
                 random_state=42,
             )),
@@ -478,10 +478,7 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
             else:
                 sample_size = min(100, len(X_transformed))
                 background = X_transformed[:sample_size]
-                explainer = shap.KernelExplainer(
-                    classifier.predict_proba,
-                    background,
-                )
+                explainer = shap.KernelExplainer(classifier.predict_proba, background)
             print("[OK] SHAP explainer created")
         except Exception as e:
             print(f"[WARN] SHAP explainer creation failed: {e}")
@@ -494,12 +491,18 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
     metadata_path = output_dir / "model_metadata.json"
     preprocessor_path = output_dir / "trip_preprocessor.joblib"
 
-    print(f"\nSaving model to {model_path}")
-    joblib.dump(calibrated, model_path)
+    print(f"\nSaving model bundle to {model_path}")
+    
+    # Save the dictionary of sub-models instead of just one model
+    bundle = {
+        "global": best_pipeline,
+        "disease_models": calibrated_models,
+        "facility_models": facility_calibrations
+    }
+    joblib.dump(bundle, model_path)
     joblib.dump(best_pipeline.named_steps["preprocessor"], preprocessor_path)
 
     if explainer is not None:
-        print(f"Saving SHAP explainer to {explainer_path}")
         joblib.dump(explainer, explainer_path)
 
     try:
@@ -508,7 +511,7 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
         feature_names = ALL_FEATURES
 
     metadata = {
-        "model_version": "trip-clinical-v2.0",
+        "model_version": "trip-tz-submodels-v2.1",
         "model_type": best_label,
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "dataset_rows": len(df),
@@ -533,9 +536,6 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
             "test_end": test_df["_event_date"].max().isoformat(),
         },
         "features": {
-            "numeric": NUMERIC_FEATURES,
-            "binary": BINARY_FEATURES,
-            "categorical": CATEGORICAL_FEATURES,
             "all": ALL_FEATURES,
             "transformed_names": feature_names,
         },
@@ -544,7 +544,6 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
             "model": model_path.name,
             "preprocessor": preprocessor_path.name,
             "explainer": explainer_path.name if explainer else None,
-            "metadata": metadata_path.name,
         },
     }
 

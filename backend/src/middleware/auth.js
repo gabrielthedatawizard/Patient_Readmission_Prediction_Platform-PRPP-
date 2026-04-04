@@ -203,6 +203,16 @@ async function requireAuth(req, res, next) {
       });
     }
 
+    if (user.roleExpiresAt) {
+      const roleExpiry = new Date(user.roleExpiresAt).getTime();
+      if (Number.isFinite(roleExpiry) && roleExpiry <= Date.now()) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Your role assignment has expired. Please contact an administrator.'
+        });
+      }
+    }
+
     req.user = toPublicUser(user);
     req.auth = payload;
 

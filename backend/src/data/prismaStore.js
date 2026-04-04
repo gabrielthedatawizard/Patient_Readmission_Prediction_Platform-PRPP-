@@ -522,6 +522,80 @@ function mapVisit(visit) {
   };
 }
 
+function mapDischargeWorkflow(workflow) {
+  if (!workflow) {
+    return null;
+  }
+
+  return {
+    id: workflow.id,
+    patientId: workflow.patientId,
+    visitId: workflow.visitId || null,
+    predictionId: workflow.predictionId || null,
+    facilityId: workflow.facilityId,
+    status: workflow.status,
+    checklist: workflow.checklist || null,
+    medications: workflow.medications || null,
+    education: workflow.education || null,
+    followUpPlan: workflow.followUpPlan || null,
+    referrals: workflow.referrals || null,
+    summary: workflow.summary || null,
+    dischargeDate: toDateIso(workflow.dischargeDate),
+    completedAt: toDateIso(workflow.completedAt),
+    createdById: workflow.createdById || null,
+    updatedById: workflow.updatedById || null,
+    createdAt: toDateIso(workflow.createdAt),
+    updatedAt: toDateIso(workflow.updatedAt)
+  };
+}
+
+function mapFollowUpSchedule(schedule) {
+  if (!schedule) {
+    return null;
+  }
+
+  return {
+    id: schedule.id,
+    patientId: schedule.patientId,
+    visitId: schedule.visitId || null,
+    predictionId: schedule.predictionId || null,
+    dischargeWorkflowId: schedule.dischargeWorkflowId || null,
+    facilityId: schedule.facilityId,
+    assignedToId: schedule.assignedToId || null,
+    title: schedule.title,
+    followUpType: schedule.followUpType,
+    status: schedule.status,
+    outcome: schedule.outcome,
+    channel: schedule.channel || null,
+    scheduledFor: toDateIso(schedule.scheduledFor),
+    completedAt: toDateIso(schedule.completedAt),
+    notes: schedule.notes || null,
+    outcomeDetails: schedule.outcomeDetails || null,
+    createdAt: toDateIso(schedule.createdAt),
+    updatedAt: toDateIso(schedule.updatedAt)
+  };
+}
+
+function mapReadmissionEvent(event) {
+  if (!event) {
+    return null;
+  }
+
+  return {
+    id: event.id,
+    patientId: event.patientId,
+    currentVisitId: event.currentVisitId,
+    priorVisitId: event.priorVisitId || null,
+    facilityId: event.facilityId,
+    source: event.source,
+    daysSinceLastDischarge: event.daysSinceLastDischarge,
+    within30Days: Boolean(event.within30Days),
+    notes: event.notes || null,
+    detectedAt: toDateIso(event.detectedAt),
+    createdAt: toDateIso(event.createdAt)
+  };
+}
+
 function mapTask(task) {
   if (!task) {
     return null;
@@ -1137,6 +1211,65 @@ async function createVisitForUser(user, patientId, payload = {}) {
     select: buildVisitSelect(capabilities)
   });
 
+  await prisma.patient.update({
+    where: {
+      id: patientId
+    },
+    data: {
+      status: 'admitted'
+    }
+  });
+
+  const historicalVisits = await prisma.visit.findMany({
+    where: {
+      patientId,
+      id: {
+        not: visit.id
+      },
+      dischargeDate: {
+        not: null
+      }
+    },
+    orderBy: {
+      dischargeDate: 'desc'
+    }
+  });
+
+  const readmissionEvent = detectReadmissionEvent({
+    patientId,
+    facilityId,
+    currentVisit: visit,
+    previousVisits: historicalVisits
+  });
+
+  if (readmissionEvent) {
+    await prisma.readmissionEvent.upsert({
+      where: {
+        currentVisitId: visit.id
+      },
+      update: {
+        priorVisitId: readmissionEvent.priorVisitId,
+        facilityId: readmissionEvent.facilityId,
+        source: readmissionEvent.source,
+        daysSinceLastDischarge: readmissionEvent.daysSinceLastDischarge,
+        within30Days: readmissionEvent.within30Days,
+        notes: readmissionEvent.notes,
+        detectedAt: new Date(readmissionEvent.detectedAt)
+      },
+      create: {
+        patientId: readmissionEvent.patientId,
+        currentVisitId: readmissionEvent.currentVisitId,
+        priorVisitId: readmissionEvent.priorVisitId,
+        facilityId: readmissionEvent.facilityId,
+        source: readmissionEvent.source,
+        daysSinceLastDischarge: readmissionEvent.daysSinceLastDischarge,
+        within30Days: readmissionEvent.within30Days,
+        notes: readmissionEvent.notes,
+        detectedAt: new Date(readmissionEvent.detectedAt)
+      }
+    });
+  }
+
   return mapVisit(visit);
 }
 
@@ -1168,6 +1301,101 @@ async function createPrediction(entry) {
   });
 
   return mapPrediction(prediction);
+}
+
+async function createDischargeWorkflow(entry) {
+  const workflow = await prisma.dischargeWorkflow.create({
+    data: {
+      patientId: entry.patientId,
+      visitId: entry.visitId || null,
+      predictionId: entry.predictionId || null,
+      facilityId: entry.facilityId,
+      status: entry.status || 'completed',
+      checklist: entry.checklist || null,
+      medications: entry.medications || null,
+      education: entry.education || null,
+      followUpPlan: entry.followUpPlan || null,
+      referrals: entry.referrals || null,
+      summary: entry.summary || null,
+      dischargeDate: entry.dischargeDate ? new Date(entry.dischargeDate) : null,
+      completedAt: entry.completedAt ? new Date(entry.completedAt) : null,
+      createdById: entry.createdById || null,
+      updatedById: entry.updatedById || null
+    }
+  });
+
+  return mapDischargeWorkflow(workflow);
+}
+
+async function createFollowUpSchedules(entries = []) {
+  const schedules = [];
+
+  for (const entry of entries) {
+    const schedule = await prisma.followUpSchedule.create({
+      data: {
+        patientId: entry.patientId,
+        visitId: entry.visitId || null,
+        predictionId: entry.predictionId || null,
+        dischargeWorkflowId: entry.dischargeWorkflowId || null,
+        facilityId: entry.facilityId,
+        assignedToId: entry.assignedToId || null,
+        title: entry.title,
+        followUpType: entry.followUpType,
+        status: entry.status || 'scheduled',
+        outcome: entry.outcome || 'pending',
+        channel: entry.channel || null,
+        scheduledFor: new Date(entry.scheduledFor),
+        completedAt: entry.completedAt ? new Date(entry.completedAt) : null,
+        notes: entry.notes || null,
+        outcomeDetails: entry.outcomeDetails || null
+      }
+    });
+
+    schedules.push(mapFollowUpSchedule(schedule));
+  }
+
+  return schedules;
+}
+
+async function listReadmissionEventsForUser(user, filters = {}) {
+  const accessibleFacilityIds = await resolveAccessibleFacilityIds(user);
+
+  if (accessibleFacilityIds.length === 0) {
+    return [];
+  }
+
+  const where = {
+    facilityId: {
+      in: accessibleFacilityIds
+    }
+  };
+
+  if (filters.facilityId) {
+    where.facilityId = filters.facilityId;
+  }
+
+  if (filters.patientId) {
+    where.patientId = filters.patientId;
+  }
+
+  if (filters.startDate || filters.endDate) {
+    where.detectedAt = {};
+    if (filters.startDate) {
+      where.detectedAt.gte = new Date(filters.startDate);
+    }
+    if (filters.endDate) {
+      where.detectedAt.lte = new Date(filters.endDate);
+    }
+  }
+
+  const events = await prisma.readmissionEvent.findMany({
+    where,
+    orderBy: {
+      detectedAt: 'desc'
+    }
+  });
+
+  return events.map(mapReadmissionEvent);
 }
 
 async function getPredictionForUser(user, predictionId) {
@@ -1209,6 +1437,99 @@ async function listPredictionsForPatient(user, patientId) {
   });
 
   return predictions.map(mapPrediction);
+}
+
+async function listFollowUpSchedulesForUser(user, filters = {}) {
+  const accessibleFacilityIds = await resolveAccessibleFacilityIds(user);
+
+  if (accessibleFacilityIds.length === 0) {
+    return [];
+  }
+
+  const where = {
+    facilityId: {
+      in: accessibleFacilityIds
+    }
+  };
+
+  if (filters.facilityId) {
+    where.facilityId = filters.facilityId;
+  }
+
+  if (filters.patientId) {
+    where.patientId = filters.patientId;
+  }
+
+  if (filters.assignedToId) {
+    where.assignedToId = filters.assignedToId;
+  }
+
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  if (filters.scheduledFrom || filters.scheduledTo) {
+    where.scheduledFor = {};
+    if (filters.scheduledFrom) {
+      where.scheduledFor.gte = new Date(filters.scheduledFrom);
+    }
+    if (filters.scheduledTo) {
+      where.scheduledFor.lte = new Date(filters.scheduledTo);
+    }
+  }
+
+  const schedules = await prisma.followUpSchedule.findMany({
+    where,
+    orderBy: {
+      scheduledFor: 'asc'
+    }
+  });
+
+  return schedules.map(mapFollowUpSchedule);
+}
+
+async function getFollowUpScheduleForUser(user, scheduleId) {
+  if (!scheduleId) {
+    return null;
+  }
+
+  const schedule = await prisma.followUpSchedule.findUnique({
+    where: {
+      id: scheduleId
+    }
+  });
+
+  if (!schedule || !(await canAccessFacility(user, schedule.facilityId))) {
+    return null;
+  }
+
+  return mapFollowUpSchedule(schedule);
+}
+
+async function updateFollowUpScheduleForUser(user, scheduleId, patch = {}) {
+  const current = await getFollowUpScheduleForUser(user, scheduleId);
+
+  if (!current) {
+    return null;
+  }
+
+  const updated = await prisma.followUpSchedule.update({
+    where: {
+      id: scheduleId
+    },
+    data: {
+      assignedToId: patch.assignedToId,
+      status: patch.status,
+      outcome: patch.outcome,
+      channel: patch.channel,
+      scheduledFor: patch.scheduledFor ? new Date(patch.scheduledFor) : undefined,
+      completedAt: patch.completedAt ? new Date(patch.completedAt) : undefined,
+      notes: patch.notes,
+      outcomeDetails: patch.outcomeDetails
+    }
+  });
+
+  return mapFollowUpSchedule(updated);
 }
 
 async function updatePredictionOverrideForUser(user, predictionId, overridePayload) {
@@ -1671,7 +1992,9 @@ async function createAuditLog(entry) {
         userRole: entry.userRole || null,
         regionCode: entry.regionCode || null
       },
-      ipAddress: entry.ipAddress || null
+      ipAddress: entry.ipAddress || null,
+      hash: entry.hash || null,
+      previousHash: entry.previousHash || null
     }
   });
 
@@ -1685,7 +2008,34 @@ async function createAuditLog(entry) {
     ipAddress: created.ipAddress,
     facilityId: created.facilityId,
     regionCode: created.details?.regionCode || null,
+    hash: created.hash,
+    previousHash: created.previousHash,
     createdAt: toDateIso(created.createdAt)
+  };
+}
+
+async function getLastAuditLog() {
+  const log = await prisma.auditLog.findFirst({
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!log) {
+    return null;
+  }
+
+  return {
+    id: log.id,
+    userId: log.userId,
+    userRole: log.details?.userRole || null,
+    action: log.action,
+    resource: log.resource,
+    details: log.details,
+    ipAddress: log.ipAddress,
+    facilityId: log.facilityId,
+    regionCode: log.details?.regionCode || null,
+    hash: log.hash,
+    previousHash: log.previousHash,
+    createdAt: toDateIso(log.createdAt)
   };
 }
 
@@ -1904,6 +2254,7 @@ module.exports = {
   listPatientsForUser,
   getPatientById,
   getPatientForUser,
+  listVisitsForUser,
   getVisitById,
   getVisitForUser,
   listVisitsForPatient,
@@ -1911,8 +2262,14 @@ module.exports = {
   updatePatientForUser,
   createVisitForUser,
   createPrediction,
+  createDischargeWorkflow,
+  createFollowUpSchedules,
   getPredictionForUser,
   listPredictionsForPatient,
+  listReadmissionEventsForUser,
+  listFollowUpSchedulesForUser,
+  getFollowUpScheduleForUser,
+  updateFollowUpScheduleForUser,
   updatePredictionOverrideForUser,
   createTasks,
   listTasksForUser,

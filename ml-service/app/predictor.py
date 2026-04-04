@@ -816,7 +816,28 @@ class TripPredictor:
         # Replace None with np.nan for sklearn
         df.fillna(value=np.nan, inplace=True)
 
-        probability = float(self.model.predict_proba(df)[0, 1])
+        active_model = self.model
+        base_pipeline = self.model
+        
+        if isinstance(self.model, dict):
+            base_pipeline = self.model.get("global")
+            active_model = base_pipeline
+            
+            dis_models = self.model.get("disease_models", {})
+            if ml_features.get("has_sickle_cell") == 1 and "has_sickle_cell" in dis_models:
+                active_model = dis_models["has_sickle_cell"]
+            elif ml_features.get("has_sam") == 1 and "has_sam" in dis_models:
+                active_model = dis_models["has_sam"]
+            elif ml_features.get("has_tb") == 1 and "has_tb" in dis_models:
+                active_model = dis_models["has_tb"]
+            elif ml_features.get("has_hiv") == 1 and "has_hiv" in dis_models:
+                active_model = dis_models["has_hiv"]
+            elif ml_features.get("has_malaria") == 1 and "has_malaria" in dis_models:
+                active_model = dis_models["has_malaria"]
+            else:
+                active_model = dis_models.get("base", base_pipeline)
+
+        probability = float(active_model.predict_proba(df)[0, 1])
         score = int(round(probability * 100))
         tier = score_to_tier(probability, {"medium": 0.4, "high": 0.7})
 

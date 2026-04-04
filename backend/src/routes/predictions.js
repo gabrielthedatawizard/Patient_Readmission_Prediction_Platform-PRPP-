@@ -86,30 +86,32 @@ function mergeUniqueStrings(...collections) {
 }
 
 function mergeAnalysisSummary(featureAnalysis = {}, modelAnalysis = {}, dataQuality = null) {
+  const fAnalysis = featureAnalysis || {};
+  const mAnalysis = modelAnalysis || {};
   return {
-    ...featureAnalysis,
-    ...modelAnalysis,
+    ...fAnalysis,
+    ...mAnalysis,
     labAbnormalities: mergeUniqueStrings(
-      featureAnalysis.labAbnormalities || [],
-      modelAnalysis.labAbnormalities || []
+      fAnalysis.labAbnormalities || [],
+      mAnalysis.labAbnormalities || []
     ),
     socialRiskFactors: mergeUniqueStrings(
-      featureAnalysis.socialRiskFactors || [],
-      modelAnalysis.socialRiskFlags || [],
-      modelAnalysis.socialRiskFactors || []
+      fAnalysis.socialRiskFactors || [],
+      mAnalysis.socialRiskFlags || [],
+      mAnalysis.socialRiskFactors || []
     ),
-    diagnoses: mergeUniqueStrings(modelAnalysis.diagnoses || []),
+    diagnoses: mergeUniqueStrings(mAnalysis.diagnoses || []),
     missingData: mergeUniqueStrings(
-      featureAnalysis.missingData || [],
-      modelAnalysis.missingCriticalFields || []
+      fAnalysis.missingData || [],
+      mAnalysis.missingCriticalFields || []
     ),
     featureCompleteness:
       dataQuality && Number.isFinite(Number(dataQuality.completeness))
         ? Number(dataQuality.completeness)
         : undefined,
     recommendedReview:
-      modelAnalysis.recommendedReview !== undefined
-        ? Boolean(modelAnalysis.recommendedReview)
+      mAnalysis.recommendedReview !== undefined
+        ? Boolean(mAnalysis.recommendedReview)
         : undefined
   };
 }

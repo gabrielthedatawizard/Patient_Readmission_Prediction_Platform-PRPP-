@@ -25,4 +25,13 @@ router.get('/', asyncHandler(async (req, res) => {
   });
 }));
 
+router.get('/verify', asyncHandler(async (req, res) => {
+  const { verifyAuditChain } = require('../services/auditService');
+  const result = await verifyAuditChain(req.user, {
+    facilityId: req.query.facilityId
+  });
+
+  return res.json(result);
+}));
+
 module.exports = router;
