@@ -286,7 +286,7 @@ function createPrismaClient() {
 const prisma = globalForPrisma.__tripPrismaClient || createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.__tripPrismaClient = basePrisma;
+  globalForPrisma.__tripPrismaClient = prisma;
 }
 
 module.exports = {

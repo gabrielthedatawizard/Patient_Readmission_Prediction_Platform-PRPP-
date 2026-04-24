@@ -1010,6 +1010,10 @@ function updateAlertChannels(alertId, channels = []) {
   return alert;
 }
 
+function getLastAuditLog() {
+  return auditLogs[0] || null;
+}
+
 function createAuditLog(entry) {
   const log = {
     id: randomUUID(),
@@ -1021,6 +1025,8 @@ function createAuditLog(entry) {
     ipAddress: entry.ipAddress || null,
     facilityId: entry.facilityId || null,
     regionCode: entry.regionCode || null,
+    hash: entry.hash || null,
+    previousHash: entry.previousHash || null,
     createdAt: nowIso()
   };
 
@@ -1200,6 +1206,7 @@ module.exports = {
   getAlertForUser,
   updateAlertForUser,
   updateAlertChannels,
+  getLastAuditLog,
   createAuditLog,
   listAuditLogsForUser,
   appendSyncEvent,
