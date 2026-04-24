@@ -1,8 +1,24 @@
 const memoryStore = require('./store');
 
-const REQUESTED_DATA_PROVIDER = String(process.env.TRIP_DATA_PROVIDER || 'memory').toLowerCase();
+const TRUE_ENV_VALUES = new Set(['1', 'true', 'yes', 'on']);
+
+function normalizeDataProvider(rawProvider) {
+  return String(rawProvider || 'memory')
+    .trim()
+    .toLowerCase();
+}
+
+function parseBooleanEnvFlag(rawValue) {
+  return TRUE_ENV_VALUES.has(
+    String(rawValue || '')
+      .trim()
+      .toLowerCase()
+  );
+}
+
+const REQUESTED_DATA_PROVIDER = normalizeDataProvider(process.env.TRIP_DATA_PROVIDER || 'memory');
 const STRICT_DATA_PROVIDER =
-  process.env.TRIP_STRICT_DATA_PROVIDER === 'true' ||
+  parseBooleanEnvFlag(process.env.TRIP_STRICT_DATA_PROVIDER) ||
   (process.env.NODE_ENV === 'production' && REQUESTED_DATA_PROVIDER !== 'memory');
 
 let providerStore = memoryStore;
