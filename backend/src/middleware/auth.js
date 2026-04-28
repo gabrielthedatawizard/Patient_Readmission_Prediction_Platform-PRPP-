@@ -1,14 +1,37 @@
 const jwt = require('jsonwebtoken');
-const { getUserById, toPublicUser } = require('../data');
+const {
+  DATA_PROVIDER,
+  REQUESTED_DATA_PROVIDER,
+  getUserById,
+  toPublicUser
+} = require('../data');
 
 const DEFAULT_JWT_SECRET = 'trip-dev-secret-change-in-production';
+const DEMO_JWT_SECRET = 'trip-demo-memory-auth-secret-for-non-phi-data-only';
+
+function getConfiguredJwtSecret() {
+  const candidate = String(process.env.JWT_SECRET || '').trim();
+  return candidate || null;
+}
 
 function getJwtSecret() {
-  return process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+  return getConfiguredJwtSecret() || (canUseDemoJwtSecret() ? DEMO_JWT_SECRET : DEFAULT_JWT_SECRET);
 }
 
 function getIsProduction() {
   return process.env.NODE_ENV === 'production';
+}
+
+function isExplicitMemoryDemoMode() {
+  return REQUESTED_DATA_PROVIDER === 'memory' && DATA_PROVIDER === 'memory';
+}
+
+function canUseDemoJwtSecret() {
+  if (!getIsProduction() || !isExplicitMemoryDemoMode()) {
+    return false;
+  }
+
+  return process.env.ALLOW_DEMO_AUTH_IN_PRODUCTION !== 'false';
 }
 
 function getAccessTokenCookieName() {
@@ -20,14 +43,9 @@ function getJwtExpiresIn() {
 }
 
 function assertAuthConfig() {
-  const jwtSecret = getJwtSecret();
+  const configuredJwtSecret = getConfiguredJwtSecret();
 
-  if (
-    getIsProduction() &&
-    (!process.env.JWT_SECRET ||
-      jwtSecret === DEFAULT_JWT_SECRET ||
-      jwtSecret.trim().length < 32)
-  ) {
+  if (getIsProduction() && !canUseDemoJwtSecret() && (!configuredJwtSecret || configuredJwtSecret.length < 32)) {
     const error = new Error('JWT_SECRET must be set to a strong value in production.');
     error.code = 'AUTH_CONFIG_INVALID';
     error.statusCode = 503;
@@ -37,16 +55,30 @@ function assertAuthConfig() {
 }
 
 function getAuthConfigStatus() {
+  const configuredJwtSecret = getConfiguredJwtSecret();
+
+  if (!configuredJwtSecret && canUseDemoJwtSecret()) {
+    return {
+      status: 'demo',
+      configured: false,
+      fallbackSecret: true,
+      message:
+        'Memory demo mode is using the built-in demo JWT secret. Configure JWT_SECRET before handling real data.'
+    };
+  }
+
   try {
     assertAuthConfig();
     return {
       status: 'up',
-      configured: !getIsProduction() || Boolean(process.env.JWT_SECRET)
+      configured: !getIsProduction() || Boolean(configuredJwtSecret),
+      fallbackSecret: false
     };
   } catch (error) {
     return {
       status: 'down',
       configured: false,
+      fallbackSecret: false,
       message: error.message
     };
   }
@@ -231,6 +263,7 @@ async function requireAuth(req, res, next) {
 
 module.exports = {
   ACCESS_TOKEN_COOKIE_NAME: getAccessTokenCookieName(),
+  canUseDemoJwtSecret,
   clearAccessTokenCookie,
   getAccessTokenCookieOptions,
   getAuthConfigStatus,

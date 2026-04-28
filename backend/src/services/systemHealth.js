@@ -232,7 +232,9 @@ async function buildHealthSnapshot() {
 }
 
 function isPlatformReady(snapshot) {
-  const authReady = snapshot.services.auth.status === 'up';
+  const authReady =
+    snapshot.services.auth.status === 'up' ||
+    (snapshot.dataProvider.requested === 'memory' && snapshot.services.auth.status === 'demo');
   const encryptionReady = ['up', 'not_required'].includes(snapshot.services.encryption.status);
   const databaseReady =
     snapshot.dataProvider.requested !== 'prisma' || snapshot.services.database.status === 'up';

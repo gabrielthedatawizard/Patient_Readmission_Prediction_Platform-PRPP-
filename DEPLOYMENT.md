@@ -74,6 +74,12 @@ Required:
 - `DATABASE_URL=<supabase pooled url>`
 - `DIRECT_URL=<supabase direct url>`
 
+Demo-only fallback:
+
+- If you intentionally deploy the public memory-backed demo with `TRIP_DATA_PROVIDER=memory`, login can still work without `JWT_SECRET`.
+- In that mode TRIP uses a built-in demo JWT secret only for non-PHI sample data; set `ALLOW_DEMO_AUTH_IN_PRODUCTION=false` to disable this fallback.
+- For Prisma-backed or real-data deployments, always configure `JWT_SECRET`.
+
 Recommended:
 
 - `CORS_ORIGIN=https://your-domain.vercel.app` (or custom domain)
