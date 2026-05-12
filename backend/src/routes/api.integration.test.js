@@ -1,5 +1,9 @@
 const http = require('node:http');
 
+process.env.NODE_ENV = 'test';
+process.env.TRIP_DATA_PROVIDER = 'memory';
+process.env.TRIP_STRICT_DATA_PROVIDER = 'false';
+
 let app;
 let server;
 let baseUrl = '';
@@ -31,6 +35,9 @@ async function apiRequest(method, path, { token, body, headers } = {}) {
 describe('API Route Integration Tests', () => {
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    process.env.TRIP_DATA_PROVIDER = 'memory';
+    process.env.TRIP_STRICT_DATA_PROVIDER = 'false';
+    jest.resetModules();
     app = require('../../server');
     server = http.createServer(app);
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));

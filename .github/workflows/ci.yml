@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, work]
+  pull_request:
+    branches: [main, master, work]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      TRIP_DATA_PROVIDER: memory
+      TRIP_STRICT_DATA_PROVIDER: "false"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install backend dependencies
+        run: npm install
+      - name: Run backend unit tests
+        run: npm test -- --testPathIgnorePatterns=e2e
+
+  frontend-lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        run: npm install
+      - name: ESLint
+        run: npm run lint
+      - name: Vite production build
+        run: npm run build

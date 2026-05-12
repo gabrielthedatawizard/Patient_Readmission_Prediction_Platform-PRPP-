@@ -6,9 +6,16 @@ const {
   getSmsTargetMode,
   sendSmsMessage
 } = require('./smsGateway');
+const {
+  getConfiguredEmailRecipients,
+  getEmailGatewayStatus,
+  getEmailProvider,
+  sendEmailMessage
+} = require('./emailGateway');
 
 const NOTIFICATION_TEST_ACTIONS = new Set([
   'risk_alert_sms_delivery',
+  'risk_alert_email_delivery',
   'integration_notifications_test_delivery',
   'integration_notifications_test_triggered'
 ]);
@@ -32,14 +39,19 @@ function maskTarget(target) {
   return `${normalized.slice(0, 4)}***${normalized.slice(-3)}`;
 }
 
-function buildNotificationTestMessage({ liveSend = false, provider, targetMode } = {}) {
+function buildNotificationTestMessage({ liveSend = false, provider, targetMode, transport } = {}) {
   const modeLabel = liveSend ? 'live smoke test' : 'dry-run preview';
+  if (String(transport || '').trim().toLowerCase() === 'email') {
+    const providerLabel = String(provider || 'smtp').toUpperCase();
+    return `TRIP ${providerLabel} email notification ${modeLabel}: verifying operations email routing from the integrations workspace.`;
+  }
   const providerLabel = String(provider || 'sms').toUpperCase();
-  const targetLabel = targetMode === 'patient' ? 'patient-targeted routing' : 'operations routing';
-  return `TRIP ${providerLabel} notification ${modeLabel}: verifying ${targetLabel} from the integrations workspace.`;
+  const targetLabel =
+    targetMode === 'patient' ? 'patient-targeted routing' : 'operations routing';
+  return `TRIP ${providerLabel} SMS notification ${modeLabel}: verifying ${targetLabel} from the integrations workspace.`;
 }
 
-function buildLiveSendAllowance(gateway, recipients) {
+function buildLiveSendAllowanceSms(gateway, recipients) {
   if (!gateway.enabled) {
     return {
       allowed: false,
@@ -50,7 +62,7 @@ function buildLiveSendAllowance(gateway, recipients) {
   if (getSmsProvider() !== 'africastalking') {
     return {
       allowed: false,
-      reason: gateway.message || 'A live smoke test requires Africa\'s Talking to be configured.'
+      reason: gateway.message || "A live smoke test requires Africa's Talking to be configured."
     };
   }
 
@@ -81,6 +93,41 @@ function buildLiveSendAllowance(gateway, recipients) {
   };
 }
 
+function buildLiveSendAllowanceEmail(gateway, recipients) {
+  if (!gateway.enabled) {
+    return {
+      allowed: false,
+      reason: gateway.message || 'Email alerts are disabled.'
+    };
+  }
+
+  if (getEmailProvider() !== 'smtp') {
+    return {
+      allowed: false,
+      reason: 'A live email smoke test requires ALERT_EMAIL_PROVIDER=smtp.'
+    };
+  }
+
+  if (!recipients.length) {
+    return {
+      allowed: false,
+      reason: 'ALERT_EMAIL_RECIPIENT or ALERT_EMAIL_RECIPIENTS is not configured.'
+    };
+  }
+
+  if (gateway.status !== 'up') {
+    return {
+      allowed: false,
+      reason: gateway.message || 'Email gateway is not ready for a live smoke test.'
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: null
+  };
+}
+
 function normalizeRecentActivity(log = {}) {
   return {
     id: log.id,
@@ -99,7 +146,12 @@ function normalizeRecentActivity(log = {}) {
 async function buildNotificationVerificationStatus(user) {
   const gateway = getSmsGatewayStatus();
   const recipients = getConfiguredOperationsRecipients();
-  const liveSend = buildLiveSendAllowance(gateway, recipients);
+  const liveSend = buildLiveSendAllowanceSms(gateway, recipients);
+
+  const emailGateway = getEmailGatewayStatus();
+  const emailRecipients = getConfiguredEmailRecipients();
+  const emailLiveSend = buildLiveSendAllowanceEmail(emailGateway, emailRecipients);
+
   const logs = await listAuditLogsForUser(user, { limit: 50, offset: 0 });
   const recentActivity = logs
     .filter((log) => NOTIFICATION_TEST_ACTIONS.has(String(log.action || '').trim()))
@@ -117,8 +169,22 @@ async function buildNotificationVerificationStatus(user) {
     previewMessage: buildNotificationTestMessage({
       liveSend: false,
       provider: gateway.provider,
-      targetMode: getSmsTargetMode()
+      targetMode: getSmsTargetMode(),
+      transport: 'sms'
     }),
+    email: {
+      gateway: emailGateway,
+      provider: getEmailProvider(),
+      recipientCount: emailRecipients.length,
+      recipients: emailRecipients.map(maskTarget),
+      liveSendAllowed: emailLiveSend.allowed,
+      liveSendBlockedReason: emailLiveSend.reason,
+      previewMessage: buildNotificationTestMessage({
+        liveSend: false,
+        provider: emailGateway.provider,
+        transport: 'email'
+      })
+    },
     recentActivity
   };
 }
@@ -134,23 +200,32 @@ async function runNotificationVerificationTest({
   user,
   liveSend = false,
   sendAll = false,
-  message
+  message,
+  transport = 'sms'
 } = {}) {
+  const normalizedTransport = String(transport || 'sms').trim().toLowerCase() === 'email' ? 'email' : 'sms';
+
+  if (normalizedTransport === 'email') {
+    return runEmailVerificationTest({ user, liveSend, sendAll, message });
+  }
+
   const gateway = getSmsGatewayStatus();
   const recipients = getConfiguredOperationsRecipients();
-  const liveSendAllowance = buildLiveSendAllowance(gateway, recipients);
+  const liveSendAllowance = buildLiveSendAllowanceSms(gateway, recipients);
   const normalizedMessage =
     String(message || '').trim() ||
     buildNotificationTestMessage({
       liveSend,
       provider: gateway.provider,
-      targetMode: getSmsTargetMode()
+      targetMode: getSmsTargetMode(),
+      transport: 'sms'
     });
 
   const maskedRecipients = recipients.map(maskTarget);
 
   if (!liveSend) {
     return {
+      transport: 'sms',
       dryRun: true,
       provider: gateway.provider,
       gateway,
@@ -185,10 +260,75 @@ async function runNotificationVerificationTest({
   }
 
   return {
+    transport: 'sms',
     dryRun: false,
     provider: gateway.provider,
     gateway,
     targetMode: getSmsTargetMode(),
+    recipientCount: targets.length,
+    recipients: targets.map(maskTarget),
+    liveSendAllowed: liveSendAllowance.allowed,
+    liveSendBlockedReason: liveSendAllowance.reason,
+    messagePreview: normalizedMessage,
+    results
+  };
+}
+
+async function runEmailVerificationTest({ liveSend = false, sendAll = false, message } = {}) {
+  const gateway = getEmailGatewayStatus();
+  const recipients = getConfiguredEmailRecipients();
+  const liveSendAllowance = buildLiveSendAllowanceEmail(gateway, recipients);
+  const normalizedMessage =
+    String(message || '').trim() ||
+    buildNotificationTestMessage({
+      liveSend,
+      provider: gateway.provider,
+      transport: 'email'
+    });
+
+  const maskedRecipients = recipients.map(maskTarget);
+
+  if (!liveSend) {
+    return {
+      transport: 'email',
+      dryRun: true,
+      provider: gateway.provider,
+      gateway,
+      recipientCount: recipients.length,
+      recipients: maskedRecipients,
+      liveSendAllowed: liveSendAllowance.allowed,
+      liveSendBlockedReason: liveSendAllowance.reason,
+      messagePreview: normalizedMessage
+    };
+  }
+
+  if (!liveSendAllowance.allowed) {
+    throw createNotificationError(
+      liveSendAllowance.reason || 'Live email smoke testing is not currently available.'
+    );
+  }
+
+  const targets = sendAll ? recipients : recipients.slice(0, 1);
+  const results = [];
+
+  for (const target of targets) {
+    const result = await sendEmailMessage({
+      to: target,
+      subject: 'TRIP email notification smoke test',
+      text: normalizedMessage
+    });
+
+    results.push({
+      ...result,
+      target: maskTarget(result.target || target)
+    });
+  }
+
+  return {
+    transport: 'email',
+    dryRun: false,
+    provider: gateway.provider,
+    gateway,
     recipientCount: targets.length,
     recipients: targets.map(maskTarget),
     liveSendAllowed: liveSendAllowance.allowed,

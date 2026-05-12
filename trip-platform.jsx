@@ -291,7 +291,12 @@ const TRIPPlatform = () => {
       search: 'Search patients...',
       viewDetails: 'View Details',
       completeDischarge: 'Complete Discharge',
-      assignTask: 'Assign Task'
+      assignTask: 'Assign Task',
+      layoutPreviewNote: '(Illustrative sample — not live TRIP data)',
+      taskFollowupIllustrative: 'Grouped follow-up workload (illustrative)',
+      dischargeTierIllustrative: 'Illustrative tier mix — connect live workspace',
+      riskCountPlaceholder: '—',
+      notifFollowupIllustrative: 'Sample follow-up reminder (not a live count)',
     },
     sw: {
       dashboard: 'Dashibodi',
@@ -314,7 +319,12 @@ const TRIPPlatform = () => {
       search: 'Tafuta wagonjwa...',
       viewDetails: 'Tazama Maelezo',
       completeDischarge: 'Kamilisha Kuondoka',
-      assignTask: 'Kabidhi Kazi'
+      assignTask: 'Kabidhi Kazi',
+      layoutPreviewNote: '(Mfano wa picha — si data hai ya TRIP)',
+      taskFollowupIllustrative: 'Kundi la ufuatiliaji (mfano wa picha)',
+      dischargeTierIllustrative: 'Usambazaji wa mfano — unganisha workspace hai',
+      riskCountPlaceholder: '—',
+      notifFollowupIllustrative: 'Kumbusho la mfano la ufuatiliaji (si hesabu hai)',
     }
   };
 
@@ -415,6 +425,9 @@ const TRIPPlatform = () => {
   // Main Dashboard
   const Dashboard = () => (
     <div className="space-y-6">
+      <p className="rounded-lg border border-dashed border-teal-200 bg-teal-50/60 px-4 py-2 text-xs font-medium text-teal-800">
+        {tr.layoutPreviewNote}
+      </p>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -553,7 +566,7 @@ const TRIPPlatform = () => {
                 <Phone className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900 text-sm">7-Day Follow-up Call</p>
-                  <p className="text-xs text-gray-600 mt-1">12 patients pending</p>
+                  <p className="text-xs text-gray-600 mt-1">{tr.taskFollowupIllustrative}</p>
                   <p className="text-xs text-blue-600 mt-2 font-medium">Scheduled: Tomorrow</p>
                 </div>
               </div>
@@ -572,19 +585,19 @@ const TRIPPlatform = () => {
         <h2 className="text-xl font-bold text-gray-900 mb-6">{tr.riskDistribution}</h2>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-6 bg-emerald-50 rounded-xl border-2 border-emerald-200">
-            <p className="text-4xl font-bold text-emerald-700 mb-2">156</p>
+            <p className="text-4xl font-bold text-emerald-700 mb-2">{tr.riskCountPlaceholder}</p>
             <p className="text-sm font-semibold text-emerald-600">Low Risk</p>
-            <p className="text-xs text-gray-600 mt-1">72% of discharges</p>
+            <p className="text-xs text-gray-600 mt-1">{tr.dischargeTierIllustrative}</p>
           </div>
           <div className="text-center p-6 bg-amber-50 rounded-xl border-2 border-amber-200">
-            <p className="text-4xl font-bold text-amber-700 mb-2">45</p>
+            <p className="text-4xl font-bold text-amber-700 mb-2">{tr.riskCountPlaceholder}</p>
             <p className="text-sm font-semibold text-amber-600">Medium Risk</p>
-            <p className="text-xs text-gray-600 mt-1">21% of discharges</p>
+            <p className="text-xs text-gray-600 mt-1">{tr.dischargeTierIllustrative}</p>
           </div>
           <div className="text-center p-6 bg-red-50 rounded-xl border-2 border-red-200">
-            <p className="text-4xl font-bold text-red-700 mb-2">16</p>
+            <p className="text-4xl font-bold text-red-700 mb-2">{tr.riskCountPlaceholder}</p>
             <p className="text-sm font-semibold text-red-600">High Risk</p>
-            <p className="text-xs text-gray-600 mt-1">7% of discharges</p>
+            <p className="text-xs text-gray-600 mt-1">{tr.dischargeTierIllustrative}</p>
           </div>
         </div>
       </Card>
@@ -1246,7 +1259,7 @@ const TRIPPlatform = () => {
             </div>
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm font-semibold text-blue-900">Follow-up Due</p>
-              <p className="text-xs text-blue-700 mt-1">12 patients need 7-day calls</p>
+              <p className="text-xs text-blue-700 mt-1">{tr.notifFollowupIllustrative}</p>
             </div>
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
               <p className="text-sm font-semibold text-emerald-900">Data Quality Improved</p>

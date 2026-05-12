@@ -10,6 +10,7 @@ const { getEncryptionConfigStatus } = require('../lib/encryption');
 const { getDatabaseSchemaCapabilities } = require('../lib/prisma');
 const { getDhis2ConfigStatus } = require('../integrations/dhis2Client');
 const { getSmsGatewayStatus } = require('./smsGateway');
+const { getEmailGatewayStatus } = require('./emailGateway');
 const { getMlRuntimeConfig } = require('./mlService');
 
 const ML_HEALTH_TIMEOUT_MS = Number(process.env.ML_HEALTH_TIMEOUT_MS || process.env.ML_TIMEOUT_MS) || 2000;
@@ -196,6 +197,7 @@ async function buildHealthSnapshot() {
   const auth = getAuthConfigStatus();
   const encryption = getEncryptionConfigStatus();
   const sms = getSmsGatewayStatus();
+  const email = getEmailGatewayStatus();
   const dhis2 = getDhis2ConfigStatus();
 
   return {
@@ -220,6 +222,7 @@ async function buildHealthSnapshot() {
       sync: 'up',
       dhis2,
       sms,
+      email,
       database,
       schema,
       ml

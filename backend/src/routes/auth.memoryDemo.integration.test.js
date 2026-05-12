@@ -84,9 +84,9 @@ describe('Demo auth behavior in production memory mode', () => {
       ...ORIGINAL_ENV,
       NODE_ENV: 'production',
       TRIP_DATA_PROVIDER: 'memory',
-      ALLOW_DEMO_AUTH_IN_PRODUCTION: 'false'
+      ALLOW_DEMO_AUTH_IN_PRODUCTION: 'false',
+      JWT_SECRET: ''
     };
-    delete process.env.JWT_SECRET;
 
     const server = await startServer();
 

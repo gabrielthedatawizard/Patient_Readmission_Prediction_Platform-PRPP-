@@ -80,20 +80,27 @@ const SETTINGS_COPY = {
     dryRunSummary: "Dry-run summary",
     notificationsTitle: "Notification verification",
     notificationsIntro:
-      "Review the live SMS gateway state, preview the outbound alert message, and run a controlled smoke test without touching patient workflows.",
+      "Review SMS and optional SMTP email gateway state, preview outbound messages, and run controlled smoke tests without touching patient workflows.",
     notificationsDryRun: "Run SMS dry-run",
+    notificationsDryRunEmail: "Run email dry-run",
     notificationsDryRunSuccess: "Notification dry-run completed. Review the preview and recent delivery evidence below.",
+    notificationsDryRunSuccessEmail: "Email dry-run completed. Review the preview and recent delivery evidence below.",
     notificationsLiveTest: "Send live SMS smoke test",
+    notificationsLiveTestEmail: "Send live email smoke test",
     notificationsLiveSuccess: "Live SMS smoke test completed. Review the delivery result below before relying on operational escalation.",
+    notificationsLiveSuccessEmail: "Live email smoke test completed. Review the delivery result before relying on operational escalation.",
     notificationsFailure: "Notification verification failed.",
     notificationsRecipients: "Operations recipients",
     notificationsRecentActivity: "Recent delivery evidence",
     notificationsPreview: "Preview message",
     notificationsLiveBlocked: "Live smoke tests are currently blocked.",
-    notificationsNoActivity: "No SMS delivery evidence is visible yet.",
+    notificationsNoActivity: "No SMS or email delivery evidence is visible yet.",
     notificationsProvider: "Provider",
     notificationsTargetMode: "Target mode",
     notificationsEnvironment: "Environment",
+    notificationsRecipientsEmail: "Operations email recipients",
+    notificationsEmailIntro:
+      "Optional SMTP path for operations alerts. Opt in with ALERT_EMAIL_ENABLED=true and configure SMTP_HOST plus ALERT_EMAIL_FROM.",
     facilityLevels: "Facility levels",
     regionLevel: "Region level",
     districtLevel: "District level",
@@ -157,20 +164,27 @@ const SETTINGS_COPY = {
     dryRunSummary: "Muhtasari wa dry-run",
     notificationsTitle: "Uhakiki wa notification",
     notificationsIntro:
-      "Kagua hali ya moja kwa moja ya SMS gateway, preview ya ujumbe wa tahadhari, na endesha smoke test ya udhibiti bila kugusa workflow za wagonjwa.",
+      "Kagua hali ya SMS na SMTP barua pepe (ikiwepo), preview ya ujumbe, na endesha smoke tests za udhibiti bila kugusa workflow za wagonjwa.",
     notificationsDryRun: "Endesha SMS dry-run",
+    notificationsDryRunEmail: "Endesha email dry-run",
     notificationsDryRunSuccess: "Dry-run ya notification imekamilika. Kagua preview na ushahidi wa hivi karibuni hapa chini.",
+    notificationsDryRunSuccessEmail: "Dry-run ya barua pepe imekamilika. Kagua preview na ushahidi wa hivi karibuni hapa chini.",
     notificationsLiveTest: "Tuma SMS smoke test ya moja kwa moja",
+    notificationsLiveTestEmail: "Tuma email smoke test ya moja kwa moja",
     notificationsLiveSuccess: "SMS smoke test ya moja kwa moja imekamilika. Kagua matokeo ya utoaji kabla ya kutegemea operational escalation.",
+    notificationsLiveSuccessEmail: "Email smoke test ya moja kwa moja imekamilika. Kagua matokeo ya utoaji kabla ya kutegemea operational escalation.",
     notificationsFailure: "Uhakiki wa notification umeshindikana.",
     notificationsRecipients: "Walengwa wa operations",
     notificationsRecentActivity: "Ushahidi wa utoaji wa hivi karibuni",
     notificationsPreview: "Preview ya ujumbe",
     notificationsLiveBlocked: "Live smoke test zimezuiwa kwa sasa.",
-    notificationsNoActivity: "Bado hakuna ushahidi wa utoaji wa SMS unaoonekana.",
+    notificationsNoActivity: "Bado hakuna ushahidi wa utoaji wa SMS au barua pepe unaoonekana.",
     notificationsProvider: "Mtoa huduma",
     notificationsTargetMode: "Njia ya walengwa",
     notificationsEnvironment: "Mazingira",
+    notificationsRecipientsEmail: "Walengwa wa barua pepe wa operations",
+    notificationsEmailIntro:
+      "Njia ya hiari ya SMTP kwa tahadhari za operations. Wezesha kwa ALERT_EMAIL_ENABLED=true na usanidi wa SMTP_HOST pamoja na ALERT_EMAIL_FROM.",
     facilityLevels: "Ngazi za vituo",
     regionLevel: "Ngazi ya mkoa",
     districtLevel: "Ngazi ya wilaya",
@@ -293,10 +307,11 @@ function SettingsPage() {
   });
 
   const notificationDryRunMutation = useMutation({
-    mutationFn: () => requestJson("/integrations/notifications/test", {
-      method: "POST",
-      body: { liveSend: false },
-    }),
+    mutationFn: (vars = {}) =>
+      requestJson("/integrations/notifications/test", {
+        method: "POST",
+        body: { liveSend: false, transport: vars.transport || "sms" },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "notifications", "status"] });
       queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
@@ -304,10 +319,11 @@ function SettingsPage() {
   });
 
   const notificationLiveMutation = useMutation({
-    mutationFn: () => requestJson("/integrations/notifications/test", {
-      method: "POST",
-      body: { liveSend: true },
-    }),
+    mutationFn: (vars = {}) =>
+      requestJson("/integrations/notifications/test", {
+        method: "POST",
+        body: { liveSend: true, transport: vars.transport || "sms" },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "notifications", "status"] });
       queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
@@ -374,6 +390,7 @@ function SettingsPage() {
       { label: "Schema", status: services.schema?.status || "unknown", detail: services.schema?.message || "Schema compatibility visibility" },
       { label: "DHIS2", status: services.dhis2?.status || "unknown", detail: services.dhis2?.baseUrl || "Not connected" },
       { label: "SMS", status: services.sms?.status || "unknown", detail: services.sms?.message || "Operational notification path" },
+      { label: "Email", status: services.email?.status || "unknown", detail: services.email?.message || "SMTP alert path" },
       { label: "ML", status: services.ml?.status || "unknown", detail: services.ml?.message || "Model services" },
     ],
     [
@@ -387,6 +404,8 @@ function SettingsPage() {
       services.ml?.status,
       services.sms?.message,
       services.sms?.status,
+      services.email?.message,
+      services.email?.status,
     ],
   );
 
@@ -1119,7 +1138,7 @@ function SettingsPage() {
                   <Button
                     variant="secondary"
                     icon={<RefreshCw className="h-4 w-4" />}
-                    onClick={() => notificationDryRunMutation.mutate()}
+                    onClick={() => notificationDryRunMutation.mutate({ transport: "sms" })}
                     loading={notificationDryRunMutation.isPending}
                     disabled={integrationActionsBlocked}
                   >
@@ -1128,7 +1147,7 @@ function SettingsPage() {
                   <Button
                     variant="primary"
                     icon={<Check className="h-4 w-4" />}
-                    onClick={() => notificationLiveMutation.mutate()}
+                    onClick={() => notificationLiveMutation.mutate({ transport: "sms" })}
                     loading={notificationLiveMutation.isPending}
                     disabled={!notificationStatus?.liveSendAllowed || integrationActionsBlocked}
                   >
@@ -1142,15 +1161,89 @@ function SettingsPage() {
                   </div>
                 ) : null}
 
+                <div className="mt-6 border-t border-slate-200 pt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Email</p>
+                      <p className="mt-1 text-sm text-slate-600">{copy.notificationsEmailIntro}</p>
+                    </div>
+                    <HealthPill
+                      label="Email"
+                      status={notificationStatus?.email?.gateway?.status || services.email?.status || "unknown"}
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        {copy.notificationsProvider}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-900">
+                        {notificationStatus?.email?.provider || services.email?.provider || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        {copy.notificationsRecipientsEmail}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {Number(notificationStatus?.email?.recipientCount || 0).toLocaleString()} configured
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(notificationStatus?.email?.recipients || []).length ? (
+                          notificationStatus.email.recipients.map((target) => (
+                            <span
+                              key={target}
+                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                            >
+                              {target}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-slate-500">No email recipients configured.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <Button
+                      variant="secondary"
+                      icon={<RefreshCw className="h-4 w-4" />}
+                      onClick={() => notificationDryRunMutation.mutate({ transport: "email" })}
+                      loading={notificationDryRunMutation.isPending}
+                      disabled={integrationActionsBlocked}
+                    >
+                      {copy.notificationsDryRunEmail}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      icon={<Check className="h-4 w-4" />}
+                      onClick={() => notificationLiveMutation.mutate({ transport: "email" })}
+                      loading={notificationLiveMutation.isPending}
+                      disabled={!notificationStatus?.email?.liveSendAllowed || integrationActionsBlocked}
+                    >
+                      {copy.notificationsLiveTestEmail}
+                    </Button>
+                  </div>
+                  {!notificationStatus?.email?.liveSendAllowed && notificationStatus?.email?.liveSendBlockedReason ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      {copy.notificationsLiveBlocked} {notificationStatus.email.liveSendBlockedReason}
+                    </div>
+                  ) : null}
+                </div>
+
                 {notificationDryRunMutation.isSuccess ? (
                   <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    {copy.notificationsDryRunSuccess}
+                    {notificationDryRunMutation.data?.transport === "email"
+                      ? copy.notificationsDryRunSuccessEmail
+                      : copy.notificationsDryRunSuccess}
                   </div>
                 ) : null}
 
                 {notificationLiveMutation.isSuccess ? (
                   <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    {copy.notificationsLiveSuccess}
+                    {notificationLiveMutation.data?.transport === "email"
+                      ? copy.notificationsLiveSuccessEmail
+                      : copy.notificationsLiveSuccess}
                   </div>
                 ) : null}
 
@@ -1193,7 +1286,10 @@ function SettingsPage() {
                         <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-sm font-semibold text-slate-950">{event.action}</p>
-                            <HealthPill label="SMS" status={event.status || "unknown"} />
+                            <HealthPill
+                              label={String(event.action || "").includes("email") ? "Email" : "SMS"}
+                              status={event.status || "unknown"}
+                            />
                           </div>
                           <p className="mt-2 text-xs text-slate-500">
                             {[event.provider, event.targetMode, event.target].filter(Boolean).join(" | ")}

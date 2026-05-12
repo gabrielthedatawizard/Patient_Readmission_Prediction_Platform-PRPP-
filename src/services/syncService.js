@@ -32,6 +32,62 @@ export async function queueTaskStatusUpdate({ taskId, status, assignee, dueDate 
   return enqueueSyncOperation({ operation });
 }
 
+export async function queuePatientUpsert(patient) {
+  const id = patient?.id || buildIdempotencyKey("patient");
+  const operation = {
+    operationId: buildIdempotencyKey(`patient-upsert-${id}`),
+    type: "patient_upsert",
+    data: {
+      ...patient,
+      clientUpdatedAt: patient?.clientUpdatedAt || new Date().toISOString(),
+    },
+  };
+
+  return enqueueSyncOperation({ operation });
+}
+
+export async function queueTaskCreate({
+  patientId,
+  title,
+  category,
+  priority,
+  assignee,
+  predictionId,
+  dueDate,
+}) {
+  const operation = {
+    operationId: buildIdempotencyKey(`task-create-${patientId}`),
+    type: "task_create",
+    data: {
+      patientId,
+      title,
+      category,
+      priority,
+      assignee,
+      predictionId,
+      dueDate,
+      clientUpdatedAt: new Date().toISOString(),
+    },
+  };
+
+  return enqueueSyncOperation({ operation });
+}
+
+export async function queuePredictionOverride({ predictionId, newTier, reason }) {
+  const operation = {
+    operationId: buildIdempotencyKey(`prediction-override-${predictionId}`),
+    type: "prediction_override",
+    data: {
+      predictionId,
+      newTier,
+      reason,
+      clientUpdatedAt: new Date().toISOString(),
+    },
+  };
+
+  return enqueueSyncOperation({ operation });
+}
+
 export async function flushSyncQueue() {
   const queued = (await getQueuedSyncOperations()).sort((left, right) =>
     String(left.queuedAt).localeCompare(String(right.queuedAt)),

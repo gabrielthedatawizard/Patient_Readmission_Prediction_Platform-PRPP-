@@ -6,9 +6,14 @@ const {
   resolveSmsTargets,
   sendSmsMessage
 } = require('./smsGateway');
+const {
+  getConfiguredEmailRecipients,
+  getEmailAlertsEnabled,
+  getEmailGatewayStatus,
+  sendEmailMessage
+} = require('./emailGateway');
 
 const ALERT_THRESHOLD = Number(process.env.RISK_ALERT_THRESHOLD || 80);
-const EMAIL_ALERTS_ENABLED = process.env.ALERT_EMAIL_ENABLED !== 'false';
 
 function nowIso() {
   return new Date().toISOString();
@@ -38,20 +43,46 @@ function maskTarget(target) {
   return `${normalized.slice(0, 4)}***${normalized.slice(-3)}`;
 }
 
-function buildEmailChannel(patient) {
-  if (!EMAIL_ALERTS_ENABLED) {
+function buildEmailChannel(_patient) {
+  if (!getEmailAlertsEnabled()) {
     return [];
   }
 
-  return [
-    {
+  const gateway = getEmailGatewayStatus();
+  const targets = getConfiguredEmailRecipients();
+
+  if (!targets.length) {
+    return [
+      {
+        type: 'email',
+        target: null,
+        provider: gateway.provider,
+        status: 'skipped_missing_operations_contact'
+      }
+    ];
+  }
+
+  if (gateway.status !== 'up') {
+    const fallbackStatus =
+      gateway.status === 'disabled' || gateway.provider === 'disabled'
+        ? 'provider_disabled'
+        : 'provider_not_configured';
+
+    return targets.map((target) => ({
       type: 'email',
-      target:
-        process.env.ALERT_EMAIL_RECIPIENT ||
-        `${String(patient?.facilityId || 'trip').toLowerCase()}@alerts.trip.go.tz`,
-      status: 'not_implemented'
-    }
-  ];
+      target,
+      provider: gateway.provider,
+      status: fallbackStatus,
+      attemptedAt: nowIso()
+    }));
+  }
+
+  return targets.map((target) => ({
+    type: 'email',
+    target,
+    provider: gateway.provider,
+    status: 'queued'
+  }));
 }
 
 function buildSmsChannels(patient) {
@@ -135,6 +166,80 @@ async function auditSmsChannel({ req, alertId, patient, prediction, channel }) {
   });
 }
 
+async function auditEmailChannel({ req, alertId, patient, prediction, channel }) {
+  return createAuditLog({
+    userId: req.user?.id || null,
+    userRole: req.user?.role || null,
+    facilityId: patient.facilityId || null,
+    regionCode: req.user?.regionCode || null,
+    ipAddress: req.ip,
+    action: 'risk_alert_email_delivery',
+    resource: `alert:${alertId}`,
+    details: {
+      alertId,
+      patientId: patient.id,
+      predictionId: prediction.id,
+      provider: channel.provider || null,
+      target: maskTarget(channel.target),
+      status: channel.status,
+      messageId: channel.messageId || null,
+      attemptedAt: channel.attemptedAt || nowIso(),
+      error: channel.error || null
+    }
+  });
+}
+
+async function finalizeEmailChannels({ req, alert, patient, prediction, message, channels }) {
+  const subject = `TRIP high-risk alert · ${patient.id} · score ${prediction.score}`;
+
+  const updatedChannels = [];
+
+  for (const channel of channels) {
+    if (channel.type !== 'email') {
+      updatedChannels.push(channel);
+      continue;
+    }
+
+    if (channel.status !== 'queued') {
+      const skippedChannel = {
+        ...channel,
+        attemptedAt: channel.attemptedAt || nowIso()
+      };
+      updatedChannels.push(skippedChannel);
+      await auditEmailChannel({
+        req,
+        alertId: alert.id,
+        patient,
+        prediction,
+        channel: skippedChannel
+      });
+      continue;
+    }
+
+    const result = await sendEmailMessage({
+      to: channel.target,
+      subject,
+      text: message
+    });
+
+    const deliveredChannel = {
+      ...channel,
+      ...result
+    };
+
+    updatedChannels.push(deliveredChannel);
+    await auditEmailChannel({
+      req,
+      alertId: alert.id,
+      patient,
+      prediction,
+      channel: deliveredChannel
+    });
+  }
+
+  return updatedChannels;
+}
+
 async function finalizeSmsChannels({ req, alert, patient, prediction, message, channels }) {
   const updatedChannels = [];
 
@@ -211,13 +316,22 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
 
   let finalChannels = channels;
   try {
+    finalChannels = await finalizeEmailChannels({
+      req,
+      alert: persistedAlert,
+      patient,
+      prediction,
+      message,
+      channels: finalChannels
+    });
+
     finalChannels = await finalizeSmsChannels({
       req,
       alert: persistedAlert,
       patient,
       prediction,
       message,
-      channels
+      channels: finalChannels
     });
 
     const updatedAlert = await updateAlertChannels(persistedAlert.id, finalChannels);
@@ -236,7 +350,7 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
         alertId: persistedAlert.id,
         patientId: patient.id
       },
-      'SMS alert finalization failed; keeping persisted alert with current channel state.'
+      'Outbound alert channel finalization failed; keeping persisted alert with current channel state.'
     );
   }
 

@@ -124,14 +124,16 @@ describe('dhis2SyncService', () => {
           dhis2OrgUnitId: 'ou-123'
         })
       ],
-      { dryRun: false }
+      { dryRun: false, responseSampleLimit: 25 }
     );
     expect(result.summary).toEqual({
       sourceOrgUnitCount: 1,
       total: 1,
       imported: 1,
       updated: 0,
-      matchedByName: 0
+      matchedByName: 0,
+      previewCount: 1,
+      previewTruncated: false
     });
     expect(result.dryRun).toBe(false);
   });

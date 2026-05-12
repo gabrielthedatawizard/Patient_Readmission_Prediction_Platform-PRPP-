@@ -110,7 +110,9 @@ router.get('/notifications/status', requirePermission('analytics:read'), asyncHa
       provider: status.provider,
       status: status.gateway?.status || 'unknown',
       recipientCount: status.recipientCount,
-      liveSendAllowed: status.liveSendAllowed
+      liveSendAllowed: status.liveSendAllowed,
+      emailStatus: status.email?.gateway?.status || 'unknown',
+      emailRecipientCount: status.email?.recipientCount ?? 0
     }
   });
 
@@ -126,7 +128,8 @@ router.post('/notifications/test', requirePermission('analytics:read'), asyncHan
     user: req.user,
     liveSend,
     sendAll,
-    message: req.body?.message
+    message: req.body?.message,
+    transport: req.body?.transport
   });
 
   await logAudit(req, {
@@ -134,6 +137,7 @@ router.post('/notifications/test', requirePermission('analytics:read'), asyncHan
     resource: 'integrations:notifications:test',
     details: {
       dryRun: result.dryRun,
+      transport: result.transport || 'sms',
       provider: result.provider,
       targetMode: result.targetMode,
       recipientCount: result.recipientCount,
