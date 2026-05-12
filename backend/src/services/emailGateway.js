@@ -1,7 +1,28 @@
-const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
 const SUPPORTED_PROVIDERS = new Set(['disabled', 'smtp']);
+
+/** Lazy-load so API boot works when backend/node_modules is absent (e.g. Vercel deletes it; deps resolve from repo root). */
+let nodemailerModule;
+let nodemailerResolveAttempted = false;
+
+function resolveNodemailer() {
+  if (nodemailerResolveAttempted) {
+    return nodemailerModule;
+  }
+  nodemailerResolveAttempted = true;
+  try {
+    // eslint-disable-next-line global-require, import/no-extraneous-dependencies
+    nodemailerModule = require('nodemailer');
+  } catch (error) {
+    nodemailerModule = null;
+    logger.warn(
+      { err: String(error?.message || error) },
+      'nodemailer could not be loaded; SMTP email sends are unavailable until the dependency is installed.'
+    );
+  }
+  return nodemailerModule;
+}
 
 function getEmailAlertsEnabled() {
   return process.env.ALERT_EMAIL_ENABLED === 'true';
@@ -123,6 +144,19 @@ function getEmailGatewayStatus() {
     };
   }
 
+  if (!resolveNodemailer()) {
+    return {
+      status: 'degraded',
+      enabled: true,
+      provider,
+      configured: true,
+      hostConfigured: true,
+      recipientCount: recipients.length,
+      message:
+        'nodemailer is not available on this runtime (install it at the app root or in backend for SMTP).'
+    };
+  }
+
   return {
     status: 'up',
     enabled: true,
@@ -139,10 +173,15 @@ function conciseError(error) {
 }
 
 function buildTransport(smtp) {
+  const nm = resolveNodemailer();
+  if (!nm) {
+    return null;
+  }
+
   const auth =
     smtp.user && smtp.pass ? { user: smtp.user, pass: smtp.pass } : undefined;
 
-  return nodemailer.createTransport({
+  return nm.createTransport({
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
@@ -208,6 +247,16 @@ async function sendEmailMessage(
   }
 
   const transport = options.transport || buildTransport(smtp);
+
+  if (!transport) {
+    return {
+      status: 'provider_not_configured',
+      provider,
+      target,
+      attemptedAt,
+      error: 'nodemailer is not installed or could not be loaded on this deployment.'
+    };
+  }
 
   try {
     const info = await transport.sendMail({
