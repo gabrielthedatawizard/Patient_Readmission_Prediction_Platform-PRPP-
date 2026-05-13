@@ -29,6 +29,12 @@ export const DashboardLayout = ({
       <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-1">
+            <div className="flex items-center gap-3 mb-2 animate-in slide-in-from-left duration-700">
+              <div className="h-[1px] w-8 bg-teal-500/50" />
+              <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.3em]">
+                System Live • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
               {title}
             </h1>

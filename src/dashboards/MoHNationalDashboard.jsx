@@ -12,6 +12,8 @@ import {
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useWorkspace } from "../context/WorkspaceProvider";
+import { useAuth } from "../context/AuthProvider";
+import { useI18n } from "../context/I18nProvider";
 
 // Persona: Ministry of Health — National Level
 // JTBD: "What is the national readmission picture, and where do I intervene?"
@@ -20,6 +22,18 @@ import { useWorkspace } from "../context/WorkspaceProvider";
 
 export const MoHNationalDashboard = () => {
   const { scopeLabel } = useWorkspace();
+  const { currentUser } = useAuth();
+  const { language } = useI18n();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return language === "sw" ? "Habari za asubuhi" : "Good Morning";
+    if (hour < 17) return language === "sw" ? "Habari za mchana" : "Good Afternoon";
+    return language === "sw" ? "Habari za jioni" : "Good Evening";
+  };
+
+  const firstName = currentUser?.fullName?.split(" ")[0] || "";
+  const personalizedTitle = `${getGreeting()}, ${firstName}`;
   const { data: kpis, loading, error, lastRefresh, refresh } = useDashboardData(
     "/analytics/national/kpis?days=30",
     300000,
@@ -44,7 +58,7 @@ export const MoHNationalDashboard = () => {
   return (
     <DashboardLayout
       isBento={true}
-      title="National Intelligence"
+      title={personalizedTitle}
       subtitle={`Tanzania Readmission Intelligence Platform — ${scopeLabel.title}`}
       headerActions={
         <div className="flex items-center gap-3">

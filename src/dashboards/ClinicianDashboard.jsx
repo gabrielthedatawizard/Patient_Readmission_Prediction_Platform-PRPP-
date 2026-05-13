@@ -12,6 +12,7 @@ import {
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useI18n } from "../context/I18nProvider";
+import { useAuth } from "../context/AuthProvider";
 
 function normalizePatientPrediction(patient) {
   const prediction = patient.prediction || patient.latestPrediction || null;
@@ -27,7 +28,18 @@ function normalizePatientPrediction(patient) {
 
 export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarge }) => {
   const { language } = useI18n();
+  const { currentUser } = useAuth();
   const [viewFilter, setViewFilter] = useState("all");
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return language === "sw" ? "Habari za asubuhi" : "Good Morning";
+    if (hour < 17) return language === "sw" ? "Habari za mchana" : "Good Afternoon";
+    return language === "sw" ? "Habari za jioni" : "Good Evening";
+  };
+
+  const firstName = currentUser?.fullName?.split(" ")[0] || "";
+  const personalizedTitle = `${getGreeting()}, ${firstName}`;
 
   const { data: patientsResponse, loading, error, refresh } = useDashboardData(
     `/patients?assignedTo=${encodeURIComponent(clinicianId || "self")}&include=predictions,tasks`,
@@ -93,7 +105,7 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
   return (
     <DashboardLayout
       isBento={true}
-      title={language === "sw" ? "Wagonjwa" : "My Ward"}
+      title={personalizedTitle}
       subtitle={
         language === "sw"
           ? "Utabiri wa hatari na usimamizi wa wagonjwa."
