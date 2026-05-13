@@ -230,18 +230,37 @@ const LandingPage = ({ onLogin }) => {
       </nav>
 
       {/* ══════════ HERO ══════════
-           ILLUSTRATION PLACEMENT: Right column, split-screen layout.
-           WHY: Nielsen research proves F-pattern reading — users scan left text,
-           eyes snap right to the visual. This creates max first-impression impact.
+           BACKGROUND: Cinematic Gradient Fade — background1.jpg positioned left center
+           so the important left details remain visible on the right side of the viewport.
+           A white→transparent gradient mask on the LEFT column keeps text perfectly legible.
+           The 3D illustration floats on top of the photo for layered depth.
       ════════════════════════════════ */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center pt-16 overflow-hidden">
-        {/* Background blobs */}
+      <section
+        ref={heroRef}
+        className="relative min-h-screen flex items-center pt-16 overflow-hidden"
+        style={{
+          backgroundImage: "url('/background1.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "left center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {/* ── Cinematic gradient mask layers ── */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-teal-400/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 -left-48 w-[500px] h-[500px] bg-sky-400/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-emerald-400/8 rounded-full blur-3xl" />
-          {/* Dot grid */}
-          <svg className="absolute inset-0 w-full h-full opacity-[0.025]" xmlns="http://www.w3.org/2000/svg">
+          {/* Layer 1: White fade — covers left 55% so text column sits on clean white */}
+          <div className="absolute inset-0" style={{
+            background: "linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.97) 25%, rgba(255,255,255,0.88) 42%, rgba(255,255,255,0.55) 56%, rgba(255,255,255,0.18) 70%, rgba(255,255,255,0) 82%)"
+          }} />
+          {/* Layer 2: Top & bottom vignette — keeps the section edges clean */}
+          <div className="absolute inset-0" style={{
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 12%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.7) 100%)"
+          }} />
+          {/* Layer 3: Subtle teal tint on the visible photo area for brand cohesion */}
+          <div className="absolute inset-0" style={{
+            background: "linear-gradient(to left, rgba(13,148,136,0.08) 0%, rgba(13,148,136,0) 60%)"
+          }} />
+          {/* Dot grid — layered on top of gradient */}
+          <svg className="absolute inset-0 w-full h-full opacity-[0.018]" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
                 <circle cx="2" cy="2" r="1.5" fill="#0f766e" />
