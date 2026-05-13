@@ -12,9 +12,10 @@ export const RadialUrgency = ({
   variant = "default",
   size = 200 
 }) => {
+  const safeValue = isNaN(value) ? 0 : Math.max(0, Math.min(max, value));
   const radius = (size / 2) - 10;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / max) * circumference;
+  const offset = circumference - (safeValue / max) * circumference;
 
   const colors = {
     danger: "text-rose-500",
@@ -56,7 +57,7 @@ export const RadialUrgency = ({
       
       <div className="absolute flex flex-col items-center">
         <span className="text-4xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">
-          {value}%
+          {Math.round(safeValue)}%
         </span>
         {label && (
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
@@ -91,6 +92,7 @@ export const ClinicalScatter = ({ data = [], color = "teal" }) => {
 };
 
 export const TrendFlow = ({ data = [], height = 150 }) => {
+  if (!data || data.length < 2) return null;
   const points = data.map((d, i) => `${(i / (data.length - 1)) * 100},${100 - d}`).join(" ");
   
   return (

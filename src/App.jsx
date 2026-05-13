@@ -50,6 +50,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
 import Card from "./components/common/Card";
 import WorkspaceScopeBar from "./components/workspace/WorkspaceScopeBar";
+import ThemeToggle from "./components/ThemeToggle";
 import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
 
 // Lazy Loaded Dashboards & Views
@@ -309,8 +310,11 @@ const Layout = ({ children }) => {
                 ) : null}
               </div>
 
-              <div className="px-2 py-1.5 bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium flex items-center gap-2">
-                <Globe className="w-4 h-4" />
+              <div className="flex items-center gap-2 sm:gap-4">
+                <ThemeToggle />
+                
+                <div className="px-2 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg text-sm font-medium flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
@@ -320,6 +324,7 @@ const Layout = ({ children }) => {
                   <option value="en">EN</option>
                 </select>
               </div>
+            </div>
 
               {canViewNotifications ? (
                 <button

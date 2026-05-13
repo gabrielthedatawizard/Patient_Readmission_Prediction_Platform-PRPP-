@@ -165,7 +165,7 @@ export const MoHNationalDashboard = () => {
         >
           <div className="flex justify-center py-8">
             <RadialUrgency 
-              value={Math.round((7.5 / metrics.readmissionRate) * 100)} 
+              value={metrics.readmissionRate > 0 ? Math.round((7.5 / metrics.readmissionRate) * 100) : 0} 
               variant={readmissionVariant}
               label="Milestone"
             />

@@ -14,34 +14,32 @@ const ThemeToggle = ({ className = "" }) => {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-pressed={theme === "dark"}
-      aria-label={nextThemeLabel}
-      title={nextThemeLabel}
-      className={[
-        "relative inline-flex h-10 w-20 items-center rounded-2xl border border-slate-200",
-        "bg-slate-50/50 p-1 transition-all duration-500",
-        "dark:border-teal-500/20 dark:bg-slate-900/50 backdrop-blur-md",
-        className,
-      ].join(" ")}
+      className={`
+        relative inline-flex h-9 w-18 items-center rounded-full border border-slate-200
+        bg-white/50 p-1 transition-all duration-500
+        dark:border-white/10 dark:bg-slate-950/40 backdrop-blur-md
+        ${className}
+      `}
     >
       <motion.span
         layout
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-        className={[
-          "absolute z-10 flex h-8 w-8 items-center justify-center rounded-xl bg-white shadow-xl shadow-slate-200 dark:shadow-none",
-          theme === "dark" ? "translate-x-10" : "translate-x-0",
-        ].join(" ")}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        className={`
+          absolute z-10 flex h-7 w-7 items-center justify-center rounded-full 
+          bg-white shadow-trip dark:bg-teal-500 dark:shadow-[0_0_12px_rgba(20,184,166,0.4)]
+          ${theme === "dark" ? "translate-x-9" : "translate-x-0"}
+        `}
       >
         {theme === "dark" ? (
-          <Moon className="h-4 w-4 text-teal-600" />
+          <Moon className="h-3.5 w-3.5 text-white" />
         ) : (
-          <Sun className="h-4 w-4 text-amber-500" />
+          <Sun className="h-3.5 w-3.5 text-amber-500" />
         )}
       </motion.span>
-      <span className="flex w-full items-center justify-between px-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-        <span>L</span>
-        <span>D</span>
-      </span>
+      <div className="flex w-full items-center justify-between px-2.5 text-[8px] font-black tracking-widest text-slate-400 dark:text-slate-600">
+        <span className={theme === "light" ? "opacity-0" : "opacity-100"}>LIGHT</span>
+        <span className={theme === "dark" ? "opacity-0" : "opacity-100"}>DARK</span>
+      </div>
     </button>
   );
 };
