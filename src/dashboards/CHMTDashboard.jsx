@@ -1,7 +1,19 @@
-import { Building2, ClipboardList, TrendingUp, Users } from "lucide-react";
-import { DashboardSkeleton, EmptyState, ErrorState, FacilityRankingTable, KPICard } from "../components/dashboards";
+import { Building2, ClipboardList, MapPin, TrendingUp, Users } from "lucide-react";
+import {
+  DashboardSkeleton,
+  EmptyState,
+  ErrorState,
+  FacilityRankingTable,
+  KPICard,
+  DashboardLayout,
+  DashboardSection,
+} from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useWorkspace } from "../context/WorkspaceProvider";
+
+// Persona: Council Health Management Team
+// JTBD: "How is my district performing vs. targets, and which facilities need support?"
+// Mental model: Score card reviewer. Ranked list + trend.
 
 export const CHMTDashboard = ({ district = "" }) => {
   const { currentScope, scopeLabel } = useWorkspace();
@@ -11,42 +23,74 @@ export const CHMTDashboard = ({ district = "" }) => {
   );
   const { data: facilities } = useDashboardData("/analytics/facility-rankings?days=30", 240000);
 
-  if (loading && !kpis) {
-    return <DashboardSkeleton cards={3} />;
-  }
-  if (error && !kpis) {
-    return <ErrorState error={error} onRetry={refresh} />;
-  }
+  if (loading && !kpis) return <DashboardSkeleton cards={4} />;
+  if (error && !kpis) return <ErrorState error={error} onRetry={refresh} />;
+
+  const readmissionRate = Number(kpis?.readmissionRate || 0);
+  const interventionRate = Number(kpis?.interventionRate || 0);
+  const readmissionVariant = readmissionRate > 12 ? "danger" : readmissionRate > 8 ? "warning" : "success";
+  const interventionVariant = interventionRate > 80 ? "success" : interventionRate > 60 ? "warning" : "danger";
+
+  const scopeName = currentScope.district || district || scopeLabel.title;
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">District Dashboard</h1>
-        <p className="text-neutral-600 mt-1">
-          Council Health Management Team - {currentScope.district || district || scopeLabel.title}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Readmission" value={`${Number(kpis?.readmissionRate || 0).toFixed(1)}%`} icon={TrendingUp} />
-        <KPICard title="High-Risk Cases" value={Number(kpis?.highRiskCount || 0).toLocaleString()} icon={Users} />
-        <KPICard title="Facilities" value={String(kpis?.activeFacilities || 0)} icon={Building2} />
-        <KPICard title="Intervention Rate" value={`${Number(kpis?.interventionRate || 0).toFixed(1)}%`} icon={ClipboardList} />
-      </div>
-
-      <div className="bg-white rounded-xl border border-neutral-200 p-6">
-        <h2 className="text-xl font-bold mb-4">Facility Performance in District</h2>
+    <DashboardLayout
+      title="District Dashboard"
+      subtitle={`Council Health Management Team — ${scopeName}`}
+      headerActions={
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 dark:bg-teal-950/50 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300">
+          <MapPin className="w-3.5 h-3.5" />
+          {scopeName}
+        </span>
+      }
+      kpis={[
+        <KPICard
+          key="readmission"
+          title="Readmission Rate"
+          value={`${readmissionRate.toFixed(1)}%`}
+          icon={TrendingUp}
+          footer={readmissionRate > 8 ? "Above national target" : "Within target"}
+          variant={readmissionVariant}
+        />,
+        <KPICard
+          key="high_risk"
+          title="High-Risk Cases"
+          value={Number(kpis?.highRiskCount || 0).toLocaleString()}
+          icon={Users}
+          footer="Across all facilities in district"
+          variant="warning"
+        />,
+        <KPICard
+          key="facilities"
+          title="Facilities"
+          value={String(kpis?.activeFacilities || 0)}
+          icon={Building2}
+          footer={`of ${kpis?.totalFacilities || 0} total`}
+          variant="info"
+        />,
+        <KPICard
+          key="intervention"
+          title="Intervention Rate"
+          value={`${interventionRate.toFixed(1)}%`}
+          icon={ClipboardList}
+          footer={interventionRate > 80 ? "On target" : "Below 80% target"}
+          variant={interventionVariant}
+        />,
+      ]}
+    >
+      <DashboardSection
+        title="Facility Performance in District"
+        subtitle={`${(facilities?.all || []).length} facilities reporting`}
+      >
         {(facilities?.all || []).length ? (
           <FacilityRankingTable facilities={facilities?.all || []} />
         ) : (
           <EmptyState
-            message={`No facility performance data is visible for ${
-              currentScope.district || district || scopeLabel.title
-            }. Import a hierarchy snapshot or switch to a district with reporting facilities.`}
+            message={`No facility performance data is visible for ${scopeName}. Import a hierarchy snapshot or switch to a district with reporting facilities.`}
           />
         )}
-      </div>
-    </div>
+      </DashboardSection>
+    </DashboardLayout>
   );
 };
 

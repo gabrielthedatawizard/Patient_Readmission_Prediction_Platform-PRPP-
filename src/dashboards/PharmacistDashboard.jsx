@@ -5,17 +5,24 @@ import {
   ErrorState,
   KPICard,
   TaskQueue,
+  DashboardLayout,
+  DashboardSection,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { updateTask } from "../services/apiClient";
 import { useState } from "react";
 import { useI18n } from "../context/I18nProvider";
 
+// Persona: Pharmacist
+// JTBD: "Are there any medication risks before this patient goes home?"
+// Mental model: Safety checker. Zero-miss tolerance.
+
 export const PharmacistDashboard = ({ pharmacistId }) => {
   const { language } = useI18n();
   const [doneTaskId, setDoneTaskId] = useState(null);
   const [taskFeedback, setTaskFeedback] = useState("");
   const [taskError, setTaskError] = useState("");
+
   const { data: tasksResponse, loading, error, refresh } = useDashboardData(
     `/tasks?assignedTo=${encodeURIComponent(pharmacistId || "self")}&include=patient`,
     120000,
@@ -30,6 +37,9 @@ export const PharmacistDashboard = ({ pharmacistId }) => {
   );
   const pending = medicationTasks.filter(
     (task) => task.status !== "done" && task.status !== "completed",
+  );
+  const completed = medicationTasks.filter(
+    (task) => task.status === "done" || task.status === "completed",
   );
 
   const handleMarkDone = async (taskId) => {
@@ -56,59 +66,66 @@ export const PharmacistDashboard = ({ pharmacistId }) => {
     }
   };
 
-  if (loading && !tasksResponse) {
-    return <DashboardSkeleton cards={3} />;
-  }
-
-  if (error && !tasksResponse) {
-    return <ErrorState error={error} onRetry={refresh} />;
-  }
+  if (loading && !tasksResponse) return <DashboardSkeleton cards={3} />;
+  if (error && !tasksResponse) return <ErrorState error={error} onRetry={refresh} />;
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">
-          {language === "sw" ? "Dashibodi ya famasia" : "Pharmacy dashboard"}
-        </h1>
-        <p className="mt-1 text-neutral-600">
-          {language === "sw"
-            ? "Usalama wa dawa, upatanishaji, na maagizo ya kuondoka."
-            : "Medication reconciliation and discharge prescription safety."}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <DashboardLayout
+      title={language === "sw" ? "Dashibodi ya famasia" : "Pharmacy Dashboard"}
+      subtitle={
+        language === "sw"
+          ? "Usalama wa dawa, upatanishaji, na maagizo ya kuondoka."
+          : "Medication reconciliation and discharge prescription safety."
+      }
+      kpis={[
         <KPICard
+          key="total"
           title={language === "sw" ? "Kazi za dawa" : "Medication tasks"}
           value={medicationTasks.length}
           icon={Pill}
-        />
+          footer={language === "sw" ? "Jumla ya kazi za dawa" : "Total medication tasks"}
+          variant="default"
+        />,
         <KPICard
+          key="high"
           title={language === "sw" ? "Kipaumbele cha juu" : "High priority"}
           value={highPriorityTasks.length}
           icon={AlertTriangle}
-        />
+          footer={
+            highPriorityTasks.length > 0
+              ? language === "sw" ? "Zinahitaji uangalizi wa haraka" : "Requires immediate attention"
+              : language === "sw" ? "Hakuna za kipaumbele cha juu" : "None pending"
+          }
+          variant={highPriorityTasks.length > 0 ? "danger" : "success"}
+        />,
         <KPICard
+          key="done"
           title={language === "sw" ? "Zimekamilika" : "Completed"}
-          value={medicationTasks.filter((task) => task.status === "done" || task.status === "completed").length}
+          value={completed.length}
           icon={ClipboardCheck}
-        />
-      </div>
-
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          {language === "sw" ? "Foleni ya upatanishaji wa dawa" : "Medication reconciliation queue"}
-        </h2>
-        {taskFeedback ? (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          footer={
+            medicationTasks.length
+              ? `${Math.round((completed.length / medicationTasks.length) * 100)}% ${language === "sw" ? "ya jumla" : "of total"}`
+              : language === "sw" ? "Hakuna kazi" : "No tasks yet"
+          }
+          variant="success"
+        />,
+      ]}
+    >
+      <DashboardSection
+        title={language === "sw" ? "Foleni ya upatanishaji wa dawa" : "Medication reconciliation queue"}
+        subtitle={pending.length ? `${pending.length} ${language === "sw" ? "zinazosubiri" : "pending"}` : undefined}
+      >
+        {taskFeedback && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/50 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
             {taskFeedback}
           </div>
-        ) : null}
-        {taskError ? (
-          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        )}
+        {taskError && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-900/50 px-4 py-3 text-sm text-rose-800 dark:text-rose-300">
             {taskError}
           </div>
-        ) : null}
+        )}
         {pending.length ? (
           <TaskQueue tasks={pending} onMarkDone={handleMarkDone} doneTaskId={doneTaskId} variant="warning" />
         ) : (
@@ -120,8 +137,8 @@ export const PharmacistDashboard = ({ pharmacistId }) => {
             }
           />
         )}
-      </div>
-    </div>
+      </DashboardSection>
+    </DashboardLayout>
   );
 };
 
