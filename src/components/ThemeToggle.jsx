@@ -18,18 +18,18 @@ const ThemeToggle = ({ className = "" }) => {
       aria-label={nextThemeLabel}
       title={nextThemeLabel}
       className={[
-        "relative inline-flex h-9 w-16 items-center rounded-full border border-white/30",
-        "bg-slate-200/80 p-1 shadow-inner transition-colors duration-300",
-        "dark:border-teal-400/20 dark:bg-slate-800/90",
+        "relative inline-flex h-10 w-20 items-center rounded-2xl border border-slate-200",
+        "bg-slate-50/50 p-1 transition-all duration-500",
+        "dark:border-teal-500/20 dark:bg-slate-900/50 backdrop-blur-md",
         className,
       ].join(" ")}
     >
       <motion.span
         layout
-        transition={{ type: "spring", stiffness: 650, damping: 35 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
         className={[
-          "absolute flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md",
-          theme === "dark" ? "translate-x-7" : "translate-x-0",
+          "absolute z-10 flex h-8 w-8 items-center justify-center rounded-xl bg-white shadow-xl shadow-slate-200 dark:shadow-none",
+          theme === "dark" ? "translate-x-10" : "translate-x-0",
         ].join(" ")}
       >
         {theme === "dark" ? (
@@ -38,7 +38,7 @@ const ThemeToggle = ({ className = "" }) => {
           <Sun className="h-4 w-4 text-amber-500" />
         )}
       </motion.span>
-      <span className="flex w-full items-center justify-between px-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">
+      <span className="flex w-full items-center justify-between px-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
         <span>L</span>
         <span>D</span>
       </span>

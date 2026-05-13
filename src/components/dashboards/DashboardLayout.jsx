@@ -14,9 +14,9 @@ export const DashboardLayout = ({
   isBento = false 
 }) => {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 font-sans">
-      {/* Schematic Background Depth */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05] overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 font-sans transition-colors duration-500">
+      {/* Schematic Background Depth - HUD Grid */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.1] overflow-hidden">
         <svg width="100%" height="100%" className="absolute inset-0">
           <pattern id="medical-grid" width="100" height="100" patternUnits="userSpaceOnUse">
             <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="0.5" />
