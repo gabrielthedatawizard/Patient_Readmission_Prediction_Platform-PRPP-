@@ -22,6 +22,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useI18n } from "../context/I18nProvider";
+import ThemeToggle from "../components/ThemeToggle";
 
 const SUPPORT_EMAIL = "trip-support@moh.go.tz";
 
@@ -162,38 +163,39 @@ const LandingPage = ({ onLogin }) => {
     `transition-all duration-700 ease-out ${delay ? `delay-[${delay}ms]` : ""} ${vis ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`;
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors duration-500 overflow-x-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
 
       {/* ══════════ NAV ══════════ */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100 transition-shadow duration-300 ${scrolled ? "shadow-lg shadow-teal-900/5" : ""}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-b border-gray-100 dark:border-slate-800 transition-all duration-300 ${scrolled ? "shadow-lg shadow-teal-900/5" : ""}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center shadow-md shadow-teal-200">
                 <Activity className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">TRIP</span>
+              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">TRIP</span>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
               {[["features", t("landingNavFeatures")], ["about", t("landingNavAbout")], ["testimonials", t("landingNavTestimonials")], ["contact", t("landingNavContact")]].map(([id, label]) => (
                 <button key={id} onClick={() => scrollToSection(id)}
-                  className="text-gray-600 hover:text-teal-600 font-medium text-sm transition-colors cursor-pointer">
+                  className="text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-medium text-sm transition-colors cursor-pointer">
                   {label}
                 </button>
               ))}
             </div>
 
             <div className="hidden md:flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700">
-                <Globe className="w-3.5 h-3.5 text-gray-500" />
+              <ThemeToggle />
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-300">
+                <Globe className="w-3.5 h-3.5 text-slate-500" />
                 <label htmlFor="landing-language" className="sr-only">{t("languageLabel")}</label>
-                <select id="landing-language" value={language} onChange={(e) => setLanguage(e.target.value)} className="bg-transparent focus:outline-none text-sm">
-                  <option value="sw">{t("languageSwahili")}</option>
-                  <option value="en">{t("languageEnglish")}</option>
+                <select id="landing-language" value={language} onChange={(e) => setLanguage(e.target.value)} className="bg-transparent focus:outline-none text-sm dark:text-white">
+                  <option value="sw" className="dark:bg-slate-900">{t("languageSwahili")}</option>
+                  <option value="en" className="dark:bg-slate-900">{t("languageEnglish")}</option>
                 </select>
               </div>
-              <button onClick={onLogin} className="text-teal-600 font-semibold text-sm hover:text-teal-700 transition-colors cursor-pointer">
+              <button onClick={onLogin} className="text-teal-600 dark:text-teal-400 font-semibold text-sm hover:text-teal-700 transition-colors cursor-pointer ml-2">
                 {t("landingSignIn")}
               </button>
               <button onClick={onLogin}
@@ -202,25 +204,30 @@ const LandingPage = ({ onLogin }) => {
               </button>
             </div>
 
-            <button className="md:hidden p-2 rounded-lg hover:bg-gray-100 cursor-pointer" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <button className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer dark:text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2 shadow-xl">
+          <div className="md:hidden bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 py-4 space-y-2 shadow-xl">
             {[["features", t("landingNavFeatures")], ["about", t("landingNavAbout")], ["testimonials", t("landingNavTestimonials")], ["contact", t("landingNavContact")]].map(([id, label]) => (
-              <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left py-2.5 text-gray-700 hover:text-teal-600 font-medium cursor-pointer">
+              <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left py-2.5 text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 font-medium cursor-pointer">
                 {label}
               </button>
             ))}
-            <div className="pt-2 flex items-center gap-2">
-              <label htmlFor="landing-language-mobile" className="text-sm text-gray-600">{t("languageLabel")}</label>
-              <select id="landing-language-mobile" value={language} onChange={(e) => setLanguage(e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                <option value="sw">{t("languageSwahili")}</option>
-                <option value="en">{t("languageEnglish")}</option>
-              </select>
+            <div className="pt-2 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <div className="flex items-center gap-2">
+                  <label htmlFor="landing-language-mobile" className="text-sm text-slate-600 dark:text-slate-400">{t("languageLabel")}</label>
+                  <select id="landing-language-mobile" value={language} onChange={(e) => setLanguage(e.target.value)} className="px-2 py-1 border border-slate-300 dark:border-slate-700 rounded-md text-sm dark:bg-slate-800 dark:text-white">
+                    <option value="sw" className="dark:bg-slate-900">{t("languageSwahili")}</option>
+                    <option value="en" className="dark:bg-slate-900">{t("languageEnglish")}</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <button onClick={onLogin} className="w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl mt-3 cursor-pointer">
               {t("landingGetStarted")}
@@ -247,15 +254,15 @@ const LandingPage = ({ onLogin }) => {
       >
         {/* ── Cinematic gradient mask layers ── */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Layer 1: White fade — covers left 55% so text column sits on clean white */}
-          <div className="absolute inset-0" style={{
-            background: "linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.97) 25%, rgba(255,255,255,0.88) 42%, rgba(255,255,255,0.55) 56%, rgba(255,255,255,0.18) 70%, rgba(255,255,255,0) 82%)"
+          {/* Layer 1: White/Slate fade */}
+          <div className="absolute inset-0 transition-colors duration-500 dark:bg-slate-950/10" style={{
+            background: "var(--hero-mask-gradient, linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.97) 25%, rgba(255,255,255,0.88) 42%, rgba(255,255,255,0.55) 56%, rgba(255,255,255,0.18) 70%, rgba(255,255,255,0) 82%))"
           }} />
-          {/* Layer 2: Top & bottom vignette — keeps the section edges clean */}
+          {/* Layer 2: Top & bottom vignette */}
           <div className="absolute inset-0" style={{
-            background: "linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 12%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.7) 100%)"
+            background: "var(--hero-vignette-gradient, linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 12%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.7) 100%))"
           }} />
-          {/* Layer 3: Subtle teal tint on the visible photo area for brand cohesion */}
+          {/* Layer 3: Subtle teal tint */}
           <div className="absolute inset-0" style={{
             background: "linear-gradient(to left, rgba(13,148,136,0.08) 0%, rgba(13,148,136,0) 60%)"
           }} />
@@ -280,14 +287,14 @@ const LandingPage = ({ onLogin }) => {
                 <span className="text-sm font-semibold text-teal-700">{t("landingBadgeMinistry")}</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.1] mb-6 tracking-tight">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.1] mb-6 tracking-tight">
                 {t("landingHeroTitlePrefix")}{" "}
                 <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">
                   {t("landingHeroTitleHighlight")}
                 </span>
               </h1>
 
-              <p className="text-lg text-gray-600 mb-10 max-w-xl leading-relaxed">
+              <p className="text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-xl leading-relaxed">
                 {t("landingHeroDescription")}
               </p>
 
@@ -298,8 +305,8 @@ const LandingPage = ({ onLogin }) => {
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
                 <button onClick={() => scrollToSection("testimonials")}
-                  className="px-7 py-3.5 bg-white text-gray-700 font-semibold rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all flex items-center justify-center gap-2 cursor-pointer">
-                  <Stethoscope className="w-4 h-4 text-teal-600" />
+                  className="px-7 py-3.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                  <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   {t("landingWatchDemo")}
                 </button>
               </div>
@@ -307,10 +314,10 @@ const LandingPage = ({ onLogin }) => {
               {/* Live signal pills */}
               <div className="flex flex-wrap gap-3">
                 {heroSignals.map((s) => (
-                  <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-sm">
+                  <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-full text-sm">
                     <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold text-gray-900">{s.value}</span>
-                    <span className="text-gray-500">{s.label}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{s.value}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{s.label}</span>
                   </div>
                 ))}
               </div>
@@ -336,25 +343,25 @@ const LandingPage = ({ onLogin }) => {
                   loading="eager"
                 />
                 {/* Floating badge overlay */}
-                <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur rounded-xl shadow-lg border border-gray-100 text-sm font-semibold text-teal-700">
+                <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-100 dark:border-slate-800 text-sm font-semibold text-teal-700 dark:text-teal-400">
                   <Zap className="w-4 h-4 text-teal-500" />
                   {language === "sw" ? "AI Imebuni Hatari" : "AI Risk Predicted"}
                 </div>
-                <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur rounded-xl shadow-lg border border-gray-100 text-sm">
+                <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-100 dark:border-slate-800 text-sm">
                   <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="font-semibold text-gray-800">84%{" "}</span>
-                  <span className="text-gray-500">{language === "sw" ? "Usahihi" : "Accuracy"}</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">84%{" "}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{language === "sw" ? "Usahihi" : "Accuracy"}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Trust logos */}
-          <div className="mt-16 pt-8 border-t border-gray-100">
-            <p className="text-sm text-gray-400 mb-5 text-center">{t("landingTrustedBy")}</p>
-            <div className="flex flex-wrap items-center justify-center gap-8 opacity-40">
+          <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-sm text-slate-400 mb-5 text-center">{t("landingTrustedBy")}</p>
+            <div className="flex flex-wrap items-center justify-center gap-8 opacity-40 dark:opacity-20">
               {[{ Icon: Building, name: "MNH" }, { Icon: Heart, name: "Bugando MC" }, { Icon: Activity, name: "Temeke RH" }].map(({ Icon, name }) => (
-                <div key={name} className="flex items-center gap-2 text-gray-500 font-bold">
+                <div key={name} className="flex items-center gap-2 text-slate-500 dark:text-white font-bold">
                   <Icon className="w-5 h-5" /> {name}
                 </div>
               ))}
@@ -383,17 +390,17 @@ const LandingPage = ({ onLogin }) => {
       </section>
 
       {/* ══════════ CARE SNAPSHOTS (Feature illustrative cards) ══════════ */}
-      <section ref={illustrationRef} className="py-20 bg-gradient-to-b from-white to-gray-50/50">
+      <section ref={illustrationRef} className="py-20 bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-950 dark:to-slate-900/50 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`max-w-3xl mx-auto text-center mb-14 ${fadeClass(illustrationVis)}`}>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t("landingPhotoSectionTitle")}</h2>
-            <p className="text-lg text-gray-600">{t("landingPhotoSectionSubtitle")}</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4">{t("landingPhotoSectionTitle")}</h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">{t("landingPhotoSectionSubtitle")}</p>
           </div>
 
           <div className={`grid gap-6 md:grid-cols-3 ${fadeClass(illustrationVis, 100)}`}>
             {careSnapshots.map((snap, i) => (
               <article key={snap.title}
-                className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-2xl hover:shadow-teal-900/8 hover:-translate-y-1 transition-all duration-300 cursor-default">
+                className="group overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl hover:shadow-teal-900/8 dark:hover:shadow-black/40 hover:-translate-y-1 transition-all duration-300 cursor-default">
                 <div className={`bg-gradient-to-br ${snap.tone} px-6 py-7 text-white relative overflow-hidden`}>
                   <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">{snap.eyebrow}</p>
@@ -407,8 +414,8 @@ const LandingPage = ({ onLogin }) => {
                   </div>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{snap.title}</h3>
-                  <p className="text-sm leading-7 text-gray-600">{snap.description}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{snap.title}</h3>
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-400">{snap.description}</p>
                 </div>
               </article>
             ))}
@@ -417,12 +424,12 @@ const LandingPage = ({ onLogin }) => {
       </section>
 
       {/* ══════════ CARE PATHWAYS (Expanding flex layout) ══════════ */}
-      <section className="py-20 lg:py-28 px-4 lg:px-8 max-w-7xl mx-auto bg-white">
+      <section className="py-20 lg:py-28 px-4 lg:px-8 max-w-7xl mx-auto bg-white dark:bg-slate-950 transition-colors duration-500">
         <div className={`mb-12 md:mb-16 text-center ${fadeClass(illustrationVis, 150)}`}>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4 text-center">
             {language === "sw" ? "Njia za Huduma Makini" : "Dedicated Care Pathways"}
           </h2>
-          <p className="mt-4 text-lg text-gray-600 text-center max-w-2xl mx-auto">
+          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400 text-center max-w-2xl mx-auto">
             {language === "sw" 
               ? "Kuwawezesha wahudumu wa afya kuvuka mipaka ya hospitali hadi nyumbani." 
               : "Empowering healthcare workers to extend care seamlessly from hospital to home."}
@@ -459,8 +466,8 @@ const LandingPage = ({ onLogin }) => {
               >
                 <div className="absolute inset-0">
                   <img src={pathway.img} alt={pathway.title} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                  {/* Overlay inactive - semi-transparent white */}
-                  <div className={`absolute inset-0 bg-white/60 transition-opacity duration-700 ${isActive ? 'opacity-0' : 'opacity-100'}`}></div>
+                  {/* Overlay inactive - semi-transparent white / slate */}
+                  <div className="absolute inset-0 bg-white/60 dark:bg-slate-950/60 transition-opacity duration-700 group-hover:dark:bg-slate-950/20" style={{ opacity: isActive ? 0 : 1 }}></div>
                   {/* Overlay active - dark gradient for text legibility */}
                   <div className={`absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent transition-opacity duration-700 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
                 </div>
@@ -502,38 +509,33 @@ const LandingPage = ({ onLogin }) => {
       </section>
 
       {/* ══════════ FEATURES GRID ══════════ */}
-      <section id="features" ref={featRef} className="py-20 lg:py-28 bg-white">
+      <section id="features" ref={featRef} className="py-20 lg:py-28 bg-white dark:bg-slate-950 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center max-w-3xl mx-auto mb-16 ${fadeClass(featVis)}`}>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
               {t("landingFeaturesTitlePrefix")}{" "}
               <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">{t("landingFeaturesTitleHighlight")}</span>
             </h2>
-            <p className="text-lg text-gray-600">{t("landingFeaturesSubtitle")}</p>
+            <p className="text-lg text-slate-600 dark:text-slate-400">{t("landingFeaturesSubtitle")}</p>
           </div>
 
           <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${fadeClass(featVis, 150)}`}>
             {features.map((feat, idx) => (
               <div key={idx}
-                className="group p-7 bg-white rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-xl hover:shadow-teal-900/5 hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+                className="group p-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-teal-200 dark:hover:border-teal-900 hover:shadow-xl hover:shadow-teal-900/5 dark:hover:shadow-black/40 hover:-translate-y-0.5 transition-all duration-300 cursor-default">
                 <div className={`w-13 h-13 w-14 h-14 bg-gradient-to-br ${feat.color} rounded-2xl flex items-center justify-center shadow-lg mb-6 group-hover:scale-105 transition-transform`}>
                   <feat.icon className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{feat.title}</h3>
-                <p className="text-gray-600 leading-relaxed text-sm">{feat.description}</p>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{feat.title}</h3>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">{feat.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════ ABOUT — ILLUSTRATION + COPY SPLIT
-           ILLUSTRATION PLACEMENT: Left column (reversed from hero).
-           WHY: Alternating image sides creates rhythm and prevents monotony.
-           The community follow-up scene here perfectly mirrors the "About"
-           narrative of reaching patients beyond hospital walls.
-      ════════════════════════════════════════════════════════ */}
-      <section id="about" ref={aboutRef} className="py-20 lg:py-28 bg-gradient-to-br from-slate-50 to-teal-50/30">
+      {/* ══════════ ABOUT — ILLUSTRATION + COPY SPLIT ══════════ */}
+      <section id="about" ref={aboutRef} className="py-20 lg:py-28 bg-gradient-to-br from-slate-50 to-teal-50/30 dark:from-slate-950 dark:to-teal-950/20 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`grid lg:grid-cols-2 gap-14 lg:gap-20 items-center ${fadeClass(aboutVis)}`}>
 
@@ -546,8 +548,8 @@ const LandingPage = ({ onLogin }) => {
             <div className="relative order-2 lg:order-1">
               {/* Decorative behind-card */}
               <div className="absolute -bottom-4 -left-4 w-full h-full bg-gradient-to-br from-teal-400/20 to-emerald-400/20 rounded-3xl" />
-              <div className="absolute inset-0 bg-gradient-to-br from-teal-50 to-sky-50 rounded-3xl transform rotate-2 opacity-60" />
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-white">
+              <div className="absolute inset-0 bg-gradient-to-br from-teal-50 to-sky-50 dark:from-slate-800 dark:to-slate-900 rounded-3xl transform rotate-2 opacity-60" />
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-white dark:border-slate-800">
                 <img
                   src="/about-illustration.png"
                   alt="Community health worker following up with patient at home using TRIP platform tablet"
@@ -555,7 +557,7 @@ const LandingPage = ({ onLogin }) => {
                   loading="lazy"
                 />
                 {/* Overlay metric card */}
-                <div className="absolute bottom-5 left-5 right-5 bg-white/95 backdrop-blur rounded-2xl shadow-xl p-4 border border-gray-100">
+                <div className="absolute bottom-5 left-5 right-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-2xl shadow-xl p-4 border border-slate-100 dark:border-slate-800">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-teal-50 rounded-xl p-3">
                       <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">{language === "sw" ? "Hatari ya Juu" : "High Risk"}</p>
@@ -574,37 +576,37 @@ const LandingPage = ({ onLogin }) => {
 
             {/* RIGHT — copy */}
             <div className="order-1 lg:order-2">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6">
                 {t("landingAboutTitlePrefix")}{" "}
                 <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">{t("landingAboutTitleHighlight")}</span>
               </h2>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">{t("landingAboutDesc")}</p>
+              <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">{t("landingAboutDesc")}</p>
 
               <div className="space-y-3 mb-8">
                 {[t("landingAboutBullet1"), t("landingAboutBullet2"), t("landingAboutBullet3"), t("landingAboutBullet4")].map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3">
-                    <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center shrink-0">
-                      <Check className="w-3.5 h-3.5 text-teal-600" />
+                    <div className="w-6 h-6 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                     </div>
-                    <span className="text-gray-700">{item}</span>
+                    <span className="text-slate-700 dark:text-slate-300">{item}</span>
                   </div>
                 ))}
               </div>
 
               {/* Platform spec pills */}
-              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
                 {[
                   { icon: Clock, label: t("landingPanelRealtime"), value: t("landingPanelActive") },
                   { icon: Lock, label: t("landingPanelDataSecurity"), value: "256-bit" },
                   { icon: Database, label: t("landingPanelUptime"), value: "99.9%" },
                   { icon: BarChart2, label: language === "sw" ? "Usahihi wa AI" : "AI Accuracy", value: "84%" },
                 ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                  <div key={label} className="flex items-center justify-between py-2.5 border-b border-slate-50 dark:border-slate-800 last:border-0">
                     <div className="flex items-center gap-3">
-                      <Icon className="w-4 h-4 text-teal-600" />
-                      <span className="text-sm text-gray-700">{label}</span>
+                      <Icon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
                     </div>
-                    <span className="text-sm font-bold text-teal-600">{value}</span>
+                    <span className="text-sm font-bold text-teal-600 dark:text-teal-400">{value}</span>
                   </div>
                 ))}
               </div>
@@ -614,31 +616,31 @@ const LandingPage = ({ onLogin }) => {
       </section>
 
       {/* ══════════ TESTIMONIALS ══════════ */}
-      <section id="testimonials" ref={testRef} className="py-20 lg:py-28 bg-white">
+      <section id="testimonials" ref={testRef} className="py-20 lg:py-28 bg-white dark:bg-slate-950 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center max-w-3xl mx-auto mb-16 ${fadeClass(testVis)}`}>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
               {t("landingTestimonialsTitlePrefix")}{" "}
               <span className="bg-gradient-to-r from-teal-500 to-teal-700 bg-clip-text text-transparent">{t("landingTestimonialsTitleHighlight")}</span>
             </h2>
-            <p className="text-lg text-gray-600">{t("landingTestimonialsSubtitle")}</p>
+            <p className="text-lg text-slate-600 dark:text-slate-400">{t("landingTestimonialsSubtitle")}</p>
           </div>
 
           <div className={`grid md:grid-cols-3 gap-6 ${fadeClass(testVis, 150)}`}>
             {testimonials.map((t_, idx) => (
               <div key={idx}
-                className="group p-7 bg-white rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-xl hover:shadow-teal-900/5 hover:-translate-y-0.5 transition-all duration-300">
+                className="group p-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-teal-200 dark:hover:border-teal-900 hover:shadow-xl hover:shadow-teal-900/5 dark:hover:shadow-black/40 hover:-translate-y-0.5 transition-all duration-300">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 text-amber-400 fill-current" />)}
                 </div>
-                <p className="text-gray-700 mb-6 leading-relaxed text-sm">"{t_.quote}"</p>
+                <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed text-sm">"{t_.quote}"</p>
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {t_.initials}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">{t_.author}</p>
-                    <p className="text-xs text-gray-500">{t_.role}</p>
+                    <p className="font-semibold text-slate-900 dark:text-white text-sm">{t_.author}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t_.role}</p>
                   </div>
                 </div>
               </div>
@@ -729,6 +731,17 @@ const LandingPage = ({ onLogin }) => {
       {/* ══════════ ANIMATION STYLES ══════════ */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        :root {
+          --hero-mask-gradient: linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.97) 25%, rgba(255,255,255,0.88) 42%, rgba(255,255,255,0.55) 56%, rgba(255,255,255,0.18) 70%, rgba(255,255,255,0) 82%);
+          --hero-vignette-gradient: linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 12%, rgba(255,255,255,0) 80%, rgba(255,255,255,0.7) 100%);
+        }
+
+        .dark {
+          --hero-mask-gradient: linear-gradient(to right, rgba(2,6,23,1) 0%, rgba(2,6,23,0.97) 25%, rgba(2,6,23,0.88) 42%, rgba(2,6,23,0.55) 56%, rgba(2,6,23,0.18) 70%, rgba(2,6,23,0) 82%);
+          --hero-vignette-gradient: linear-gradient(to bottom, rgba(2,6,23,0.6) 0%, rgba(2,6,23,0) 12%, rgba(2,6,23,0) 80%, rgba(2,6,23,0.7) 100%);
+        }
+
         @keyframes heroFloat {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           33%       { transform: translateY(-8px) rotate(0.3deg); }

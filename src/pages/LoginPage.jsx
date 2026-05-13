@@ -17,7 +17,10 @@ import {
   User,
   AlertCircle,
   Loader2,
+  Moon,
+  Sun,
 } from "lucide-react";
+import ThemeToggle from "../components/ThemeToggle";
 import { useI18n } from "../context/I18nProvider";
 import { useAuth } from "../context/AuthProvider";
 import { login as loginRequest, normalizeRoleForBackend } from "../services/apiClient";
@@ -130,15 +133,14 @@ const LoginPage = ({ onLogin, onBack }) => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-white via-slate-50 to-teal-50 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-300/18 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-sky-300/14 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/70 rounded-full filter blur-3xl animate-pulse delay-500" />
+    <div className="min-h-[100dvh] bg-white dark:bg-slate-950 flex items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-colors duration-500">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 dark:opacity-20">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-sky-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000" />
       </div>
 
       <div className="w-full max-w-5xl relative z-10">
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-white/70 shadow-[0_28px_80px_rgba(15,23,42,0.12)] overflow-hidden flex flex-col lg:flex-row">
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col lg:flex-row">
           <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-teal-600 via-teal-500 to-cyan-500 p-6 sm:p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/12 rounded-full -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
@@ -227,11 +229,11 @@ const LoginPage = ({ onLogin, onBack }) => {
                   <Activity className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">TRIP</h2>
-                  <p className="text-xs text-gray-500">{t("appTagline")}</p>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">TRIP</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t("appTagline")}</p>
                 </div>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-teal-500 to-teal-600 rounded-full transition-all"
                   style={{ width: `${currentStep === 1 ? 50 : 100}%` }}
@@ -277,10 +279,10 @@ const LoginPage = ({ onLogin, onBack }) => {
 
             {currentStep === 1 ? (
               <div className="animate-fade-in">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   {t("loginSelectRoleTitle")}
                 </h2>
-                <p className="text-gray-600 mb-6">{t("loginSelectRoleHelp")}</p>
+                <p className="text-slate-600 dark:text-slate-400 mb-6">{t("loginSelectRoleHelp")}</p>
 
                 <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
                   {roles.map((role) => (
@@ -289,8 +291,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                       onClick={() => applyDemoRoleHint(role.id)}
                       className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-all ${
                         selectedRole === role.id
-                          ? "border-teal-500 bg-teal-50"
-                          : "border-gray-100 hover:border-teal-200 hover:bg-gray-50"
+                          ? "border-teal-500 bg-teal-50 dark:bg-teal-500/10"
+                          : "border-slate-100 dark:border-slate-800 hover:border-teal-200 dark:hover:bg-slate-800/50"
                       }`}
                     >
                       <role.icon
@@ -299,8 +301,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                       <p
                         className={`text-xs sm:text-sm font-semibold ${
                           selectedRole === role.id
-                            ? "text-teal-900"
-                            : "text-gray-700"
+                            ? "text-teal-900 dark:text-teal-400"
+                            : "text-slate-700 dark:text-slate-300"
                         }`}
                       >
                         {t(role.labelKey)}
@@ -319,12 +321,12 @@ const LoginPage = ({ onLogin, onBack }) => {
               </div>
             ) : (
               <form onSubmit={handleSubmit(handleLogin)} className="animate-fade-in">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   {t("loginSignInTitle")}
                 </h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-slate-600 dark:text-slate-400 mb-6">
                   {t("loginSignInAs")}{" "}
-                  <span className="font-semibold text-teal-600">
+                  <span className="font-semibold text-teal-600 dark:text-teal-400">
                     {selectedRoleLabel}
                   </span>
                 </p>
@@ -338,7 +340,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       {t("loginEmailLabel")}
                     </label>
                     <div className="relative">
@@ -347,8 +349,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                         type="text"
                         {...register("email")}
                         aria-invalid={errors.email ? "true" : "false"}
-                        className={`w-full pl-12 pr-4 py-4 bg-white border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white transition-all outline-none ${
-                          errors.email ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-teal-200"
+                        className={`w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950 border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white dark:focus:bg-slate-950 transition-all outline-none dark:text-white ${
+                          errors.email ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "border-slate-200 dark:border-slate-800 hover:border-teal-200"
                         }`}
                         placeholder={t("loginEmailPlaceholder")}
                       />
@@ -359,7 +361,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       {t("loginPasswordLabel")}
                     </label>
                     <div className="relative">
@@ -368,8 +370,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                         type={showPassword ? "text" : "password"}
                         {...register("password")}
                         aria-invalid={errors.password ? "true" : "false"}
-                        className={`w-full pl-12 pr-12 py-4 bg-white border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white transition-all outline-none ${
-                          errors.password ? "border-red-300 bg-red-50" : "border-slate-200 hover:border-teal-200"
+                        className={`w-full pl-12 pr-12 py-4 bg-white dark:bg-slate-950 border-2 rounded-xl shadow-sm focus:border-teal-500 focus:bg-white dark:focus:bg-slate-950 transition-all outline-none dark:text-white ${
+                          errors.password ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "border-slate-200 dark:border-slate-800 hover:border-teal-200"
                         }`}
                         placeholder="••••••••"
                       />
@@ -395,9 +397,9 @@ const LoginPage = ({ onLogin, onBack }) => {
                       <input
                         type="checkbox"
                         {...register("rememberMe")}
-                        className="w-5 h-5 text-teal-600 rounded border-gray-300 focus:ring-teal-500"
+                        className="w-5 h-5 text-teal-600 rounded border-slate-300 focus:ring-teal-500 dark:bg-slate-900"
                       />
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
                         {t("loginRememberMe")}
                       </span>
                     </label>
@@ -432,28 +434,28 @@ const LoginPage = ({ onLogin, onBack }) => {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
-                  className="w-full mt-3 py-3 text-gray-600 font-medium hover:text-gray-800 transition-colors"
+                  className="w-full mt-3 py-3 text-slate-600 dark:text-slate-400 font-medium hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                 >
                   ← {t("loginChangeRole")}
                 </button>
 
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <Shield className="w-5 h-5 text-teal-600" />
-                    <p className="text-xs text-gray-600">
-                      <span className="font-semibold">{t("loginSecure")}</span>{" "}
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      <span className="font-semibold text-slate-900 dark:text-slate-200">{t("loginSecure")}</span>{" "}
                       · {t("loginMfaBanner")}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4 text-center">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
                     {t("loginNeedHelp")}{" "}
                     <button
                       type="button"
                       onClick={openSupportEmail}
-                      className="text-teal-600 font-semibold hover:underline"
+                      className="text-teal-600 dark:text-teal-400 font-semibold hover:underline"
                     >
                       {t("loginContactSupport")}
                     </button>
@@ -464,8 +466,9 @@ const LoginPage = ({ onLogin, onBack }) => {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur rounded-xl border border-slate-200 shadow-sm text-sm text-gray-600">
+        <div className="mt-8 flex justify-center items-center gap-4 animate-slide-up delay-300">
+          <ThemeToggle />
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-sm text-slate-600 dark:text-slate-400">
             <Globe className="w-4 h-4" />
             <label htmlFor="login-language" className="sr-only">
               {t("languageLabel")}
@@ -474,10 +477,10 @@ const LoginPage = ({ onLogin, onBack }) => {
               id="login-language"
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
-              className="bg-transparent focus:outline-none"
+              className="bg-transparent focus:outline-none dark:text-white"
             >
-              <option value="sw">{t("languageSwahili")}</option>
-              <option value="en">{t("languageEnglish")}</option>
+              <option value="sw" className="dark:bg-slate-900">{t("languageSwahili")}</option>
+              <option value="en" className="dark:bg-slate-900">{t("languageEnglish")}</option>
             </select>
           </div>
         </div>
