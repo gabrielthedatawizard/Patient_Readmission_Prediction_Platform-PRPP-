@@ -92,140 +92,131 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
 
   return (
     <DashboardLayout
-      title={language === "sw" ? "Wagonjwa wangu" : "My patients"}
+      isBento={true}
+      title={language === "sw" ? "Wagonjwa" : "My Ward"}
       subtitle={
         language === "sw"
-          ? "Msaada wa maamuzi ya kliniki uliopangwa kwa hatari."
-          : "Clinical decision support prioritized by risk."
+          ? "Utabiri wa hatari na usimamizi wa wagonjwa."
+          : "AI-driven risk inference and workflow management."
       }
-      kpis={[
-        // Tip 1: Semantic variants — color carries meaning, not decoration
+    >
+      {/* Primary KPI Row */}
+      <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           key="total"
-          title={language === "sw" ? "Wagonjwa wote" : "Total patients"}
+          label={language === "sw" ? "Jumla" : "Census"}
           value={myPatients.length}
           icon={Users}
-          footer={language === "sw" ? "Waliokabidhiwa kwako sasa" : "Currently assigned to you"}
+          footer={language === "sw" ? "Leo" : "Live Census"}
           variant="default"
-        />,
+          sparklineData={[40, 42, 38, 45, 50, 48, 52]}
+        />
         <KPICard
           key="high_risk"
-          title={language === "sw" ? "Hatari kubwa" : "High risk"}
+          label={language === "sw" ? "Hatari" : "High Risk"}
           value={highRiskCount}
           icon={AlertTriangle}
-          footer={language === "sw" ? "Wanahitaji uangalizi wa haraka" : "Requires immediate attention"}
-          onClick={() => setViewFilter("high-risk")}
+          footer={language === "sw" ? "Haraka" : "Urgent Review"}
           variant="danger"
-        />,
+          sparklineData={[10, 15, 8, 20, 25, 22, 19]}
+        />
         <KPICard
           key="ready_discharge"
-          title={language === "sw" ? "Tayari kuondoka" : "Ready for discharge"}
+          label={language === "sw" ? "Kuondoka" : "Discharge"}
           value={dischargeReadyCount}
           icon={CheckCircle}
-          footer={language === "sw" ? "Vigezo vya kliniki vimetimia" : "Clinical criteria met"}
-          onClick={() => setViewFilter("discharge-ready")}
+          footer={language === "sw" ? "Tayari" : "Stable Flow"}
           variant="success"
-        />,
+          sparklineData={[5, 8, 12, 10, 15, 14, 18]}
+        />
         <KPICard
           key="pending_actions"
-          title={language === "sw" ? "Hatua zinazosubiri" : "Pending actions"}
+          label={language === "sw" ? "Kazi" : "Actions"}
           value={pendingActionsCount}
           icon={Activity}
-          footer={language === "sw" ? "Kazi zinazohitaji ukamilishaji" : "Tasks requiring completion"}
+          footer={language === "sw" ? "Zilizobaki" : "Blockers"}
           variant="warning"
-        />,
-      ]}
-    >
-      {/* Tip 6: FilterPills with contextual count badges */}
-      <FilterPills options={filterOptions} value={viewFilter} onChange={setViewFilter} />
+          sparklineData={[30, 25, 35, 20, 15, 18, 12]}
+        />
+      </div>
 
-      <DashboardSection
-        title={sectionTitle}
-        subtitle={`${prioritizedPatients.length} ${language === "sw" ? "wanaonyeshwa" : "shown"}`}
-      >
-        {prioritizedPatients.length ? (
-          <PatientListTable
-            patients={prioritizedPatients}
-            onRowClick={onOpenPatient}
-            onStartDischarge={onStartDischarge}
-          />
-        ) : (
-          <EmptyState
-            message={
-              language === "sw"
-                ? "Hakuna wagonjwa wanaolingana na kichujio hiki."
-                : "No patients match this filter."
-            }
-          />
-        )}
-      </DashboardSection>
+      {/* Main Focus Area (Bento Column 1) */}
+      <div className="col-span-12 lg:col-span-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <FilterPills options={filterOptions} value={viewFilter} onChange={setViewFilter} />
+        </div>
 
-      {/* Tip 5: Recent predictions with visual risk score bar */}
-      <DashboardSection
-        title={language === "sw" ? "Utabiri wa hatari wa karibuni" : "Recent risk predictions"}
-      >
-        <div className="space-y-2">
-          {(recentPredictions?.predictions || []).map((prediction) => {
-            const score = Number(prediction.score || 0);
-            const isHigh = score >= 70;
-            const isMed = score >= 40 && score < 70;
-            const barColor = isHigh
-              ? "bg-rose-500"
-              : isMed
-              ? "bg-amber-500"
-              : "bg-emerald-500";
-            const tierColor = isHigh
-              ? "text-rose-700 dark:text-rose-400"
-              : isMed
-              ? "text-amber-700 dark:text-amber-400"
-              : "text-emerald-700 dark:text-emerald-400";
-
-            return (
-              <div
-                key={prediction.id}
-                className="flex items-center justify-between rounded-lg border border-neutral-100 dark:border-slate-800 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-slate-800/50 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100 truncate">
-                    {language === "sw" ? "Mgonjwa" : "Patient"} {prediction.patientId}
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
-                    {prediction.generatedAt
-                      ? new Date(prediction.generatedAt).toLocaleString(
-                          language === "sw" ? "sw-TZ" : "en-US",
-                        )
-                      : "-"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {/* Mini risk bar — visual at-a-glance score */}
-                  <div className="hidden sm:block w-20 h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${barColor} transition-all`}
-                      style={{ width: `${Math.min(score, 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-neutral-900 dark:text-slate-100 tabular-nums">
-                      {score}
-                    </p>
-                    <p className={`text-xs font-semibold ${tierColor}`}>{prediction.tier}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {!(recentPredictions?.predictions || []).length && (
+        <DashboardSection
+          title={sectionTitle}
+          subtitle={`${prioritizedPatients.length} ${language === "sw" ? "Matokeo" : "Signals"}`}
+        >
+          {prioritizedPatients.length ? (
+            <PatientListTable
+              patients={prioritizedPatients}
+              onRowClick={onOpenPatient}
+              onStartDischarge={onStartDischarge}
+            />
+          ) : (
             <EmptyState
               message={
                 language === "sw"
-                  ? "Hakuna utabiri wa karibuni uliopo."
-                  : "No recent predictions available."
+                  ? "Hakuna wagonjwa hapa."
+                  : "No signals in this view."
               }
             />
           )}
-        </div>
-      </DashboardSection>
+        </DashboardSection>
+      </div>
+
+      {/* Predictive Insights (Bento Column 2) */}
+      <div className="col-span-12 lg:col-span-4 space-y-6">
+        <DashboardSection
+          title={language === "sw" ? "Utabiri" : "Predictions"}
+          subtitle="Real-time inference stream"
+        >
+          <div className="space-y-3">
+            {(recentPredictions?.predictions || []).map((prediction) => {
+              const score = Number(prediction.score || 0);
+              const isHigh = score >= 70;
+              const isMed = score >= 40 && score < 70;
+              const barColor = isHigh
+                ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+                : isMed
+                ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+
+              return (
+                <div
+                  key={prediction.id}
+                  className="group relative flex items-center justify-between rounded-2xl border border-slate-100 dark:border-slate-800 p-4 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                      PAT-{prediction.patientId}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">
+                      {prediction.generatedAt
+                        ? new Date(prediction.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : "-"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-lg font-black tabular-nums text-slate-900 dark:text-white leading-none">
+                      {score}%
+                    </span>
+                    <div className="w-12 h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${barColor} transition-all duration-1000`}
+                        style={{ width: `${Math.min(score, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DashboardSection>
+      </div>
     </DashboardLayout>
   );
 };

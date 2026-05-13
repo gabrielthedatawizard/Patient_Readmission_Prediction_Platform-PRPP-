@@ -43,118 +43,139 @@ export const MoHNationalDashboard = () => {
 
   return (
     <DashboardLayout
-      title="National Dashboard"
+      isBento={true}
+      title="National Intelligence"
       subtitle={`Tanzania Readmission Intelligence Platform — ${scopeLabel.title}`}
       headerActions={
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Last updated badge */}
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-neutral-500 dark:text-slate-400">
-            <Clock className="w-3 h-3" />
-            {lastRefresh.toLocaleString("sw-TZ")}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inference Cycle</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white tabular-nums">{lastRefresh.toLocaleTimeString()}</span>
+          </div>
           <button
             onClick={refresh}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-neutral-700 dark:text-slate-200 shadow-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-teal-600 transition-all hover:scale-105"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
+            <RefreshCw className="w-5 h-5" />
           </button>
-          <button className="inline-flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-700 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors">
-            <Download className="w-3.5 h-3.5" />
-            Export Report
+          <button className="flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 text-sm font-black transition-all hover:translate-y-[-2px] shadow-lg shadow-slate-200 dark:shadow-none">
+            <Download className="w-4 h-4" />
+            Export Data
           </button>
         </div>
       }
-      kpis={[
+    >
+      {/* Strategic KPIs (Bento Top) */}
+      <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           key="readmission"
-          title="National Readmission Rate"
+          label="National Rate"
           value={`${metrics.readmissionRate.toFixed(1)}%`}
-          trend={{ value: 2.3, direction: "down", isGood: true }}
+          trend="2.3%"
+          trendDirection="down"
           icon={TrendingDown}
-          footer="Target: 7.5% by Dec 2026"
+          footer="Target: 7.5%"
           variant={readmissionVariant}
-        />,
+          sparklineData={[12, 11.5, 10.8, 10.2, 9.8, 9.5, 8.9]}
+        />
         <KPICard
           key="facilities"
-          title="Facilities Using TRIP"
-          value={`${metrics.activeFacilities} / ${metrics.totalFacilities}`}
-          subtitle={`${metrics.totalFacilities ? Math.round((metrics.activeFacilities / metrics.totalFacilities) * 100) : 0}% adoption`}
+          label="Digitization"
+          value={`${Math.round((metrics.activeFacilities / metrics.totalFacilities) * 100)}%`}
           icon={Activity}
-          footer="Across all regions"
+          footer={`${metrics.activeFacilities} Live Facilities`}
           variant="info"
-        />,
+          sparklineData={[30, 35, 45, 50, 65, 70, 85]}
+        />
         <KPICard
           key="high_risk"
-          title="High-Risk Patients (30d)"
+          label="Escalations"
           value={metrics.highRiskCount.toLocaleString()}
           icon={AlertCircle}
-          footer="Nationwide, requiring intervention"
+          footer="Active Hotspots"
           variant="warning"
-        />,
+          sparklineData={[50, 60, 45, 70, 65, 80, 75]}
+        />
         <KPICard
           key="lives"
-          title="Lives Saved (Est.)"
+          label="Clinical Impact"
           value={metrics.livesSaved.toLocaleString()}
-          trend={{ value: 12, direction: "up", isGood: true }}
+          trend="12%"
+          trendDirection="up"
           icon={Users}
-          footer="Since Jan 2026"
+          footer="Est. Lives Saved"
           variant="success"
-        />,
-      ]}
-    >
-      {/* Regional Map */}
-      <DashboardSection
-        title="Regional Performance Map"
-        headerActions={
-          <Map className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-        }
-      >
-        <TanzaniaRegionalMap data={regionalData?.regions || []} />
-      </DashboardSection>
+          sparklineData={[10, 25, 45, 60, 85, 110, 140]}
+        />
+      </div>
 
-      {/* Facility Rankings — top + bottom in visually differentiated columns */}
-      <DashboardSection
-        title="Top & Bottom Performing Facilities"
-        headerActions={
-          <button className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 text-xs font-semibold transition-colors">
-            View Full Report
-          </button>
-        }
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-3">
-              Best Performing (Lowest Readmission)
-            </h3>
-            <FacilityRankingTable facilities={facilityRankings?.top || []} variant="success" />
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-3">
-              Needs Support (Highest Readmission)
-            </h3>
-            <FacilityRankingTable facilities={facilityRankings?.bottom || []} variant="danger" />
-          </div>
-        </div>
-      </DashboardSection>
+      {/* Primary Intelligence Area (Bento Left) */}
+      <div className="col-span-12 lg:col-span-8 space-y-6">
+        <DashboardSection
+          title="Regional Performance Map"
+          subtitle="Spatial distribution of readmission clusters"
+        >
+          <TanzaniaRegionalMap data={regionalData?.regions || []} />
+        </DashboardSection>
 
-      {/* AI Policy Recommendations — no gradient background (forbidden per agent rules) */}
-      <DashboardSection
-        title="AI-Generated Policy Recommendations"
-        headerActions={
-          <Activity className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-        }
-      >
-        {(policyRecs?.recommendations || []).length ? (
-          <div className="space-y-3">
-            {(policyRecs?.recommendations || []).map((rec, idx) => (
-              <PolicyRecommendation key={`${rec.title || "rec"}-${idx}`} {...rec} />
-            ))}
+        <DashboardSection
+          title="Facility Benchmarking"
+          subtitle="Outliers and gold-standard providers"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Precision Leaders</h3>
+              </div>
+              <FacilityRankingTable facilities={facilityRankings?.top || []} variant="success" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-4 bg-rose-500 rounded-full" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Support Required</h3>
+              </div>
+              <FacilityRankingTable facilities={facilityRankings?.bottom || []} variant="danger" />
+            </div>
           </div>
-        ) : (
-          <EmptyState message="No policy recommendations available right now." />
-        )}
-      </DashboardSection>
+        </DashboardSection>
+      </div>
+
+      {/* Strategic Sidebar (Bento Right) */}
+      <div className="col-span-12 lg:col-span-4 space-y-6">
+        <DashboardSection
+          title="Target Calculus"
+          subtitle="Progress towards 7.5% milestone"
+        >
+          <div className="flex justify-center py-8">
+            <RadialUrgency 
+              value={Math.round((7.5 / metrics.readmissionRate) * 100)} 
+              variant={readmissionVariant}
+              label="Milestone"
+            />
+          </div>
+          <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Population Risk Density</p>
+             <ClinicalScatter data={Array.from({ length: Math.round(metrics.highRiskCount / 100) })} color="rose" />
+             <p className="text-[9px] font-bold text-slate-400 mt-3 italic text-center">Each dot represents ~100 high-risk clinical events.</p>
+          </div>
+        </DashboardSection>
+
+        <DashboardSection
+          title="AI Recommendations"
+          subtitle="Policy intervention vectors"
+        >
+          {(policyRecs?.recommendations || []).length ? (
+            <div className="space-y-3">
+              {(policyRecs?.recommendations || []).map((rec, idx) => (
+                <PolicyRecommendation key={idx} {...rec} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="Calculating policy trajectories..." />
+          )}
+        </DashboardSection>
+      </div>
     </DashboardLayout>
   );
 };

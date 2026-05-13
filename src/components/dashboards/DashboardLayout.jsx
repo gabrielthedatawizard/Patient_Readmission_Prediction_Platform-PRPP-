@@ -1,125 +1,104 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 
-// Tip 4: Elevated sections with depth — the separator between data groups
-// is as important as the data itself. World-class dashboards (Notion, Linear,
-// Retool) use layering to create depth, not just flat borders.
-export const DashboardLayout = ({ title, subtitle, children, kpis = [], headerActions = null }) => {
+/**
+ * Precision Clinical 2.0 - Dashboard Infrastructure
+ */
+
+export const DashboardLayout = ({ 
+  children, 
+  title, 
+  subtitle, 
+  headerActions,
+  isBento = false 
+}) => {
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      {/* Tip 7: Consistent page header with clear visual hierarchy */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-slate-50">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-1.5 text-sm text-neutral-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-              {subtitle}
-            </p>
-          )}
-        </div>
-        {headerActions && (
-          <div className="flex items-center gap-2 shrink-0">{headerActions}</div>
-        )}
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 font-sans">
+      {/* Schematic Background Depth */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05] overflow-hidden">
+        <svg width="100%" height="100%" className="absolute inset-0">
+          <pattern id="medical-grid" width="100" height="100" patternUnits="userSpaceOnUse">
+            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            <circle cx="0" cy="0" r="1.5" fill="currentColor" />
+          </pattern>
+          <rect width="100%" height="100%" fill="url(#medical-grid)" />
+        </svg>
       </div>
 
-      {kpis && kpis.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {kpis}
-        </div>
-      )}
+      <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {headerActions}
+          </div>
+        </header>
 
-      {children}
+        <main className={isBento ? "grid grid-cols-1 md:grid-cols-12 gap-6" : "space-y-8"}>
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
 
-// Tip 4: DashboardSection — premium card with top highlight border that creates
-// the illusion of a light source from above (technique from Stripe, Linear)
-export const DashboardSection = ({
-  title,
-  subtitle,
-  children,
-  className = "",
-  headerActions = null,
-  noPadding = false,
-}) => {
+export const DashboardSection = ({ title, subtitle, children, className = "", action }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
+    <motion.section 
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className={[
-        "rounded-xl border border-neutral-200/80 dark:border-slate-800",
-        // Inner top highlight simulates depth/elevation without glassmorphism
-        "bg-white dark:bg-slate-900",
-        "shadow-sm",
-        className,
-      ].join(" ")}
+      className={`bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm shadow-slate-200/50 dark:shadow-none transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-700 ${className}`}
     >
-      {(title || headerActions) && (
-        <div
-          className={[
-            "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3",
-            "border-b border-neutral-100 dark:border-slate-800/80",
-            "px-5 py-4",
-          ].join(" ")}
-        >
+      {(title || subtitle) && (
+        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
           <div>
-            {title && (
-              <h2 className="text-base font-semibold text-neutral-900 dark:text-slate-100 tracking-tight">
-                {title}
-              </h2>
-            )}
-            {subtitle && (
-              <p className="mt-0.5 text-xs text-neutral-500 dark:text-slate-400">{subtitle}</p>
-            )}
+            {title && <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">{title}</h2>}
+            {subtitle && <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
           </div>
-          {headerActions && (
-            <div className="flex items-center gap-2 shrink-0">{headerActions}</div>
-          )}
+          {action && <div>{action}</div>}
         </div>
       )}
-      <div className={noPadding ? "" : "p-5"}>{children}</div>
-    </motion.div>
+      <div className="p-8">
+        {children}
+      </div>
+    </motion.section>
   );
 };
 
-// Tip 6: Semantic filter pills — world-class dashboards use pill tabs with
-// a filled active state + semantic color match to the content being filtered
 export const FilterPills = ({ options, value, onChange }) => {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3 p-1.5 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800">
       {options.map((opt) => {
         const isActive = value === opt.value;
         return (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className={[
-              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold",
-              "transition-all duration-150",
-              isActive
-                ? `${opt.activeClass ?? "bg-teal-600 text-white shadow-sm"}`
-                : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
-            ].join(" ")}
+            className={`
+              inline-flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-bold transition-all duration-300
+              ${isActive
+                ? `bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md shadow-slate-200/50 dark:shadow-none scale-105`
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}
+            `}
           >
-            {opt.icon && <opt.icon className="w-3.5 h-3.5" />}
+            {opt.icon && <opt.icon className={`w-4 h-4 ${isActive ? 'text-teal-500' : 'opacity-50'}`} />}
             {opt.label}
             {opt.count !== undefined && (
-              <span
-                className={[
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                  isActive
-                    ? "bg-white/20 text-white"
-                    : "bg-neutral-200 dark:bg-slate-700 text-neutral-600 dark:text-slate-300",
-                ].join(" ")}
-              >
+              <span className={`ml-1 px-1.5 py-0.5 rounded-lg text-[10px] font-black ${
+                isActive ? 'bg-teal-50 dark:bg-teal-950 text-teal-600' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+              }`}>
                 {opt.count}
               </span>
             )}
-            {isActive && <ChevronRight className="w-3 h-3 opacity-70" />}
           </button>
         );
       })}

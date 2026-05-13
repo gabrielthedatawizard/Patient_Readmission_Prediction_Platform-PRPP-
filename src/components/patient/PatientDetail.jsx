@@ -89,38 +89,40 @@ const PatientDetail = ({
 
   return (
     <DashboardLayout
+      isBento={true}
       title={patient.name}
-      subtitle={`MRN: ${patient.mrn} • ${patient.age}Y • ${patient.gender} • Ward: ${patient.ward} ${patient.bed ? `• Bed: ${patient.bed}` : ""}`}
+      subtitle={`MRN-${patient.mrn} • ${patient.age}Y • ${patient.gender} • ${patient.ward}`}
       headerActions={
         <div className="flex gap-2">
           <Button
             variant="secondary"
             onClick={onBack}
+            className="rounded-xl"
             icon={<ArrowLeft className="w-4 h-4" />}
           >
-            All Patients
+            Escalation List
           </Button>
           {onStartDischarge && (
             <Button
               variant="primary"
               onClick={onStartDischarge}
+              className="bg-emerald-600 rounded-xl"
               icon={<FileText className="w-4 h-4" />}
             >
-              Start Discharge
+              Close Encounter
             </Button>
           )}
         </div>
       }
     >
-      {/* Top Priority Grid: Risk + Quick Context */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Risk Analysis Card */}
+      {/* Top Priority: AI Risk Model (Bento Column) */}
+      <div className="col-span-12 xl:col-span-4 space-y-6">
         <DashboardSection
-          title="Risk Analysis"
-          subtitle="AI-driven readmission probability"
-          headerActions={<Badge variant={riskTierVariant}>{patient.riskTier} Risk</Badge>}
+          title="AI Risk Inference"
+          subtitle="Probability Calibration"
+          action={<Badge variant={riskTierVariant}>{patient.riskTier} PRIORITY</Badge>}
         >
-          <div className="flex flex-col items-center py-4">
+          <div className="flex flex-col items-center">
             <RiskScoreDisplay
               score={patient.riskScore}
               tier={patient.riskTier}
@@ -128,45 +130,68 @@ const PatientDetail = ({
               showConfidence
               size="lg"
             />
-            <div className="mt-6 w-full p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/50 border border-neutral-100 dark:border-slate-800">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest flex items-center gap-2 mb-2">
-                <Shield className="w-3.5 h-3.5 text-teal-600" />
-                Inference Context
-              </p>
-              <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
-                Calibration: <span className="font-semibold text-neutral-900 dark:text-slate-200">TRIP-v14.2</span>
-                <br />
-                Model Confidence: <span className="font-semibold text-neutral-900 dark:text-slate-200">{(patient.riskConfidence * 100).toFixed(0)}%</span>
-                <br />
-                Last Inferred: <span className="font-semibold text-neutral-900 dark:text-slate-200">Today</span>
-              </p>
+            <div className="mt-8 w-full p-5 rounded-[2rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-1.5 h-6 bg-teal-500 rounded-full" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contextual Data</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Engine</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white">v14.2 PRO</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Confidence</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white">{(patient.riskConfidence * 100).toFixed(0)}%</p>
+                </div>
+              </div>
             </div>
           </div>
         </DashboardSection>
 
-        {/* Factors Breakdown */}
+        <DashboardSection title="Social Barriers" subtitle="Environmental signals">
+          <div className="grid grid-cols-1 gap-4">
+            {[
+              { label: "Home Status", val: patient.socialHistory?.livingSituation || "Isolated", icon: Database },
+              { label: "Transit", val: patient.socialHistory?.transportation || "Unreliable", icon: MapPin },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 text-teal-600 shadow-sm">
+                  <s.icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase trekking-widest">{s.label}</p>
+                  <p className="text-sm font-black text-slate-800 dark:text-slate-200">{s.val}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DashboardSection>
+      </div>
+
+      {/* Narrative & Metrics (Bento Column) */}
+      <div className="col-span-12 xl:col-span-8 space-y-6">
         <DashboardSection
-          title="Top Contributors"
-          subtitle="Variables driving the current score"
-          className="xl:col-span-3"
+          title="Driver Analysis"
+          subtitle="Dynamic weighting of contributing signals"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 py-4">
             {/* Risk Drivers */}
-            <div>
-              <p className="text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-2 mb-4">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Risk Drivers
-              </p>
-              <div className="space-y-4">
-                {negativeFactors.slice(0, 4).map((f, i) => (
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Escalation Drivers</p>
+                <div className="h-[1px] flex-1 bg-rose-100 dark:bg-rose-900/30" />
+              </div>
+              <div className="space-y-5">
+                {negativeFactors.slice(0, 3).map((f, i) => (
                   <div key={i}>
-                    <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span className="text-neutral-700 dark:text-slate-300 font-medium">{f.factor}</span>
-                      <span className="text-rose-600 font-bold tabular-nums">+{Math.round(f.weight * 100)}%</span>
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-slate-900 dark:text-slate-300 font-bold">{f.factor}</span>
+                      <span className="text-rose-600 font-black tabular-nums">+{Math.round(f.weight * 100)}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div
-                        className="h-full bg-rose-500 rounded-full transition-all duration-700"
+                        className="h-full bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.4)]"
                         style={{ width: `${Math.min(100, f.weight * 100)}%` }}
                       />
                     </div>
@@ -176,21 +201,21 @@ const PatientDetail = ({
             </div>
 
             {/* Protective Factors */}
-            <div>
-              <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-2 mb-4">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Protective Factors
-              </p>
-              <div className="space-y-4">
-                {positiveFactors.slice(0, 4).map((f, i) => (
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Stability Weights</p>
+                <div className="h-[1px] flex-1 bg-emerald-100 dark:bg-emerald-900/30" />
+              </div>
+              <div className="space-y-5">
+                {positiveFactors.slice(0, 3).map((f, i) => (
                   <div key={i}>
-                    <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span className="text-neutral-700 dark:text-slate-300 font-medium">{f.factor}</span>
-                      <span className="text-emerald-600 font-bold tabular-nums">{Math.round(f.weight * 100)}%</span>
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-slate-900 dark:text-slate-300 font-bold">{f.factor}</span>
+                      <span className="text-emerald-600 font-black tabular-nums">{Math.round(f.weight * 100)}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                        className="h-full bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"
                         style={{ width: `${Math.min(100, Math.abs(f.weight) * 100)}%` }}
                       />
                     </div>
@@ -199,142 +224,66 @@ const PatientDetail = ({
               </div>
             </div>
           </div>
-
-          <div className="mt-8 pt-6 border-t border-neutral-100 dark:border-slate-800">
-            <ShapExplanation factors={sortedRiskFactors.slice(0, 5)} />
-          </div>
         </DashboardSection>
-      </div>
 
-      {/* Clinical Body Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Medical Snapshot */}
-        <DashboardSection
-          title="Clinical Baseline"
-          subtitle="Active diagnoses and recent admissions"
-          icon={Stethoscope}
-        >
-          <div className="space-y-6">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-3">Diagnoses</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="primary">{patient.diagnosis.primary}</Badge>
-                {patient.diagnosis.secondary?.map((dx, i) => (
-                  <Badge key={i} variant="default">{dx}</Badge>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-3">Admissions Timeline</p>
-              <div className="space-y-4">
-                {clinicalHistory.map((h, i) => (
-                  <div key={i} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-2.5 h-2.5 rounded-full ring-4 ring-offset-2 ${h.status === "active" ? "bg-teal-500 ring-teal-100" : "bg-neutral-300 ring-neutral-50"}`} />
-                      {i < clinicalHistory.length - 1 && <div className="w-0.5 h-full bg-neutral-100 mt-1" />}
-                    </div>
-                    <div className="pb-4">
-                      <p className="text-sm font-bold text-neutral-900 dark:text-slate-100">{h.event}</p>
-                      <p className="text-xs text-neutral-500 mb-1">{formatDate(h.date)} • {h.diagnosis}</p>
-                      {h.readmittedAfter && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-[10px] font-bold text-rose-700 border border-rose-100">
-                          Readmitted in {h.readmittedAfter}
-                        </span>
-                      )}
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <DashboardSection
+            title="Telemetry Hub"
+            subtitle="Real-time clinical signals"
+          >
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "BP", value: patient.vitals?.bloodPressure, icon: Heart, unit: "mmHg" },
+                { label: "Pulse", value: patient.vitals?.heartRate, icon: Activity, unit: "bpm" },
+                { label: "SpO2", value: patient.vitals?.oxygenSaturation, unit: "%" },
+                { label: "Temp", value: patient.vitals?.temperature, unit: "°C" },
+              ].map((v, i) => (
+                <div key={i} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{v.label}</p>
+                  <div className="flex items-baseline gap-1 mt-2">
+                    <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">{v.value}</span>
+                    <span className="text-[9px] text-slate-400 font-bold">{v.unit}</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </DashboardSection>
+          </DashboardSection>
 
-        {/* Vitals Grid */}
-        <DashboardSection
-          title="Vitals & Laboratory"
-          subtitle="Latest telemetry from primary care unit"
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            {[
-              { label: "BP", value: patient.vitals?.bloodPressure, icon: Heart, unit: "mmHg", variant: "default" },
-              { label: "Pulse", value: patient.vitals?.heartRate, icon: Activity, unit: "bpm", variant: "default" },
-              { label: "SpO2", value: patient.vitals?.oxygenSaturation, unit: "%", variant: "success" },
-              { label: "Temp", value: patient.vitals?.temperature, unit: "°C", variant: "warning" },
-            ].map((v, i) => (
-              <div key={i} className="p-3 rounded-xl border border-neutral-100 dark:border-slate-800 bg-neutral-50/50 dark:bg-slate-800/30">
-                <p className="text-[10px] font-semibold text-neutral-500 uppercase">{v.label}</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-lg font-bold text-neutral-900 dark:text-slate-100 tabular-nums">{v.value}</span>
-                  <span className="text-[10px] text-neutral-400 font-medium">{v.unit}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DashboardSection
+            title="Laboratory DNA"
+            subtitle="Critical biochemistry"
+          >
+            <div className="space-y-3">
+              {Object.entries(patient.labs || {}).map(([key, val]) => (
+                val !== null && key !== "lastUpdated" && (
+                  <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/20 border border-slate-100/50 dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">{val}</span>
+                  </div>
+                )
+              ))}
+            </div>
+          </DashboardSection>
+        </div>
 
-          <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-3">Key Laboratory Targets</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Object.entries(patient.labs || {}).map(([key, val]) => (
-              val !== null && key !== "lastUpdated" && (
-                <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-slate-800/30">
-                  <span className="text-xs text-neutral-600 dark:text-slate-400 capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
-                  <span className="text-sm font-bold text-neutral-900 dark:text-slate-200 tabular-nums">{val}</span>
-                </div>
-              )
-            ))}
-          </div>
-        </DashboardSection>
-      </div>
-
-      {/* Intervention & History Rows */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <DashboardSection title="Recommended Interventions" subtitle="Priority actions to mitigate readmission risk" className="xl:col-span-2">
+        <DashboardSection title="Decision Support" subtitle="Risk mitigation tactics">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { title: "High Intensity Follow-up", desc: "Schedule phone calls at day 2, 7, and 14 post-discharge.", icon: Phone, color: "teal" },
-              { title: "Medication Titration", desc: "Consult pharmacist for gold-standard heart failure regimen.", icon: Pill, color: "rose" },
-              { title: "Community Health Linkage", desc: "Assign CHW for home visit within 48 hours.", icon: MapPin, color: "sky" },
-              { title: "Family Education", desc: "Conduct 15-min warning signs training in Swahili.", icon: Heart, color: "amber" },
+              { title: "Intensive Follow-up", icon: Phone, variant: "sky" },
+              { title: "Med Titration", icon: Pill, variant: "rose" },
+              { title: "CHW Linkage", icon: MapPin, variant: "teal" },
+              { title: "Home Training", icon: Heart, variant: "amber" },
             ].map((action, i) => (
-              <div key={i} className={`flex items-start gap-3 p-4 rounded-xl border border-neutral-100 dark:border-slate-800 hover:shadow-md transition-shadow group cursor-default`}>
-                <div className={`p-2 rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-slate-800 dark:to-slate-700`}>
-                  <action.icon className="w-5 h-5 text-neutral-600 dark:text-slate-300" />
+              <div key={i} className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-teal-500 hover:shadow-xl hover:shadow-teal-500/5 transition-all cursor-pointer group">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-teal-600 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/30 transition-colors">
+                  <action.icon className="w-5 h-5" />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-neutral-900 dark:text-slate-100 mb-1">{action.title}</p>
-                  <p className="text-xs text-neutral-500 dark:text-slate-400 leading-relaxed">{action.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </DashboardSection>
-
-        <DashboardSection title="Social Barriers" subtitle="Non-clinical readmission drivers">
-          <div className="space-y-4">
-            {[
-              { label: "Living Situation", val: patient.socialHistory?.livingSituation || "Unknown", icon: Database },
-              { label: "Transport Security", val: patient.socialHistory?.transportation || "Unreliable", icon: MapPin },
-              { label: "Connectivity", val: patient.socialHistory?.phoneAccess ? "Has Phone" : "No Phone", icon: PhoneCall },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <s.icon className="w-4 h-4 text-neutral-400" />
-                <div>
-                  <p className="text-[10px] text-neutral-400 uppercase tracking-widest">{s.label}</p>
-                  <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">{s.val}</p>
-                </div>
+                <p className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{action.title}</p>
               </div>
             ))}
           </div>
         </DashboardSection>
       </div>
-
-      <DashboardSection title="Prediction History" subtitle="Inference longitudinal track">
-        <PredictionHistory
-          patientId={patient.id}
-          canOverride={canOverridePrediction}
-          onPredictionOverridden={onPredictionOverridden}
-        />
-      </DashboardSection>
     </DashboardLayout>
   );
 };
