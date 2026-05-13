@@ -1,55 +1,58 @@
-import React from 'react';
-import Badge from './Badge';
+import React from "react";
+import Badge from "./Badge";
 
 /**
  * RiskScoreDisplay Component
- * Visual representation of patient readmission risk score
+ * High-precision visual representation of readmission risk.
+ * Optimized for clinical clarity and authority.
  */
 
-const RiskScoreDisplay = ({ 
-  score, 
-  tier, 
+const RiskScoreDisplay = ({
+  score,
+  tier,
   confidence,
-  size = 'md',
+  size = "md",
   showLabel = true,
   showBadge = true,
   showConfidence = false,
 }) => {
-  const sizes = {
-    sm: { container: 'w-12 h-12', text: 'text-base' },
-    md: { container: 'w-20 h-20', text: 'text-xl' },
-    lg: { container: 'w-24 h-24', text: 'text-2xl' },
-    xl: { container: 'w-32 h-32', text: 'text-3xl' }
-  };
-  
-  const tierColors = {
-    Low: { 
-      bg: 'from-emerald-400 to-emerald-600', 
-      text: 'text-emerald-700',
-      ring: 'ring-emerald-200'
-    },
-    Medium: { 
-      bg: 'from-amber-400 to-amber-600', 
-      text: 'text-amber-700',
-      ring: 'ring-amber-200'
-    },
-    High: { 
-      bg: 'from-red-400 to-red-600', 
-      text: 'text-red-700',
-      ring: 'ring-red-200'
-    }
-  };
-  
   const normalizedTier =
-    String(tier || '')
+    String(tier || "")
       .toLowerCase()
-      .replace(/^\w/, (character) => character.toUpperCase()) || 'Low';
-  const colors = tierColors[normalizedTier] || tierColors.Low;
+      .replace(/^\w/, (character) => character.toUpperCase()) || "Low";
+
+  // Semantic variants mapping (Rose for high, Amber for med, Emerald for low)
+  const variants = {
+    Low: {
+      text: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-50 dark:bg-emerald-950/20",
+      border: "border-emerald-200 dark:border-emerald-800/50",
+      accent: "bg-emerald-500",
+      badge: "success"
+    },
+    Medium: {
+      text: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-950/20",
+      border: "border-amber-200 dark:border-amber-800/50",
+      accent: "bg-amber-500",
+      badge: "warning"
+    },
+    High: {
+      text: "text-rose-600 dark:text-rose-400",
+      bg: "bg-rose-50 dark:bg-rose-950/20",
+      border: "border-rose-200 dark:border-rose-800/50",
+      accent: "bg-rose-500",
+      badge: "danger"
+    },
+  };
+
+  const v = variants[normalizedTier] || variants.Low;
   const numericScore = Number(score || 0);
   const safeScore = Number.isFinite(numericScore) ? numericScore : 0;
   const hasConfidence = Number.isFinite(Number(confidence));
   const confidenceRatio = hasConfidence ? Number(confidence) : null;
 
+  // Confidence window calculation for interval display
   const confidenceWindow = hasConfidence
     ? Math.max(4, Math.round((1 - confidenceRatio) * 20))
     : null;
@@ -57,41 +60,76 @@ const RiskScoreDisplay = ({
     confidenceWindow === null ? null : Math.max(1, safeScore - confidenceWindow);
   const upperBound =
     confidenceWindow === null ? null : Math.min(99, safeScore + confidenceWindow);
-  
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={`
-        ${sizes[size].container}
-        rounded-full bg-gradient-to-br ${colors.bg}
-        flex items-center justify-center shadow-xl
-        relative overflow-hidden
-        ring-4 ${colors.ring}
-      `}>
-        {/* Animated pulse effect */}
-        <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-        
-        {/* Score */}
-        <span className={`${sizes[size].text} font-bold text-white relative z-10`}>
-          {safeScore}
-        </span>
-      </div>
-      
-      {/* Risk tier badge */}
-      {showBadge && (
-        <Badge variant={normalizedTier.toLowerCase()} size={size === 'sm' ? 'sm' : 'default'}>
-          {showLabel ? `${normalizedTier} Risk` : normalizedTier}
-        </Badge>
-      )}
 
-      {showConfidence && hasConfidence && lowerBound !== null && upperBound !== null && (
-        <div className="text-center">
-          <p className="text-xs font-medium text-gray-600">
-            Confidence: {(confidenceRatio * 100).toFixed(0)}%
-          </p>
-          <p className="text-[11px] text-gray-500">
-            95% interval: {lowerBound}-{upperBound}
-          </p>
+  // Size configurations
+  const sizeMap = {
+    sm: { container: "px-2 py-1", scoreText: "text-lg", labelText: "text-[10px]" },
+    md: { container: "px-4 py-3", scoreText: "text-3xl", labelText: "text-xs" },
+    lg: { container: "px-6 py-5", scoreText: "text-5xl", labelText: "text-sm" },
+    xl: { container: "px-8 py-7", scoreText: "text-7xl", labelText: "text-base" },
+  };
+
+  const s = sizeMap[size] || sizeMap.md;
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div
+        className={[
+          "relative overflow-hidden flex flex-col items-center justify-center rounded-2xl border transition-all",
+          v.bg,
+          v.border,
+          s.container,
+          "min-w-[120px] shadow-sm",
+        ].join(" ")}
+      >
+        {/* Top accent bar for structural authority */}
+        <div className={["absolute top-0 inset-x-0 h-1.5", v.accent].join(" ")} />
+
+        <div className="flex flex-col items-center">
+          <span className={["font-black tracking-tighter tabular-nums", v.text, s.scoreText].join(" ")}>
+            {safeScore}
+          </span>
+          {showLabel && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 dark:text-slate-400 mt-1">
+              Risk Score
+            </span>
+          )}
         </div>
+
+        {/* Confidence Interval Visualization */}
+        {showConfidence && hasConfidence && lowerBound !== null && upperBound !== null && (
+          <div className="mt-4 w-full px-2">
+             <div className="flex justify-between text-[9px] font-bold text-neutral-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+               <span>P5</span>
+               <span>P95 interval</span>
+               <span>P95</span>
+             </div>
+             <div className="relative h-1.5 bg-white/50 dark:bg-slate-800/50 rounded-full overflow-hidden">
+                {/* Interval Bar */}
+                <div 
+                  className={["absolute h-full opacity-30", v.accent].join(" ")}
+                  style={{ 
+                    left: `${lowerBound}%`, 
+                    width: `${upperBound - lowerBound}%` 
+                  }}
+                />
+                {/* Main Score Dot */}
+                <div 
+                   className={["absolute top-0 bottom-0 w-1", v.accent].join(" ")}
+                   style={{ left: `${safeScore}%` }}
+                />
+             </div>
+             <p className="text-center text-[10px] font-semibold text-neutral-500 dark:text-slate-400 mt-2">
+               {lowerBound}—{upperBound} ({ (confidenceRatio * 100).toFixed(0) }% Confidence)
+             </p>
+          </div>
+        )}
+      </div>
+
+      {showBadge && (
+        <Badge variant={v.badge} size={size === "sm" ? "sm" : "default"}>
+          {normalizedTier} Priority
+        </Badge>
       )}
     </div>
   );

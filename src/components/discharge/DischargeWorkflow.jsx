@@ -4,11 +4,11 @@ import {
   Home, FileText, Check, ArrowRight, AlertTriangle,
   User, Phone, MapPin, Clock, CheckCircle, Save, Loader2, Bot, Plus
 } from 'lucide-react';
-import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import { extractDischargeSummary, generatePrediction } from '../../services/mlService';
 import { createPatientEncounter, updatePatient } from '../../services/apiClient';
+import { DashboardLayout, DashboardSection } from '../dashboards';
 
 /**
  * Discharge Workflow Component
@@ -351,27 +351,27 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     const allChecked = Object.values(formData.clinicalChecks).every(Boolean);
 
     return (
-      <div className="space-y-4">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+      <div className="space-y-6">
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
             <div>
-              <p className="font-semibold text-amber-900">Clinical Readiness Checklist</p>
-              <p className="text-sm text-amber-700">
-                Ensure all items are checked before proceeding with discharge planning.
+              <p className="font-bold text-amber-900 dark:text-amber-100">Clinical Readiness Protocol</p>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-0.5">
+                TRIP requires a confirmed stability baseline. Ensure all criteria are checked before proceeding.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {checks.map((check) => (
             <label 
               key={check.key} 
-              className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
                 formData.clinicalChecks[check.key]
-                  ? 'bg-teal-50 border-teal-300'
-                  : 'bg-white border-gray-200 hover:border-teal-200'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 shadow-sm'
+                  : 'bg-white dark:bg-slate-900 border-neutral-200 dark:border-slate-800 hover:border-teal-500'
               }`}
             >
               <input
@@ -386,61 +386,59 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
                     }
                   });
                 }}
-                className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500"
+                className="w-5 h-5 text-teal-600 rounded-md focus:ring-teal-500"
               />
-              <span className={`font-medium ${
-                formData.clinicalChecks[check.key] ? 'text-teal-900' : 'text-gray-700'
+              <span className={`text-sm font-semibold ${
+                formData.clinicalChecks[check.key] ? 'text-emerald-900 dark:text-emerald-100' : 'text-neutral-700 dark:text-slate-300'
               }`}>
                 {check.label}
               </span>
               {formData.clinicalChecks[check.key] && (
-                <CheckCircle className="w-5 h-5 text-teal-600 ml-auto" />
+                <CheckCircle className="w-5 h-5 text-emerald-600 ml-auto" />
               )}
             </label>
           ))}
         </div>
 
-        <div className="p-4 bg-white border-2 border-gray-200 rounded-lg space-y-4">
-          <div>
-            <p className="font-semibold text-gray-900">Clinical Signal Capture</p>
-            <p className="text-sm text-gray-600">
-              Capture the minimum structured data used by the predictive model before discharge.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <DashboardSection 
+          title="Clinical Signal Capture" 
+          subtitle="Mandatory structured inputs for readmission risk inference."
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { key: 'egfr', label: 'eGFR', step: '0.1', placeholder: '60' },
-              { key: 'hemoglobin', label: 'Hemoglobin', step: '0.1', placeholder: '11.2' },
-              { key: 'hba1c', label: 'HbA1c', step: '0.1', placeholder: '7.4' },
-              { key: 'bpSystolic', label: 'BP Systolic', step: '1', placeholder: '138' },
-              { key: 'bpDiastolic', label: 'BP Diastolic', step: '1', placeholder: '82' },
-              { key: 'icuStayDays', label: 'ICU Stay Days', step: '1', placeholder: '0' }
+              { key: 'egfr', label: 'eGFR', step: '0.1', placeholder: '60', unit: 'mL/min' },
+              { key: 'hemoglobin', label: 'Hemoglobin', step: '0.1', placeholder: '11.2', unit: 'g/dL' },
+              { key: 'hba1c', label: 'HbA1c', step: '0.1', placeholder: '7.4', unit: '%' },
+              { key: 'bpSystolic', label: 'BP Systolic', step: '1', placeholder: '138', unit: 'mmHg' },
+              { key: 'bpDiastolic', label: 'BP Diastolic', step: '1', placeholder: '82', unit: 'mmHg' },
+              { key: 'icuStayDays', label: 'ICU Stay Days', step: '1', placeholder: '0', unit: 'days' }
             ].map((field) => (
-              <label key={field.key} className="block">
-                <span className="block text-sm font-semibold text-gray-700 mb-2">
-                  {field.label}
-                </span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step={field.step}
-                  placeholder={field.placeholder}
-                  value={formData.encounterData[field.key]}
-                  onChange={(e) => updateEncounterData({ [field.key]: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 outline-none"
-                />
-              </label>
+              <div key={field.key}>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  {field.label} {field.unit && `(${field.unit})`}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step={field.step}
+                    placeholder={field.placeholder}
+                    value={formData.encounterData[field.key]}
+                    onChange={(e) => updateEncounterData({ [field.key]: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm font-bold tabular-nums"
+                  />
+                </div>
+              </div>
             ))}
           </div>
-        </div>
+        </DashboardSection>
 
         {!allChecked && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">
-              <AlertTriangle className="w-4 h-4 inline mr-2" />
-              All clinical readiness criteria must be met before discharge.
-            </p>
+          <div className="flex items-center gap-3 p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 shadow-sm rounded-xl">
+             <AlertTriangle className="w-5 h-5 text-rose-600" />
+             <p className="text-sm font-bold text-rose-700 dark:text-rose-300">
+               Discharge block: All stability criteria must be verified.
+             </p>
           </div>
         )}
       </div>
@@ -1301,117 +1299,126 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-        <Button variant="ghost" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Discharge Workflow</h1>
-          {patient && (
-            <p className="text-sm text-gray-600 flex flex-wrap items-center gap-2">
-              {patient.name} | {patient.id} |
-              <Badge variant={String(patient.riskTier || "").toLowerCase()}>
-                {patient.riskTier} Risk
-              </Badge>
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Progress Stepper */}
-      <Card className="p-4 sm:p-6">
-        <div className="overflow-x-auto">
-          <div className="flex items-center justify-between min-w-[720px]">
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
-            const isCompleted = completedSteps.includes(idx);
-            const isActive = currentStep === idx;
-
-            return (
-              <div key={step.id} className="flex items-center flex-1">
-                <button
-                  onClick={() => goToStep(idx)}
-                  className="flex flex-col items-center group"
-                >
-                  <div className={`
-                    w-12 h-12 rounded-full flex items-center justify-center mb-2
-                    transition-all duration-300
-                    ${isCompleted ? 'bg-teal-600 text-white' : 
-                      isActive ? 'bg-teal-100 text-teal-700 border-2 border-teal-600' : 
-                      'bg-gray-200 text-gray-500 group-hover:bg-gray-300'}
-                  `}>
-                    {isCompleted ? <Check className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
-                  </div>
-                  <span className={`text-xs font-medium text-center max-w-20 ${
-                    isActive ? 'text-teal-700' : 'text-gray-600'
-                  }`}>
-                    {step.label}
-                  </span>
-                </button>
-                {idx < steps.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 ${
-                    isCompleted ? 'bg-teal-600' : 'bg-gray-200'
-                  }`} />
-                )}
-              </div>
-            );
-          })}
-          </div>
-        </div>
-      </Card>
-
-      {/* Step Content */}
-      <Card className="p-4 sm:p-6 sm:min-h-96">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-6">
-          {steps[currentStep].label}
-        </h2>
-        {renderCurrentStep()}
-      </Card>
-
-      {/* Navigation Buttons */}
-      <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
-        <Button
-          variant="ghost"
-          onClick={goPrevious}
-          disabled={currentStep === 0}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-
-        <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-3">
-          <Button
-            variant="secondary"
+    <DashboardLayout
+      title="Discharge Workflow"
+      subtitle={`${patient?.name} | MRN: ${patient?.id} | ${steps[currentStep].label}`}
+      headerActions={
+        <div className="flex gap-2">
+           <Button variant="secondary" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>
+            Abort Workflow
+          </Button>
+          <Button 
+            variant="ghost" 
             onClick={() => markStepComplete(currentStep)}
             icon={<Save className="w-4 h-4" />}
           >
-            Save Progress
+            Draft Saved
           </Button>
+        </div>
+      }
+    >
+      {/* Premium Stepper */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1 space-y-2">
+          <div className="p-1 rounded-2xl bg-neutral-100 dark:bg-slate-900 border border-neutral-200 dark:border-slate-800">
+            {steps.map((step, idx) => {
+              const Icon = step.icon;
+              const isCompleted = completedSteps.includes(idx);
+              const isActive = currentStep === idx;
 
-          {currentStep < steps.length - 1 ? (
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => goToStep(idx)}
+                  className={`
+                    w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200
+                    ${isActive 
+                      ? 'bg-white dark:bg-slate-800 shadow-sm text-teal-600 dark:text-teal-400' 
+                      : isCompleted
+                        ? 'text-emerald-600 dark:text-emerald-400 opacity-80 hover:bg-neutral-50 dark:hover:bg-slate-800/50'
+                        : 'text-neutral-500 dark:text-slate-500 hover:bg-neutral-50 dark:hover:bg-slate-800/50'}
+                  `}
+                >
+                  <div className={`
+                    w-8 h-8 rounded-lg flex items-center justify-center shrink-0
+                    ${isActive ? 'bg-teal-600 text-white shadow-md' : isCompleted ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600' : 'bg-neutral-200 dark:bg-slate-800 text-neutral-400'}
+                  `}>
+                    {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-50">Step 0{idx + 1}</p>
+                    <p className="text-sm font-bold truncate">{step.label}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="p-4 rounded-2xl border border-neutral-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+             <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Patient Summary</p>
+             <div className="space-y-3">
+               <div className="flex justify-between items-center text-xs">
+                 <span className="text-neutral-500">Risk Tier</span>
+                 <Badge variant={String(patient?.riskTier || "").toLowerCase()}>{patient?.riskTier} Priority</Badge>
+               </div>
+               <div className="flex justify-between items-center text-xs">
+                 <span className="text-neutral-500">LOS</span>
+                 <span className="font-bold tabular-nums">{patient?.lengthOfStay} Days</span>
+               </div>
+               <div className="flex justify-between items-center text-xs">
+                 <span className="text-neutral-500">Ward</span>
+                 <span className="font-bold">{patient?.ward}</span>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Step Body */}
+        <div className="lg:col-span-3 space-y-6">
+          <DashboardSection 
+            title={steps[currentStep].label} 
+            subtitle={`Section ${currentStep + 1} of ${steps.length}`}
+          >
+            {renderCurrentStep()}
+          </DashboardSection>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between pt-4 border-t border-neutral-100 dark:border-slate-800">
             <Button
-              variant="primary"
-              onClick={goNext}
-              icon={<ArrowRight className="w-4 h-4" />}
+              variant="secondary"
+              onClick={goPrevious}
+              disabled={currentStep === 0}
             >
-              Next Step
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Previous
             </Button>
-          ) : (
-            <Button
-              variant="success"
-              onClick={handleCompleteDischarge}
-              loading={isCompleting}
-              disabled={isCompleting}
-              icon={isCompleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            >
-              {isCompleting ? 'Finalizing...' : 'Complete Discharge'}
-            </Button>
-          )}
+
+            <div className="flex items-center gap-3">
+              {currentStep < steps.length - 1 ? (
+                <Button
+                  variant="primary"
+                  onClick={goNext}
+                  className="min-w-[140px]"
+                  icon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={handleCompleteDischarge}
+                  loading={isCompleting}
+                  className="min-w-[180px] bg-emerald-600 hover:bg-emerald-700"
+                  icon={isCompleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                >
+                  {isCompleting ? 'Finalizing Discharge...' : 'Complete Closeout'}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
