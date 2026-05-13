@@ -73,6 +73,7 @@ const Building = ({ className }) => (
 const LandingPage = ({ onLogin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
+  const [pathwayHovered, setPathwayHovered] = React.useState(0);
   const { language, setLanguage, t } = useI18n();
 
   /* Sticky nav shadow on scroll */
@@ -393,6 +394,91 @@ const LandingPage = ({ onLogin }) => {
               </article>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ══════════ CARE PATHWAYS (Expanding flex layout) ══════════ */}
+      <section className="py-20 lg:py-28 px-4 lg:px-8 max-w-7xl mx-auto bg-white">
+        <div className={`mb-12 md:mb-16 text-center ${fadeClass(illustrationVis, 150)}`}>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 text-center">
+            {language === "sw" ? "Njia za Huduma Makini" : "Dedicated Care Pathways"}
+          </h2>
+          <p className="mt-4 text-lg text-gray-600 text-center max-w-2xl mx-auto">
+            {language === "sw" 
+              ? "Kuwawezesha wahudumu wa afya kuvuka mipaka ya hospitali hadi nyumbani." 
+              : "Empowering healthcare workers to extend care seamlessly from hospital to home."}
+          </p>
+        </div>
+        <div className={`flex gap-3 md:gap-4 h-[450px] md:h-[500px] ${fadeClass(illustrationVis, 200)}`}>
+          {[
+            { 
+              id: 0, 
+              img: "/pathway1.jpg", 
+              title: language === "sw" ? "Ziara ya Nyumbani" : "Home Visit Care", 
+              desc: language === "sw" ? "Kufanya tathmini na utoaji dawa kwa wagonjwa wakiwa kwenye mazingira ya nyumbani." : "Conduct assessments and review medications with patients directly in their home environments." 
+            },
+            { 
+              id: 1, 
+              img: "/pathway2.jpg", 
+              title: language === "sw" ? "Tathmini ya Kliniki" : "Clinical Review", 
+              desc: language === "sw" ? "Kuzuia kurudi hospitali kwa uchunguzi na ushauri unaoongozwa na data." : "Preventing readmissions through diligent, data-informed consultations and proactive health screenings." 
+            },
+            { 
+              id: 2, 
+              img: "/pathway3.jpg", 
+              title: language === "sw" ? "Ushauri Wodini" : "Bedside Consult", 
+              desc: language === "sw" ? "Mipango ya kupona ambayo inaanza mapema wodi ikiwa imeunganishwa na mfumo wa TRIP." : "Recovery planning that starts early at the bedside, fully integrated with the predictive TRIP dashboard." 
+            },
+          ].map((pathway, index) => {
+            const isActive = pathwayHovered === index;
+            return (
+              <div 
+                key={pathway.id}
+                className="relative overflow-hidden rounded-3xl cursor-pointer group transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
+                style={{ flex: isActive ? "3 1 0%" : "0.5 1 0%" }}
+                onMouseEnter={() => setPathwayHovered(index)}
+              >
+                <div className="absolute inset-0">
+                  <img src={pathway.img} alt={pathway.title} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                  {/* Overlay inactive - semi-transparent white */}
+                  <div className={`absolute inset-0 bg-white/60 transition-opacity duration-700 ${isActive ? 'opacity-0' : 'opacity-100'}`}></div>
+                  {/* Overlay active - dark gradient for text legibility */}
+                  <div className={`absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/30 to-transparent transition-opacity duration-700 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
+                </div>
+                
+                <div className="relative h-full flex flex-col justify-end p-6 md:p-8 text-white">
+                  {/* Active content */}
+                  <div className={`w-full flex-col justify-end transition-all duration-700 ${isActive ? 'opacity-100 translate-y-0 flex' : 'opacity-0 translate-y-8 absolute pointer-events-none hidden'}`}>
+                    <div className="max-w-md">
+                      <div className="mb-4">
+                        <span className="text-xs md:text-sm font-semibold uppercase tracking-widest text-teal-300">
+                          {language === "sw" ? "Njia ya Huduma" : "Care Pathway"}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-white leading-tight drop-shadow-md whitespace-nowrap md:whitespace-normal">
+                        {pathway.title}
+                      </h3>
+                      <p className="text-sm md:text-base font-medium text-white/90 drop-shadow-md hidden md:block">
+                        {pathway.desc}
+                      </p>
+                      <div className="mt-6 md:mt-8 flex items-center justify-start">
+                        <button className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white text-teal-600 flex items-center justify-center hover:bg-teal-50 transition-all shadow-lg group-hover:scale-110">
+                          <ArrowRight className="w-5 h-5 -rotate-45" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Inactive title */}
+                  <div className={`absolute inset-0 flex items-end justify-center pb-8 md:pb-12 transition-opacity duration-300 ${isActive ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-300'}`}>
+                    <p className="font-extrabold text-center uppercase tracking-widest text-lg md:text-2xl text-teal-950 [writing-mode:vertical-lr] rotate-180 mx-auto whitespace-nowrap">
+                      {pathway.title}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
