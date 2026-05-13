@@ -1,4 +1,4 @@
-import { Download, Map, RefreshCw, TrendingDown, Users, Activity, AlertCircle, Clock } from "lucide-react";
+import { Download, RefreshCw, TrendingDown, Users, Activity, AlertCircle } from "lucide-react";
 import {
   KPICard,
   TanzaniaRegionalMap,
@@ -9,6 +9,8 @@ import {
   EmptyState,
   DashboardLayout,
   DashboardSection,
+  RadialUrgency,
+  ClinicalScatter,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useWorkspace } from "../context/WorkspaceProvider";
