@@ -240,7 +240,7 @@ const Layout = ({ children }) => {
   }, [sidebarCollapsed]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/30 overflow-x-hidden dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 font-sans transition-colors duration-500 overflow-x-hidden">
       <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm dark:bg-slate-950/90 dark:border-slate-800 backdrop-blur-xl">
         <div className="px-3 sm:px-6">
           <div className="h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
