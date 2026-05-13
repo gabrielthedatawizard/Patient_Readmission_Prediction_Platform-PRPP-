@@ -6,4 +6,4 @@ export { PatientListTable } from "./PatientListTable";
 export { TaskQueue } from "./TaskQueue";
 export { DischargeChecklist } from "./DischargeChecklist";
 export { DashboardSkeleton, ErrorState, EmptyState } from "./DashboardStates";
-export { DashboardLayout, DashboardSection } from "./DashboardLayout";
+export { DashboardLayout, DashboardSection, FilterPills } from "./DashboardLayout";

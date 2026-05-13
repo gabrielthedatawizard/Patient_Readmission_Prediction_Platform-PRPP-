@@ -7,6 +7,8 @@ import {
   ErrorState,
   KPICard,
   TaskQueue,
+  DashboardLayout,
+  DashboardSection,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { updateTask } from "../services/apiClient";
@@ -107,41 +109,36 @@ export const NurseDashboard = ({ nurseId }) => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">
-          {language === "sw" ? "Majukumu yangu" : "My tasks"}
-        </h1>
-        <p className="mt-1 text-neutral-600">
-          {language === "sw"
-            ? "Uratibu wa kuondoka na kazi za huduma ya mgonjwa."
-            : "Discharge coordination and patient care tasks."}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <DashboardLayout
+      title={language === "sw" ? "Majukumu yangu" : "My tasks"}
+      subtitle={
+        language === "sw"
+          ? "Uratibu wa kuondoka na kazi za huduma ya mgonjwa."
+          : "Discharge coordination and patient care tasks."
+      }
+      kpis={[
         <KPICard
+          key="today"
           title={language === "sw" ? "Kazi za leo" : "Tasks due today"}
           value={todayTasks.length}
           icon={Calendar}
           footer={language === "sw" ? "Kamilisha kabla ya siku kuisha" : "Must complete by end of day"}
-        />
+          variant="default"
+        />,
         <KPICard
+          key="overdue"
           title={language === "sw" ? "Zimechelewa" : "Overdue"}
           value={overdueTasks.length}
           icon={AlertCircle}
           footer={
             overdueTasks.length > 0
-              ? language === "sw"
-                ? "Zinahitaji uangalizi wa haraka"
-                : "Needs immediate attention"
-              : language === "sw"
-                ? "Hakuna kazi zilizochelewa"
-                : "No overdue tasks"
+              ? language === "sw" ? "Zinahitaji uangalizi wa haraka" : "Needs immediate attention"
+              : language === "sw" ? "Hakuna kazi zilizochelewa" : "No overdue tasks"
           }
-          className={overdueTasks.length > 0 ? "border-red-300 bg-red-50" : ""}
-        />
+          variant={overdueTasks.length > 0 ? "danger" : "default"}
+        />,
         <KPICard
+          key="completed"
           title={language === "sw" ? "Zimekamilika leo" : "Completed today"}
           value={completedToday.length}
           icon={CheckCircle}
@@ -150,63 +147,62 @@ export const NurseDashboard = ({ nurseId }) => {
               ? `Wastani: ${calculateAvgTime(completedToday)} dk`
               : `Avg time: ${calculateAvgTime(completedToday)} min`
           }
-        />
+          variant="success"
+        />,
         <KPICard
+          key="upcoming"
           title={language === "sw" ? "Zinazofuata" : "Upcoming"}
           value={upcomingTasks.length}
           icon={Clock}
           footer={language === "sw" ? "Siku 7 zijazo" : "Next 7 days"}
-        />
-      </div>
+          variant="info"
+        />,
+      ]}
+    >
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          {language === "sw" ? "Foleni ya kazi yenye kipaumbele" : "Task queue - prioritized"}
-        </h2>
-
-        {taskFeedback ? (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      <DashboardSection
+        title={language === "sw" ? "Foleni ya kazi yenye kipaumbele" : "Task queue — prioritized"}
+      >
+        {taskFeedback && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/50 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
             {taskFeedback}
           </div>
-        ) : null}
-
-        {taskError ? (
-          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        )}
+        {taskError && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-900/50 px-4 py-3 text-sm text-rose-800 dark:text-rose-300">
             {taskError}
           </div>
-        ) : null}
-
-        {overdueTasks.length ? (
+        )}
+        {overdueTasks.length > 0 && (
           <div className="mb-6">
-            <h3 className="mb-3 font-semibold text-red-700">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-rose-600 dark:text-rose-400">
               {language === "sw" ? `Zimechelewa (${overdueTasks.length})` : `Overdue (${overdueTasks.length})`}
             </h3>
             <TaskQueue tasks={overdueTasks} onMarkDone={handleMarkDone} doneTaskId={doneTaskId} variant="danger" />
           </div>
-        ) : null}
-
+        )}
         <div className="mb-6">
-          <h3 className="mb-3 font-semibold text-amber-700">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">
             {language === "sw" ? `Leo (${todayTasks.length})` : `Due today (${todayTasks.length})`}
           </h3>
           <TaskQueue tasks={todayTasks} onMarkDone={handleMarkDone} doneTaskId={doneTaskId} variant="warning" />
         </div>
-
         <div>
-          <h3 className="mb-3 font-semibold text-neutral-700">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-500 dark:text-slate-400">
             {language === "sw" ? `Zinazofuata (${upcomingTasks.length})` : `Upcoming (${upcomingTasks.length})`}
           </h3>
           <TaskQueue tasks={upcomingTasks} onMarkDone={handleMarkDone} doneTaskId={doneTaskId} />
         </div>
-      </div>
+      </DashboardSection>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-neutral-900">
-          {language === "sw"
+      <DashboardSection
+        title={
+          language === "sw"
             ? "Checklist ya utekelezaji wa wanaoondoka leo"
-            : "Today's discharges - execution checklist"}
-        </h2>
-        <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            : "Today's discharges — execution checklist"
+        }
+      >
+        <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:border-sky-900/50 px-4 py-3 text-sm text-sky-800 dark:text-sky-300">
           {language === "sw"
             ? "Checklist hii inaonyesha utayari wa kuondoka kulingana na data ya sasa. Tumia workflow ya mgonjwa kuhifadhi mabadiliko rasmi ya utekelezaji."
             : "This checklist reflects discharge readiness from current data. Use the patient workflow to persist official execution updates."}
@@ -233,8 +229,8 @@ export const NurseDashboard = ({ nurseId }) => {
             }
           />
         )}
-      </div>
-    </div>
+      </DashboardSection>
+    </DashboardLayout>
   );
 };
 

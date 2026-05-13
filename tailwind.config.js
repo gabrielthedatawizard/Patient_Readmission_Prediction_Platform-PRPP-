@@ -54,6 +54,15 @@ module.exports = {
       boxShadow: {
         trip: "0 1px 3px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.08), 0 20px 60px rgba(0,0,0,0.03)",
       },
+      keyframes: {
+        // Tip 3: Shimmer sweep — premium skeleton loading animation
+        shimmer: {
+          "100%": { transform: "translateX(200%)" },
+        },
+      },
+      animation: {
+        shimmer: "shimmer 1.4s infinite",
+      },
     },
   },
   plugins: [],

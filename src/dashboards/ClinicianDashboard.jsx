@@ -4,6 +4,7 @@ import {
   DashboardSkeleton,
   EmptyState,
   ErrorState,
+  FilterPills,
   KPICard,
   PatientListTable,
   DashboardLayout,
@@ -44,41 +45,68 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
 
   const prioritizedPatients = useMemo(() => {
     const sorted = [...myPatients].sort((a, b) => Number(b.riskScore || 0) - Number(a.riskScore || 0));
-
     return sorted.filter((patient) => {
-      if (viewFilter === "high-risk") {
-        return patient.riskTier === "High";
-      }
-      if (viewFilter === "discharge-ready") {
-        return patient.dischargeReady;
-      }
+      if (viewFilter === "high-risk") return patient.riskTier === "High";
+      if (viewFilter === "discharge-ready") return patient.dischargeReady;
       return true;
     });
   }, [myPatients, viewFilter]);
 
-  const highRiskCount = myPatients.filter((patient) => patient.riskTier === "High").length;
-  const dischargeReadyCount = myPatients.filter((patient) => patient.dischargeReady).length;
-  const pendingActionsCount = myPatients.reduce((sum, patient) => sum + Number(patient.pendingTasks || 0), 0);
+  const highRiskCount = myPatients.filter((p) => p.riskTier === "High").length;
+  const dischargeReadyCount = myPatients.filter((p) => p.dischargeReady).length;
+  const pendingActionsCount = myPatients.reduce((sum, p) => sum + Number(p.pendingTasks || 0), 0);
 
-  if (loading && !myPatients.length) {
-    return <DashboardSkeleton />;
-  }
+  if (loading && !myPatients.length) return <DashboardSkeleton />;
+  if (error && !myPatients.length) return <ErrorState error={error} onRetry={refresh} />;
 
-  if (error && !myPatients.length) {
-    return <ErrorState error={error} onRetry={refresh} />;
-  }
+  // Tip 6: Filter pill config with counts + semantic active colors
+  const filterOptions = [
+    {
+      value: "all",
+      label: language === "sw" ? "Wagonjwa wote" : "All patients",
+      count: myPatients.length,
+      activeClass: "bg-teal-600 text-white shadow-sm shadow-teal-600/30",
+    },
+    {
+      value: "high-risk",
+      label: language === "sw" ? "Hatari kubwa" : "High risk",
+      count: highRiskCount,
+      icon: AlertTriangle,
+      activeClass: "bg-rose-600 text-white shadow-sm shadow-rose-600/30",
+    },
+    {
+      value: "discharge-ready",
+      label: language === "sw" ? "Tayari kuondoka" : "Discharge ready",
+      count: dischargeReadyCount,
+      icon: CheckCircle,
+      activeClass: "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30",
+    },
+  ];
+
+  const sectionTitle =
+    viewFilter === "high-risk"
+      ? language === "sw" ? "Wagonjwa wa hatari kubwa" : "High-risk patients"
+      : viewFilter === "discharge-ready"
+      ? language === "sw" ? "Tayari kuondoka" : "Ready for discharge"
+      : language === "sw" ? "Wagonjwa wangu wote" : "All my patients";
 
   return (
     <DashboardLayout
       title={language === "sw" ? "Wagonjwa wangu" : "My patients"}
-      subtitle={language === "sw" ? "Msaada wa maamuzi ya kliniki uliopangwa kwa hatari." : "Clinical decision support prioritized by risk."}
+      subtitle={
+        language === "sw"
+          ? "Msaada wa maamuzi ya kliniki uliopangwa kwa hatari."
+          : "Clinical decision support prioritized by risk."
+      }
       kpis={[
+        // Tip 1: Semantic variants — color carries meaning, not decoration
         <KPICard
           key="total"
           title={language === "sw" ? "Wagonjwa wote" : "Total patients"}
           value={myPatients.length}
           icon={Users}
           footer={language === "sw" ? "Waliokabidhiwa kwako sasa" : "Currently assigned to you"}
+          variant="default"
         />,
         <KPICard
           key="high_risk"
@@ -87,6 +115,7 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
           icon={AlertTriangle}
           footer={language === "sw" ? "Wanahitaji uangalizi wa haraka" : "Requires immediate attention"}
           onClick={() => setViewFilter("high-risk")}
+          variant="danger"
         />,
         <KPICard
           key="ready_discharge"
@@ -95,6 +124,7 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
           icon={CheckCircle}
           footer={language === "sw" ? "Vigezo vya kliniki vimetimia" : "Clinical criteria met"}
           onClick={() => setViewFilter("discharge-ready")}
+          variant="success"
         />,
         <KPICard
           key="pending_actions"
@@ -102,50 +132,16 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
           value={pendingActionsCount}
           icon={Activity}
           footer={language === "sw" ? "Kazi zinazohitaji ukamilishaji" : "Tasks requiring completion"}
-        />
+          variant="warning"
+        />,
       ]}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setViewFilter("all")}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            viewFilter === "all"
-              ? "bg-teal-600 text-white"
-              : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
-        >
-          {language === "sw" ? "Wagonjwa wote" : "All patients"}
-        </button>
-        <button
-          onClick={() => setViewFilter("high-risk")}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            viewFilter === "high-risk"
-              ? "bg-red-600 text-white"
-              : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
-        >
-          {language === "sw" ? "Hatari kubwa tu" : "High risk only"}
-        </button>
-        <button
-          onClick={() => setViewFilter("discharge-ready")}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            viewFilter === "discharge-ready"
-              ? "bg-green-600 text-white"
-              : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
-        >
-          {language === "sw" ? "Tayari kuondoka" : "Discharge ready"}
-        </button>
-      </div>
+      {/* Tip 6: FilterPills with contextual count badges */}
+      <FilterPills options={filterOptions} value={viewFilter} onChange={setViewFilter} />
 
       <DashboardSection
-        title={
-          viewFilter === "high-risk"
-            ? (language === "sw" ? "Wagonjwa wa hatari kubwa" : "High-risk patients")
-            : viewFilter === "discharge-ready"
-            ? (language === "sw" ? "Tayari kuondoka" : "Ready for discharge")
-            : (language === "sw" ? "Wagonjwa wangu wote" : "All my patients")
-        }
+        title={sectionTitle}
+        subtitle={`${prioritizedPatients.length} ${language === "sw" ? "wanaonyeshwa" : "shown"}`}
       >
         {prioritizedPatients.length ? (
           <PatientListTable
@@ -154,38 +150,80 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
             onStartDischarge={onStartDischarge}
           />
         ) : (
-          <EmptyState message={language === "sw" ? "Hakuna wagonjwa wanaolingana na kichujio hiki." : "No patients match this filter."} />
+          <EmptyState
+            message={
+              language === "sw"
+                ? "Hakuna wagonjwa wanaolingana na kichujio hiki."
+                : "No patients match this filter."
+            }
+          />
         )}
       </DashboardSection>
 
-      <DashboardSection title={language === "sw" ? "Utabiri wa hatari wa karibuni" : "Recent risk predictions"}>
+      {/* Tip 5: Recent predictions with visual risk score bar */}
+      <DashboardSection
+        title={language === "sw" ? "Utabiri wa hatari wa karibuni" : "Recent risk predictions"}
+      >
         <div className="space-y-2">
-          {(recentPredictions?.predictions || []).map((prediction) => (
-            <div
-              key={prediction.id}
-              className="flex items-center justify-between rounded-xl border border-neutral-200 p-3"
-            >
-              <div>
-                <p className="font-medium text-neutral-900">
-                  {(language === "sw" ? "Mgonjwa" : "Patient")} {prediction.patientId}
-                </p>
-                <p className="text-xs text-neutral-500">
-                  {prediction.generatedAt
-                    ? new Date(prediction.generatedAt).toLocaleString(language === "sw" ? "sw-TZ" : "en-US")
-                    : "-"}
-                </p>
+          {(recentPredictions?.predictions || []).map((prediction) => {
+            const score = Number(prediction.score || 0);
+            const isHigh = score >= 70;
+            const isMed = score >= 40 && score < 70;
+            const barColor = isHigh
+              ? "bg-rose-500"
+              : isMed
+              ? "bg-amber-500"
+              : "bg-emerald-500";
+            const tierColor = isHigh
+              ? "text-rose-700 dark:text-rose-400"
+              : isMed
+              ? "text-amber-700 dark:text-amber-400"
+              : "text-emerald-700 dark:text-emerald-400";
+
+            return (
+              <div
+                key={prediction.id}
+                className="flex items-center justify-between rounded-lg border border-neutral-100 dark:border-slate-800 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100 truncate">
+                    {language === "sw" ? "Mgonjwa" : "Patient"} {prediction.patientId}
+                  </p>
+                  <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+                    {prediction.generatedAt
+                      ? new Date(prediction.generatedAt).toLocaleString(
+                          language === "sw" ? "sw-TZ" : "en-US",
+                        )
+                      : "-"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Mini risk bar — visual at-a-glance score */}
+                  <div className="hidden sm:block w-20 h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${barColor} transition-all`}
+                      style={{ width: `${Math.min(score, 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-neutral-900 dark:text-slate-100 tabular-nums">
+                      {score}
+                    </p>
+                    <p className={`text-xs font-semibold ${tierColor}`}>{prediction.tier}</p>
+                  </div>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-neutral-900">{prediction.score}</p>
-                <p className="text-xs text-neutral-600">{prediction.tier}</p>
-              </div>
-            </div>
-          ))}
-          {!(recentPredictions?.predictions || []).length ? (
-            <p className="text-sm text-neutral-500">
-              {language === "sw" ? "Hakuna utabiri wa karibuni uliopo." : "No recent predictions available."}
-            </p>
-          ) : null}
+            );
+          })}
+          {!(recentPredictions?.predictions || []).length && (
+            <EmptyState
+              message={
+                language === "sw"
+                  ? "Hakuna utabiri wa karibuni uliopo."
+                  : "No recent predictions available."
+              }
+            />
+          )}
         </div>
       </DashboardSection>
     </DashboardLayout>
