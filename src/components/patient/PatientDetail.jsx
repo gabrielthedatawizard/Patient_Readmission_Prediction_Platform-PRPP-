@@ -14,6 +14,7 @@ import {
   Phone,
   PhoneCall,
   Pill,
+  RotateCcw,
   Shield,
   Stethoscope,
   Target,
@@ -25,12 +26,20 @@ import RiskScoreDisplay from "../common/RiskScoreDisplay";
 import ShapExplanation from "../prediction/ShapExplanation";
 import PredictionHistory from "../prediction/PredictionHistory";
 import { DashboardLayout, DashboardSection } from "../dashboards";
+import { useReadmissionEventsQuery } from "../../hooks/useTrip";
 
 /**
  * Patient Detail Component
  * Upgraded to "Precision Clinical" design language.
  * Persona Focus: Clinician / Nurse
  */
+
+const TIER_BADGE_VARIANT = {
+  veryhigh: "critical",
+  high: "danger",
+  medium: "warning",
+  low: "success",
+};
 
 const PatientDetail = ({
   patient,
@@ -39,16 +48,17 @@ const PatientDetail = ({
   canOverridePrediction = false,
   onPredictionOverridden,
 }) => {
+  const { data: readmissionEvents = [], isLoading: eventsLoading } =
+    useReadmissionEventsQuery(patient?.id);
+
   if (!patient) return null;
 
-  // Formatting helpers
   const formatDate = (date) => new Date(date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 
-  // Risk sorting
   const sortedRiskFactors = [...(patient.riskFactors || [])].sort(
     (a, b) => Math.abs(b.weight) - Math.abs(a.weight)
   );
@@ -81,11 +91,8 @@ const PatientDetail = ({
       ];
 
   const riskTierVariant =
-    patient.riskTier?.toLowerCase() === "high"
-      ? "danger"
-      : patient.riskTier?.toLowerCase() === "medium"
-      ? "warning"
-      : "success";
+    TIER_BADGE_VARIANT[String(patient.riskTier || "").toLowerCase().replace(/[^a-z]/g, "")] ||
+    "success";
 
   return (
     <DashboardLayout
@@ -282,6 +289,66 @@ const PatientDetail = ({
               </div>
             ))}
           </div>
+        </DashboardSection>
+
+        <DashboardSection
+          title="Readmission History"
+          subtitle="Confirmed post-discharge events"
+          action={
+            readmissionEvents.length > 0 ? (
+              <Badge variant="danger">{readmissionEvents.length} event{readmissionEvents.length !== 1 ? "s" : ""}</Badge>
+            ) : null
+          }
+        >
+          {eventsLoading ? (
+            <div className="flex items-center gap-2 py-4 text-slate-400 text-sm">
+              <Clock className="w-4 h-4 animate-spin" />
+              Loading history…
+            </div>
+          ) : readmissionEvents.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-slate-400">
+              <CheckCircle className="w-8 h-8 text-emerald-400" />
+              <p className="text-sm font-semibold">No readmission events recorded</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {readmissionEvents.map((event, i) => (
+                <div
+                  key={event.id || i}
+                  className="flex items-start gap-4 p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30"
+                >
+                  <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 shrink-0 mt-0.5">
+                    <RotateCcw className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-sm font-black text-slate-900 dark:text-white">
+                        {formatDate(event.detectedAt || event.createdAt)}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {event.within30Days && (
+                          <Badge variant="danger" size="sm">Within 30 days</Badge>
+                        )}
+                        {event.source && (
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{event.source}</span>
+                        )}
+                      </div>
+                    </div>
+                    {event.priorFacilityName && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Prior facility: {event.priorFacilityName}
+                      </p>
+                    )}
+                    {event.daysSinceDischarge !== null && event.daysSinceDischarge !== undefined && (
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
+                        {event.daysSinceDischarge} days after discharge
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </DashboardSection>
       </div>
     </DashboardLayout>

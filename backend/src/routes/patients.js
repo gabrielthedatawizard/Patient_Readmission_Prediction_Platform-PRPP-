@@ -14,12 +14,14 @@ const {
   listPredictionsForPatient,
   listVisitsForPatient,
   listTasksForUser,
+  listReadmissionEventsForUser,
   updatePatientForUser
 } = require('../data');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
 const { requireRoleFeature } = require('../middleware/roleAccess');
 const { logAudit } = require('../services/auditService');
+const { onDischarge } = require('../services/predictionService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -442,6 +444,38 @@ router.post(
   })
 );
 
+router.get(
+  '/:id/readmission-events',
+  requirePermission('patients:read'),
+  requireRoleFeature('patientDetail', 'This role cannot view patient readmission history.'),
+  asyncHandler(async (req, res) => {
+  const patient = await getPatientForUser(req.user, req.params.id);
+
+  if (!patient) {
+    return res.status(404).json({
+      error: 'NotFound',
+      message: 'Patient not found or not accessible.'
+    });
+  }
+
+  const events = await Promise.resolve(
+    listReadmissionEventsForUser(req.user, { patientId: patient.id })
+  );
+
+  await logAudit(req, {
+    action: 'patient_readmission_history_viewed',
+    resource: `patient:${patient.id}`,
+    details: { count: events.length }
+  });
+
+  return res.json({
+    patientId: patient.id,
+    count: events.length,
+    events
+  });
+  })
+);
+
 router.put(
   '/:id',
   requirePermission('patients:write'),
@@ -486,6 +520,16 @@ router.put(
       actorUserId: req.user.id,
       ipAddress: req.ip
     });
+
+    if (payload.status === 'discharged') {
+      const visits = await Promise.resolve(listVisitsForPatient(req.user, patient.id));
+      const latestVisit = visits.sort(
+        (a, b) => new Date(b.admissionDate || 0) - new Date(a.admissionDate || 0)
+      )[0] || null;
+      if (latestVisit) {
+        onDischarge({ visit: latestVisit, patient, user: req.user, req }).catch(() => {});
+      }
+    }
 
     return res.json({ patient });
   } catch (error) {

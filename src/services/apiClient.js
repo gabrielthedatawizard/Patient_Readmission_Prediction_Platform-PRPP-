@@ -338,6 +338,19 @@ export async function updatePatient(patientId, patch = {}) {
   return payload?.patient || null;
 }
 
+export async function fetchReadmissionEvents(patientId) {
+  const payload = await request(`/patients/${patientId}/readmission-events`);
+  return payload?.events || [];
+}
+
+export async function markFollowUpComplete(chwId, scheduleId, patch = {}) {
+  const payload = await request(
+    `/chw/${encodeURIComponent(chwId)}/follow-up-schedules/${encodeURIComponent(scheduleId)}`,
+    { method: 'PUT', body: { status: 'Completed', ...patch } }
+  );
+  return payload?.schedule || null;
+}
+
 export async function fetchTasks(filters = {}) {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {

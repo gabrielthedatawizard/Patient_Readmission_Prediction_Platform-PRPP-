@@ -36,7 +36,7 @@ function getDueDate(days) {
 }
 
 function buildInterventionTasks({ patient, prediction, userId }) {
-  if (prediction.tier !== 'High') {
+  if (!['High', 'VeryHigh'].includes(prediction.tier)) {
     return [];
   }
 
@@ -486,12 +486,12 @@ router.post(
   asyncHandler(async (req, res) => {
   const newTier = String(req.body.newTier || '').trim();
   const reason = String(req.body.reason || '').trim();
-  const allowedTiers = new Set(['Low', 'Medium', 'High']);
+  const allowedTiers = new Set(['Low', 'Medium', 'High', 'VeryHigh']);
 
   if (!allowedTiers.has(newTier) || reason.length < 10) {
     return res.status(400).json({
       error: 'ValidationError',
-      message: 'newTier must be Low, Medium, or High, and reason must be at least 10 characters.'
+      message: 'newTier must be Low, Medium, High, or VeryHigh, and reason must be at least 10 characters.'
     });
   }
 
@@ -562,6 +562,97 @@ router.post(
   );
 
   return res.json({ predictions: results });
+  })
+);
+
+router.get(
+  '/admin/override-analysis',
+  requirePermission('analytics:read'),
+  requireRoleFeature('predictionReview', 'This role cannot access override analysis.'),
+  asyncHandler(async (req, res) => {
+  const ALLOWED_ANALYSIS_ROLES = new Set(['moh', 'ml_engineer', 'rhmt', 'auditor']);
+  if (!ALLOWED_ANALYSIS_ROLES.has(String(req.user?.role || ''))) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Override analysis requires ml_engineer, moh, rhmt, or auditor role.'
+    });
+  }
+
+  let prismaClient = null;
+  try {
+    const lib = require('../lib/prisma');
+    prismaClient = lib.prisma;
+  } catch (error) {
+    return res.status(503).json({
+      error: 'ServiceUnavailable',
+      message: 'Override analysis requires the Prisma data provider.'
+    });
+  }
+
+  const windowDays = Math.min(Math.max(Number(req.query.days) || 90, 7), 365);
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+
+  const overrides = await prismaClient.prediction.findMany({
+    where: {
+      overriddenAt: { gte: since },
+      overrideTier: { not: null }
+    },
+    select: {
+      id: true,
+      tier: true,
+      overrideTier: true,
+      overrideReason: true,
+      overriddenAt: true,
+      facilityId: true,
+      score: true
+    },
+    orderBy: { overriddenAt: 'desc' }
+  });
+
+  const byTransition = {};
+  const byFacility = {};
+  const trendByWeek = {};
+
+  for (const prediction of overrides) {
+    const fromTier = String(prediction.tier || 'Unknown');
+    const toTier = String(prediction.overrideTier || 'Unknown');
+    const transitionKey = `${fromTier}→${toTier}`;
+    byTransition[transitionKey] = (byTransition[transitionKey] || 0) + 1;
+
+    const facilityId = prediction.facilityId || 'unknown';
+    if (!byFacility[facilityId]) {
+      byFacility[facilityId] = { count: 0, transitions: {} };
+    }
+    byFacility[facilityId].count += 1;
+    byFacility[facilityId].transitions[transitionKey] =
+      (byFacility[facilityId].transitions[transitionKey] || 0) + 1;
+
+    if (prediction.overriddenAt) {
+      const weekStart = new Date(prediction.overriddenAt);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekKey = weekStart.toISOString().slice(0, 10);
+      trendByWeek[weekKey] = (trendByWeek[weekKey] || 0) + 1;
+    }
+  }
+
+  await logAudit(req, {
+    action: 'prediction_override_analysis_viewed',
+    resource: 'predictions:admin:override-analysis',
+    details: {
+      windowDays,
+      overrideCount: overrides.length
+    }
+  });
+
+  return res.json({
+    windowDays,
+    since: since.toISOString(),
+    totalOverrides: overrides.length,
+    byTransition,
+    byFacility,
+    trendByWeek,
+    recentOverrides: overrides.slice(0, 20)
+  });
   })
 );
 

@@ -25,6 +25,7 @@ enum RiskTier {
   Low
   Medium
   High
+  VeryHigh
 }
 
 enum AlertStatus {
@@ -33,37 +34,108 @@ enum AlertStatus {
   resolved
 }
 
+enum FacilityTier {
+  national
+  zonal
+  regional
+  district
+  health_center
+  dispensary
+  community
+}
+
+enum WorkflowStatus {
+  draft
+  completed
+}
+
+enum FollowUpType {
+  phone_call
+  home_visit
+  clinic_visit
+  sms
+}
+
+enum FollowUpStatus {
+  scheduled
+  completed
+  missed
+  cancelled
+}
+
+enum FollowUpOutcome {
+  pending
+  stable
+  deteriorated
+  readmitted
+  unreachable
+  deceased
+}
+
+enum ReadmissionSource {
+  admission_check
+  manual_review
+  imported
+}
+
+model Zone {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  regions   Region[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Region {
   id         String     @id @default(uuid())
   code       String     @unique
   name       String
+  zone       Zone?      @relation(fields: [zoneId], references: [id])
+  zoneId     String?
   facilities Facility[]
   users      User[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+
+  @@index([zoneId])
 }
 
 model Facility {
-  id             String       @id
-  name           String
-  level          String
-  district       String
-  dhis2OrgUnitId String?      @unique
-  dhis2Code      String?      @unique
-  region         Region       @relation(fields: [regionId], references: [id])
-  regionId       String
-  users          User[]
-  patients       Patient[]
-  visits         Visit[]
-  predictions    Prediction[]
-  tasks          Task[]
-  alerts         Alert[]
-  auditLogs      AuditLog[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                String             @id
+  name              String
+  level             String
+  tier              FacilityTier       @default(district)
+  district          String
+  councilName       String?
+  isActive          Boolean            @default(true)
+  lastSyncedAt      DateTime?
+  dhis2OrgUnitId    String?            @unique
+  dhis2Code         String?            @unique
+  parent            Facility?          @relation("FacilityParent", fields: [parentId], references: [id])
+  parentId          String?
+  children          Facility[]         @relation("FacilityParent")
+  region            Region             @relation(fields: [regionId], references: [id])
+  regionId          String
+  users             User[]
+  patients          Patient[]
+  visits            Visit[]
+  predictions       Prediction[]
+  tasks             Task[]
+  alerts            Alert[]
+  auditLogs         AuditLog[]
+  dischargeWorkflows DischargeWorkflow[]
+  followUpSchedules FollowUpSchedule[]
+  readmissionEvents ReadmissionEvent[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([regionId])
   @@index([district])
+  @@index([parentId])
+  @@index([tier])
+  @@index([isActive])
 }
 
 model Role {
@@ -77,53 +149,66 @@ model Role {
 }
 
 model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  passwordHash String
-  fullName     String
-  role         Role         @relation(fields: [roleId], references: [id])
-  roleId       String
-  facility     Facility?    @relation(fields: [facilityId], references: [id])
-  facilityId   String?
-  region       Region?      @relation(fields: [regionId], references: [id])
-  regionId     String?
-  district     String?
-  ward         String?
-  mfaEnabled   Boolean      @default(false)
-  mfaSecret    String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  auditLogs    AuditLog[]
-  predictions  Prediction[] @relation("PredictionGeneratedBy")
-  taskUpdates  Task[]       @relation("TaskUpdatedBy")
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  passwordHash       String
+  fullName           String
+  role               Role               @relation(fields: [roleId], references: [id])
+  roleId             String
+  roleExpiresAt      DateTime?
+  facility           Facility?          @relation(fields: [facilityId], references: [id])
+  facilityId         String?
+  region             Region?            @relation(fields: [regionId], references: [id])
+  regionId           String?
+  zone               Zone?              @relation(fields: [zoneId], references: [id])
+  zoneId             String?
+  district           String?
+  districtScope      String?
+  ward               String?
+  mfaEnabled         Boolean            @default(false)
+  mfaSecret          String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  auditLogs          AuditLog[]
+  predictions        Prediction[]       @relation("PredictionGeneratedBy")
+  taskUpdates        Task[]             @relation("TaskUpdatedBy")
+  followUpSchedules  FollowUpSchedule[]
+  dischargeWorkflowsCreated DischargeWorkflow[] @relation("DischargeWorkflowCreatedBy")
+  dischargeWorkflowsUpdated DischargeWorkflow[] @relation("DischargeWorkflowUpdatedBy")
 
   @@index([roleId])
   @@index([facilityId])
   @@index([regionId])
+  @@index([zoneId])
   @@index([district])
+  @@index([districtScope])
   @@index([ward])
+  @@index([roleExpiresAt])
 }
 
 model Patient {
-  id              String       @id
-  name            String
-  age             Int
-  gender          String
-  phone           String?
-  address         String?
-  insurance       String?
-  piiVersion      Int          @default(0)
-  piiEncryptedAt  DateTime?
-  status          String       @default("admitted")
-  clinicalProfile Json?
-  facility        Facility     @relation(fields: [facilityId], references: [id])
-  facilityId      String
-  visits          Visit[]
-  tasks           Task[]
-  predictions     Prediction[]
-  alerts          Alert[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                String             @id
+  name              String
+  age               Int
+  gender            String
+  phone             String?
+  address           String?
+  insurance         String?
+  piiVersion        Int                @default(0)
+  piiEncryptedAt    DateTime?
+  status            String             @default("admitted")
+  clinicalProfile   Json?
+  facility          Facility           @relation(fields: [facilityId], references: [id])
+  facilityId        String
+  visits            Visit[]
+  tasks             Task[]
+  predictions       Prediction[]
+  alerts            Alert[]
+  dischargeWorkflows DischargeWorkflow[]
+  followUpSchedules FollowUpSchedule[]
+  readmissionEvents ReadmissionEvent[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([facilityId])
   @@index([status])
@@ -131,10 +216,10 @@ model Patient {
 }
 
 model Visit {
-  id                   String      @id @default(uuid())
-  patient              Patient     @relation(fields: [patientId], references: [id])
+  id                   String             @id @default(uuid())
+  patient              Patient            @relation(fields: [patientId], references: [id])
   patientId            String
-  facility             Facility    @relation(fields: [facilityId], references: [id])
+  facility             Facility           @relation(fields: [facilityId], references: [id])
   facilityId           String
   admissionDate        DateTime
   dischargeDate        DateTime?
@@ -148,8 +233,12 @@ model Visit {
   ward                 String
   lengthOfStay         Int?
   prediction           Prediction?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  dischargeWorkflow    DischargeWorkflow?
+  readmissionAsCurrent ReadmissionEvent[] @relation("ReadmissionCurrentVisit")
+  readmissionAsPrior   ReadmissionEvent[] @relation("ReadmissionPriorVisit")
+  followUpSchedules    FollowUpSchedule[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([patientId, admissionDate])
   @@index([facilityId, admissionDate])
@@ -157,14 +246,14 @@ model Visit {
 }
 
 model Prediction {
-  id              String    @id @default(uuid())
-  patient         Patient   @relation(fields: [patientId], references: [id])
+  id              String             @id @default(uuid())
+  patient         Patient            @relation(fields: [patientId], references: [id])
   patientId       String
-  visit           Visit?    @relation(fields: [visitId], references: [id])
-  visitId         String?   @unique
-  facility        Facility  @relation(fields: [facilityId], references: [id])
+  visit           Visit?             @relation(fields: [visitId], references: [id])
+  visitId         String?            @unique
+  facility        Facility           @relation(fields: [facilityId], references: [id])
   facilityId      String
-  generatedBy     User?     @relation("PredictionGeneratedBy", fields: [generatedById], references: [id])
+  generatedBy     User?              @relation("PredictionGeneratedBy", fields: [generatedById], references: [id])
   generatedById   String?
   score           Int
   probability     Float?
@@ -177,7 +266,7 @@ model Prediction {
   modelVersion    String
   modelType       String
   method          String?
-  fallbackUsed    Boolean   @default(false)
+  fallbackUsed    Boolean            @default(false)
   dataQuality     Json?
   featureSnapshot Json?
   analysisSummary Json?
@@ -186,11 +275,98 @@ model Prediction {
   overriddenAt    DateTime?
   alert           Alert?
   tasks           Task[]
-  generatedAt     DateTime  @default(now())
+  dischargeWorkflows DischargeWorkflow[]
+  followUpSchedules  FollowUpSchedule[]
+  generatedAt     DateTime           @default(now())
 
   @@index([patientId, generatedAt])
   @@index([facilityId, generatedAt])
   @@index([score, tier])
+}
+
+model DischargeWorkflow {
+  id            String         @id @default(uuid())
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  patientId     String
+  visit         Visit?         @relation(fields: [visitId], references: [id])
+  visitId       String?        @unique
+  prediction    Prediction?    @relation(fields: [predictionId], references: [id])
+  predictionId  String?
+  facility      Facility       @relation(fields: [facilityId], references: [id])
+  facilityId    String
+  status        WorkflowStatus @default(draft)
+  checklist     Json?
+  medications   Json?
+  education     Json?
+  followUpPlan  Json?
+  referrals     Json?
+  summary       Json?
+  dischargeDate DateTime?
+  completedAt   DateTime?
+  createdBy     User?          @relation("DischargeWorkflowCreatedBy", fields: [createdById], references: [id])
+  createdById   String?
+  updatedBy     User?          @relation("DischargeWorkflowUpdatedBy", fields: [updatedById], references: [id])
+  updatedById   String?
+  followUpSchedules FollowUpSchedule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([patientId, createdAt])
+  @@index([facilityId, status, createdAt])
+  @@index([visitId])
+}
+
+model FollowUpSchedule {
+  id                  String          @id @default(uuid())
+  patient             Patient         @relation(fields: [patientId], references: [id])
+  patientId           String
+  visit               Visit?          @relation(fields: [visitId], references: [id])
+  visitId             String?
+  prediction          Prediction?     @relation(fields: [predictionId], references: [id])
+  predictionId        String?
+  dischargeWorkflow   DischargeWorkflow? @relation(fields: [dischargeWorkflowId], references: [id])
+  dischargeWorkflowId String?
+  facility            Facility        @relation(fields: [facilityId], references: [id])
+  facilityId          String
+  assignedTo          User?           @relation(fields: [assignedToId], references: [id])
+  assignedToId        String?
+  title               String
+  followUpType        FollowUpType
+  status              FollowUpStatus  @default(scheduled)
+  outcome             FollowUpOutcome @default(pending)
+  channel             String?
+  scheduledFor        DateTime
+  completedAt         DateTime?
+  notes               String?
+  outcomeDetails      Json?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([facilityId, status, scheduledFor])
+  @@index([patientId, scheduledFor])
+  @@index([assignedToId, status, scheduledFor])
+}
+
+model ReadmissionEvent {
+  id                     String            @id @default(uuid())
+  patient                Patient           @relation(fields: [patientId], references: [id])
+  patientId              String
+  currentVisit           Visit             @relation("ReadmissionCurrentVisit", fields: [currentVisitId], references: [id])
+  currentVisitId         String            @unique
+  priorVisit             Visit?            @relation("ReadmissionPriorVisit", fields: [priorVisitId], references: [id])
+  priorVisitId           String?
+  facility               Facility          @relation(fields: [facilityId], references: [id])
+  facilityId             String
+  source                 ReadmissionSource @default(admission_check)
+  daysSinceLastDischarge Int
+  within30Days           Boolean           @default(true)
+  notes                  String?
+  detectedAt             DateTime          @default(now())
+  createdAt              DateTime          @default(now())
+
+  @@index([patientId, detectedAt])
+  @@index([facilityId, detectedAt])
+  @@index([priorVisitId])
 }
 
 model Alert {

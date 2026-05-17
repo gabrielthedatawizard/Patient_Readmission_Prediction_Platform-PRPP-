@@ -143,10 +143,13 @@ function normalizeInputFeatures(features = {}) {
 }
 
 function scoreToTier(score) {
-  if (score >= 70) {
+  if (score >= 85) {
+    return 'VeryHigh';
+  }
+  if (score >= 60) {
     return 'High';
   }
-  if (score >= 40) {
+  if (score >= 35) {
     return 'Medium';
   }
   return 'Low';

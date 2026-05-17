@@ -95,7 +95,7 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
   const stats = useMemo(
     () => ({
       total: patients.length,
-      high: patients.filter((patient) => patient.riskTier === "High").length,
+      high: patients.filter((patient) => patient.riskTier === "High" || patient.riskTier === "VeryHigh").length,
       medium: patients.filter((patient) => patient.riskTier === "Medium").length,
       low: patients.filter((patient) => patient.riskTier === "Low").length,
       pendingTasks: patients.reduce(
@@ -115,7 +115,7 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
       patient.interventionsNeeded?.filter(
         (intervention) => intervention.status !== "completed",
       ).length || 0;
-    if (patient.riskTier === "High" && pendingCount > 0) {
+    if ((patient.riskTier === "High" || patient.riskTier === "VeryHigh") && pendingCount > 0) {
       return <AlertCircle className="w-5 h-5 text-red-500" />;
     }
     if (pendingCount === 0) {
@@ -129,7 +129,7 @@ const PatientsList = ({ onPatientSelect, patients = [] }) => {
       patient.interventionsNeeded?.filter(
         (intervention) => intervention.status !== "completed",
       ).length || 0;
-    if (patient.riskTier === "High" && pendingCount > 0) {
+    if ((patient.riskTier === "High" || patient.riskTier === "VeryHigh") && pendingCount > 0) {
       return `${pendingCount} tasks pending`;
     }
     if (pendingCount === 0) {

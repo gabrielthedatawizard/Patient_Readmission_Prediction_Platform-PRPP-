@@ -94,7 +94,7 @@ function mergeAnalysisSummary(featureAnalysis = {}, modelAnalysis = {}, dataQual
 }
 
 function buildInterventionTasks({ patient, prediction, userId, anchorDate } = {}) {
-  if (!patient?.id || !prediction?.id || prediction.tier !== 'High') {
+  if (!patient?.id || !prediction?.id || !['High', 'VeryHigh'].includes(prediction.tier)) {
     return [];
   }
 
@@ -199,7 +199,9 @@ function buildFollowUpSchedules({
       followUpType: 'clinic_visit',
       channel: 'facility',
       scheduledFor: toIsoDate(
-        followUpPlan.clinicVisitDate || getDueDate(prediction?.tier === 'High' ? 7 : 14, resolvedAnchor)
+        followUpPlan.clinicVisitDate || getDueDate(
+          (prediction?.tier === 'High' || prediction?.tier === 'VeryHigh') ? 7 : 14, resolvedAnchor
+        )
       ),
       status: 'scheduled',
       outcome: 'pending',

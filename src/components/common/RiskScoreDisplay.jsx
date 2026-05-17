@@ -16,12 +16,10 @@ const RiskScoreDisplay = ({
   showBadge = true,
   showConfidence = false,
 }) => {
-  const normalizedTier =
-    String(tier || "")
-      .toLowerCase()
-      .replace(/^\w/, (character) => character.toUpperCase()) || "Low";
+  const CANONICAL_TIERS = { low: 'Low', medium: 'Medium', high: 'High', veryhigh: 'VeryHigh' };
+  const normalizedTier = CANONICAL_TIERS[String(tier || '').toLowerCase().replace(/[^a-z]/g, '')] || 'Low';
 
-  // Semantic variants mapping (Rose for high, Amber for med, Emerald for low)
+  // Semantic variants mapping (Purple for very-high, Rose for high, Amber for med, Emerald for low)
   const variants = {
     Low: {
       text: "text-emerald-600 dark:text-emerald-400",
@@ -43,6 +41,13 @@ const RiskScoreDisplay = ({
       border: "border-rose-200 dark:border-rose-800/50",
       accent: "bg-rose-500",
       badge: "danger"
+    },
+    VeryHigh: {
+      text: "text-purple-700 dark:text-purple-300",
+      bg: "bg-purple-50 dark:bg-purple-950/20",
+      border: "border-purple-300 dark:border-purple-700/50",
+      accent: "bg-purple-600",
+      badge: "critical"
     },
   };
 

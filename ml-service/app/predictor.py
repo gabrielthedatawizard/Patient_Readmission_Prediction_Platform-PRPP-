@@ -48,8 +48,8 @@ DEFAULT_ARTIFACT = {
     "model_version": "trip-clinical-logit-fallback-v2",
     "model_type": "logistic_regression_surrogate",
     "artifact_source": "builtin",
-    "intercept": -3.2,
-    "score_thresholds": {"medium": 0.40, "high": 0.70},
+    "intercept": -4.1,
+    "score_thresholds": {"medium": 0.35, "high": 0.60, "very_high": 0.85},
     "confidence_interval_width": 0.12,
     "feature_weights": {
         "age_scaled": 0.55,
@@ -184,6 +184,14 @@ FEATURE_IMPACTS = {
 }
 
 CRITICAL_FIELDS = ("egfr", "hemoglobin", "hba1c", "bpSystolic", "bpDiastolic")
+
+# HIV status is used internally as a model feature but must NEVER appear in any output
+# regardless of role, request, or configuration. This is a permanent, non-overridable constraint.
+HIV_SUPPRESSED_KEYS: frozenset[str] = frozenset({
+    "hiv_flag", "has_hiv", "art_gap_flag", "on_art",
+    "hasHiv", "hivPositive", "hiv_positive",
+})
+HIV_SUPPRESSED_CONDITIONS: frozenset[str] = frozenset({"hiv", "on_art", "art_gap"})
 
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
@@ -384,9 +392,11 @@ def round_probability(value: float) -> float:
 
 
 def score_to_tier(probability: float, thresholds: dict[str, float]) -> str:
-    if probability >= thresholds.get("high", 0.70):
+    if probability >= thresholds.get("very_high", 0.85):
+        return "VeryHigh"
+    if probability >= thresholds.get("high", 0.60):
         return "High"
-    if probability >= thresholds.get("medium", 0.40):
+    if probability >= thresholds.get("medium", 0.35):
         return "Medium"
     return "Low"
 
@@ -765,9 +775,13 @@ class TripPredictor:
         low_score = int(round(clamp(probability - interval_width, 0.0, 1.0) * 100))
         high_score = int(round(clamp(probability + interval_width, 0.0, 1.0) * 100))
 
-        total_abs = sum(abs(item[1]) for item in weighted_contributions) or 1.0
+        visible_contributions = [
+            (name, contrib) for name, contrib in weighted_contributions
+            if name not in HIV_SUPPRESSED_KEYS
+        ]
+        total_abs = sum(abs(item[1]) for item in visible_contributions) or 1.0
         factors = []
-        for feature_name, contribution in sorted(weighted_contributions, key=lambda item: abs(item[1]), reverse=True)[:5]:
+        for feature_name, contribution in sorted(visible_contributions, key=lambda item: abs(item[1]), reverse=True)[:5]:
             factors.append(
                 {
                     "factor": FEATURE_LABELS.get(feature_name, feature_name),
@@ -778,11 +792,15 @@ class TripPredictor:
                 }
             )
 
+        priority_conditions = [
+            c for c in derived.get("tanzaniaPriorityConditions", [])
+            if c not in HIV_SUPPRESSED_CONDITIONS
+        ]
         analysis_summary = {
             "labAbnormalities": derived.get("labAbnormalities", []),
             "socialRiskFlags": derived.get("socialRiskFlags", []),
             "diagnoses": derived.get("diagnoses", []),
-            "tanzaniaPriorityConditions": derived.get("tanzaniaPriorityConditions", []),
+            "tanzaniaPriorityConditions": priority_conditions,
             "neonatalRiskFactors": derived.get("neonatalRiskFactors", []),
             "treatmentSignals": derived.get("treatmentSignals", []),
             "missingCriticalFields": data_quality["missingCriticalFields"],
@@ -882,10 +900,15 @@ class TripPredictor:
                     
                     total_abs = sum(abs(item[1]) for item in contributions) or 1.0
                     
-                    for fname, contrib in contributions[:5]:
+                    visible_contributions_ml = [
+                        (fname, contrib) for fname, contrib in contributions
+                        if fname.split("__")[-1] not in HIV_SUPPRESSED_KEYS
+                    ]
+                    total_abs = sum(abs(item[1]) for item in visible_contributions_ml) or 1.0
+                    for fname, contrib in visible_contributions_ml[:5]:
                         # Strip standard prefixes from feature names if present (e.g. num__, cat__)
                         clean_fname = fname.split("__")[-1] if "__" in fname else fname
-                        
+
                         original_val = ml_features.get(clean_fname, "")
                         direction = "increase" if contrib >= 0 else "decrease"
                         factors.append({
@@ -909,11 +932,15 @@ class TripPredictor:
             })
 
         _, derived = extract_surrogate_features(normalized)
+        priority_conditions_ml = [
+            c for c in derived.get("tanzaniaPriorityConditions", [])
+            if c not in HIV_SUPPRESSED_CONDITIONS
+        ]
         analysis_summary = {
             "labAbnormalities": derived.get("labAbnormalities", []),
             "socialRiskFlags": derived.get("socialRiskFlags", []),
             "diagnoses": derived.get("diagnoses", []),
-            "tanzaniaPriorityConditions": derived.get("tanzaniaPriorityConditions", []),
+            "tanzaniaPriorityConditions": priority_conditions_ml,
             "neonatalRiskFactors": derived.get("neonatalRiskFactors", []),
             "treatmentSignals": derived.get("treatmentSignals", []),
             "missingCriticalFields": data_quality["missingCriticalFields"],

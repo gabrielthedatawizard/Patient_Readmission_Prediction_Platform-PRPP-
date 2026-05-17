@@ -1,5 +1,6 @@
-import { AlertCircle, Lock, MapPin, Navigation, Phone, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, Lock, MapPin, Navigation, Phone, Users } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   DashboardSkeleton,
   EmptyState,
@@ -9,6 +10,7 @@ import {
   DashboardSection,
 } from "../components/dashboards";
 import { useDashboardData } from "../hooks/useDashboardData";
+import { markFollowUpComplete } from "../services/apiClient";
 
 // Persona: Community Health Worker
 // JTBD: "Who do I visit today, and how do I get there?"
@@ -17,6 +19,7 @@ import { useDashboardData } from "../hooks/useDashboardData";
 
 function RiskPill({ tier }) {
   const styles = {
+    VeryHigh: "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300",
     High: "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
     Medium: "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
     Low: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
@@ -42,11 +45,27 @@ function PriorityTopBar({ priority }) {
   );
 }
 
-function VisitCard({ visit, index, onNavigate, onCall }) {
+function VisitCard({ visit, index, onNavigate, onCall, chwId, onCompleted }) {
   const patient = visit.patient || {};
   const hasGps = Boolean(patient.latitude && patient.longitude);
   const hasPhone = Boolean(patient.phone);
   const isHighPriority = visit.priority === "high";
+  const [completing, setCompleting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleComplete = async () => {
+    if (!chwId || !visit.id || done || completing) return;
+    setCompleting(true);
+    try {
+      await markFollowUpComplete(chwId, visit.id);
+      setDone(true);
+      if (typeof onCompleted === "function") onCompleted(visit.id);
+    } catch {
+      // silently ignore — the visit will remain visible
+    } finally {
+      setCompleting(false);
+    }
+  };
 
   return (
     <motion.div
@@ -121,14 +140,30 @@ function VisitCard({ visit, index, onNavigate, onCall }) {
             High priority — complete before other visits
           </p>
         )}
+
+        {chwId && (
+          <button
+            onClick={handleComplete}
+            disabled={done || completing}
+            className={`mt-3 w-full flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-colors ${
+              done
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 cursor-default"
+                : "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 hover:text-emerald-700 hover:border-emerald-300"
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            {done ? "Marked complete" : completing ? "Saving…" : "Mark complete"}
+          </button>
+        )}
       </div>
     </motion.div>
   );
 }
 
 export const CHWDashboard = ({ chwId }) => {
+  const resolvedCHWId = chwId || "self";
   const { data, loading, error, refresh } = useDashboardData(
-    `/chw/${encodeURIComponent(chwId || "self")}/visits`,
+    `/chw/${encodeURIComponent(resolvedCHWId)}/visits`,
     120000,
   );
 
@@ -137,7 +172,7 @@ export const CHWDashboard = ({ chwId }) => {
 
   const todayVisits = data?.today || [];
   const overdueVisits = data?.overdue || [];
-  const highPriorityCount = todayVisits.filter((v) => v.priority === "high").length;
+  const highPriorityCount = (data?.highPriorityCount ?? todayVisits.filter((v) => v.priority === "high").length);
 
   const openMaps = (lat, lng) => {
     const destination = lat && lng ? `${lat},${lng}` : "Tanzania";
@@ -217,6 +252,8 @@ export const CHWDashboard = ({ chwId }) => {
                   index={i}
                   onNavigate={openMaps}
                   onCall={callPatient}
+                  chwId={resolvedCHWId}
+                  onCompleted={refresh}
                 />
               ))}
           </div>
@@ -239,6 +276,8 @@ export const CHWDashboard = ({ chwId }) => {
                 index={i}
                 onNavigate={openMaps}
                 onCall={callPatient}
+                chwId={chwId}
+                onCompleted={refresh}
               />
             ))}
           </div>

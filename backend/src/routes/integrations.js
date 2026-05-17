@@ -8,7 +8,7 @@ const {
   buildNotificationVerificationStatus,
   runNotificationVerificationTest
 } = require('../services/notificationVerificationService');
-const { syncDhis2Facilities } = require('../services/dhis2SyncService');
+const { syncDhis2Facilities, pushReadmissionRates } = require('../services/dhis2SyncService');
 const {
   buildFacilityDirectoryForUser,
   buildHierarchyTreeForUser
@@ -97,6 +97,30 @@ router.post('/dhis2/sync', requirePermission('analytics:read'), asyncHandler(asy
   });
 
   return res.json(syncResult);
+}));
+
+router.post('/dhis2/push-readmission-rates', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDhis2AdminAccess(req.user);
+
+  const yearMonth = String(req.body?.period || req.query?.period || '').trim() || null;
+  const dryRun = req.body?.dryRun !== false;
+
+  const result = await pushReadmissionRates(yearMonth, {
+    baseUrl: req.body?.baseUrl,
+    dryRun
+  });
+
+  await logAudit(req, {
+    action: 'integration_dhis2_readmission_push',
+    resource: 'integrations:dhis2:readmission-rates',
+    details: {
+      period: result.period,
+      dryRun: result.dryRun,
+      pushed: result.pushed
+    }
+  });
+
+  return res.json(result);
 }));
 
 router.get('/notifications/status', requirePermission('analytics:read'), asyncHandler(async (req, res) => {

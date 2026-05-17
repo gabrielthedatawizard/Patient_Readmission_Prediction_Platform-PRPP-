@@ -7,6 +7,7 @@ import {
   fetchPredictionHistory,
   fetchPredictionWorkflow,
   fetchRecentPredictions,
+  fetchReadmissionEvents,
   fetchTasks,
   overridePrediction,
   resolveAlert,
@@ -40,6 +41,7 @@ export const tripQueryKeys = {
     predictionId,
   ],
   dashboardData: (endpoint) => ["trip", "dashboard", endpoint],
+  readmissionEvents: (patientId) => ["trip", "readmission-events", patientId],
 };
 
 export function usePatientsQuery(filters = {}, options = {}) {
@@ -185,5 +187,14 @@ export function useResolveAlertMutation(options = {}) {
         options.onSuccess(updatedAlert);
       }
     },
+  });
+}
+
+export function useReadmissionEventsQuery(patientId, options = {}) {
+  return useQuery({
+    queryKey: tripQueryKeys.readmissionEvents(patientId),
+    queryFn: () => fetchReadmissionEvents(patientId),
+    staleTime: options.staleTime ?? FIVE_MINUTES,
+    enabled: (options.enabled ?? true) && Boolean(patientId),
   });
 }

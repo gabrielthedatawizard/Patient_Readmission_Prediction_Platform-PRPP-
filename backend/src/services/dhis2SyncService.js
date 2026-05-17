@@ -1,5 +1,7 @@
-const { fetchOrganisationUnits, getDhis2Config } = require('../integrations/dhis2Client');
-const { upsertFacilitiesFromSync } = require('../data');
+const { fetchOrganisationUnits, getDhis2Config, pushDataValueSet } = require('../integrations/dhis2Client');
+const { upsertFacilitiesFromSync, listFacilities } = require('../data');
+
+const READMISSION_DATA_ELEMENT = process.env.TRIP_DHIS2_READMISSION_DATA_ELEMENT || 'TRIP_READMISSION_RATE_30D';
 
 function splitList(value, fallback = []) {
   if (Array.isArray(value)) {
@@ -190,8 +192,110 @@ async function syncDhis2Facilities(overrides = {}) {
   };
 }
 
+function parseYearMonth(value) {
+  const normalized = String(value || '').trim();
+  const match = normalized.match(/^(\d{4})-?(\d{2})$/);
+  if (!match) {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  }
+  return { year: Number(match[1]), month: Number(match[2]) - 1 };
+}
+
+async function pushReadmissionRates(yearMonth, overrides = {}) {
+  const config = getDhis2Config(overrides);
+  const dryRun = overrides.dryRun !== false;
+  const { year, month } = parseYearMonth(yearMonth);
+
+  const periodStart = new Date(year, month, 1);
+  const periodEnd = new Date(year, month + 1, 1);
+  const dhis2Period = `${year}${String(month + 1).padStart(2, '0')}`;
+
+  let prismaClient = null;
+  try {
+    const lib = require('../lib/prisma');
+    prismaClient = lib.prisma;
+  } catch (error) {
+    return {
+      dryRun,
+      period: dhis2Period,
+      dataElement: READMISSION_DATA_ELEMENT,
+      error: 'Prisma data provider is not available. Run in prisma mode to push readmission rates.',
+      pushed: 0,
+      dataValues: []
+    };
+  }
+
+  const [readmissionGroups, dischargeGroups, facilities] = await Promise.all([
+    prismaClient.readmissionEvent.groupBy({
+      by: ['facilityId'],
+      where: {
+        detectedAt: { gte: periodStart, lt: periodEnd }
+      },
+      _count: { id: true }
+    }),
+    prismaClient.visit.groupBy({
+      by: ['facilityId'],
+      where: {
+        dischargeDate: { gte: periodStart, lt: periodEnd }
+      },
+      _count: { id: true }
+    }),
+    listFacilities()
+  ]);
+
+  const facilityById = new Map(facilities.map((f) => [f.id, f]));
+  const readmissionByFacility = new Map(
+    readmissionGroups.map((row) => [row.facilityId, row._count.id])
+  );
+  const dischargeByFacility = new Map(
+    dischargeGroups.map((row) => [row.facilityId, row._count.id])
+  );
+
+  const dataValues = [];
+  for (const [facilityId, discharges] of dischargeByFacility) {
+    const facility = facilityById.get(facilityId);
+    const dhis2OrgUnitId = facility?.dhis2OrgUnitId;
+    if (!dhis2OrgUnitId || !discharges) {
+      continue;
+    }
+
+    const readmissions = readmissionByFacility.get(facilityId) || 0;
+    const rate = Number((readmissions / discharges).toFixed(4));
+
+    dataValues.push({
+      dataElement: READMISSION_DATA_ELEMENT,
+      orgUnit: dhis2OrgUnitId,
+      period: dhis2Period,
+      value: String(rate)
+    });
+  }
+
+  if (dryRun || !config.baseUrl) {
+    return {
+      dryRun: true,
+      period: dhis2Period,
+      dataElement: READMISSION_DATA_ELEMENT,
+      pushed: 0,
+      dataValues
+    };
+  }
+
+  const dhis2Response = await pushDataValueSet(dataValues, overrides);
+
+  return {
+    dryRun: false,
+    period: dhis2Period,
+    dataElement: READMISSION_DATA_ELEMENT,
+    pushed: dataValues.length,
+    dataValues,
+    dhis2Response
+  };
+}
+
 module.exports = {
   buildSyncOptions,
   mapOrganisationUnitToFacility,
-  syncDhis2Facilities
+  syncDhis2Facilities,
+  pushReadmissionRates
 };

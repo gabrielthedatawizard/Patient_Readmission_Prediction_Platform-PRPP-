@@ -22,14 +22,19 @@ const facilities = [
 ];
 
 const roleAssignments = {
+  moh: {},
+  auditor: {},
+  rhmt: { regionCode: 'DAR' },
+  chmt: { regionCode: 'ARU', district: 'Arusha' },
+  dhio: { regionCode: 'DAR', district: 'Ilala' },
   facility_manager: { facilityId: 'FAC-MNH-001' },
+  tfadmin: { facilityId: 'FAC-MBE-001' },
   clinician: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
   nurse: { facilityId: 'FAC-ARH-001', ward: 'Medical Ward A' },
   pharmacist: { facilityId: 'FAC-MWZ-001' },
   hro: { facilityId: 'FAC-DOD-001' },
   chw: { facilityId: 'FAC-DOD-001' },
-  rhmt: { regionCode: 'DAR' },
-  chmt: { regionCode: 'ARU', district: 'Arusha' }
+  ml_engineer: {}
 };
 
 const patientSeeds = [

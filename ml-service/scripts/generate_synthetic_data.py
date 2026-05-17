@@ -97,7 +97,7 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     charlson = min(charlson, 12)
 
     prior_admissions = max(0, int(rng.expovariate(0.7)))
-    if has_sickle_cell or has_hiv:
+    if has_sickle or has_hiv:
         prior_admissions += rng.randint(0, 3)
     prior_admissions = min(prior_admissions, 10)
 
@@ -136,7 +136,9 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     lives_alone = False if neonatal_case else rng.random() < (0.30 if age > 65 else 0.12)
 
     # Logistic model for readmission probability
-    log_odds = -3.2
+    # Intercept calibrated to produce ~12% readmission rate (Tanzania actual rate)
+    # Previous value of -3.2 produced ~24.6% (2× bias, causing alarm fatigue)
+    log_odds = -4.1
     log_odds += 0.025 * max(0, age - 50)
     log_odds += 0.35 * min(prior_admissions, 5)
     log_odds += 0.08 * min(charlson, 8)

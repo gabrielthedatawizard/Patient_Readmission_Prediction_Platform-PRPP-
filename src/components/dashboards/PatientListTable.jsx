@@ -1,6 +1,7 @@
 import Button from "../common/Button";
 
 const RISK_COLORS = {
+  VeryHigh: "bg-purple-100 text-purple-900 border-purple-300",
   High: "bg-red-100 text-red-800 border-red-200",
   Medium: "bg-amber-100 text-amber-800 border-amber-200",
   Low: "bg-green-100 text-green-800 border-green-200",

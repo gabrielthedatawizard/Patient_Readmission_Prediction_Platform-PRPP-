@@ -196,8 +196,56 @@ async function fetchOrganisationUnits(overrides = {}) {
   }
 }
 
+async function pushDataValueSet(dataValues = [], overrides = {}) {
+  const config = getDhis2Config(overrides);
+  if (!config.baseUrl || !config.username || !config.password) {
+    throw createConfigError();
+  }
+
+  const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), config.timeoutMs);
+
+  try {
+    const response = await fetch(`${config.baseUrl}/api/dataValueSets`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${auth}`
+      },
+      body: JSON.stringify({ dataValues }),
+      signal: controller.signal
+    });
+
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (error) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw createRequestError(
+        response.status,
+        payload?.message || payload?.response?.description || `DHIS2 push failed with status ${response.status}.`
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw createRequestError(504, 'DHIS2 push request timed out.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 module.exports = {
   getDhis2Config,
   getDhis2ConfigStatus,
-  fetchOrganisationUnits
+  fetchOrganisationUnits,
+  pushDataValueSet
 };

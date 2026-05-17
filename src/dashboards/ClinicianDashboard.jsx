@@ -58,13 +58,13 @@ export const ClinicianDashboard = ({ clinicianId, onOpenPatient, onStartDischarg
   const prioritizedPatients = useMemo(() => {
     const sorted = [...myPatients].sort((a, b) => Number(b.riskScore || 0) - Number(a.riskScore || 0));
     return sorted.filter((patient) => {
-      if (viewFilter === "high-risk") return patient.riskTier === "High";
+      if (viewFilter === "high-risk") return patient.riskTier === "High" || patient.riskTier === "VeryHigh";
       if (viewFilter === "discharge-ready") return patient.dischargeReady;
       return true;
     });
   }, [myPatients, viewFilter]);
 
-  const highRiskCount = myPatients.filter((p) => p.riskTier === "High").length;
+  const highRiskCount = myPatients.filter((p) => p.riskTier === "High" || p.riskTier === "VeryHigh").length;
   const dischargeReadyCount = myPatients.filter((p) => p.dischargeReady).length;
   const pendingActionsCount = myPatients.reduce((sum, p) => sum + Number(p.pendingTasks || 0), 0);
 

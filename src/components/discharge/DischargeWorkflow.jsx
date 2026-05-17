@@ -108,8 +108,8 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     followupPlan: {
       day3Call: true,
       day7Call: true,
-      day14Call: patient?.riskTier === 'High' || patient?.riskTier === 'Medium',
-      day30Call: patient?.riskTier === 'High',
+      day14Call: patient?.riskTier === 'High' || patient?.riskTier === 'VeryHigh' || patient?.riskTier === 'Medium',
+      day30Call: patient?.riskTier === 'High' || patient?.riskTier === 'VeryHigh',
       homeVisit: false,
       clinicVisit: true,
       clinicVisitDate: '',
@@ -117,7 +117,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
     },
     // Step 4: Referral
     referrals: {
-      chwVisit: patient?.riskTier === 'High',
+      chwVisit: patient?.riskTier === 'High' || patient?.riskTier === 'VeryHigh',
       nutritionCounseling: false,
       physiotherapy: false,
       socialWork: patient?.socialHistory?.phoneAccess === false
@@ -537,7 +537,7 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
       </div>
 
       {/* Adherence Alert */}
-      {patient?.riskTier === 'High' && (
+      {(patient?.riskTier === 'High' || patient?.riskTier === 'VeryHigh') && (
         <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
@@ -777,10 +777,10 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
             key: 'chwVisit', 
             label: 'Community Health Worker Visit', 
             description: 'Schedule home visit within 48 hours of discharge',
-            recommended: patient?.riskTier === 'High'
+            recommended: patient?.riskTier === 'High' || patient?.riskTier === 'VeryHigh'
           },
-          { 
-            key: 'nutritionCounseling', 
+          {
+            key: 'nutritionCounseling',
             label: 'Nutrition Counseling', 
             description: 'For patients with diabetes or other dietary needs',
             recommended: patient?.diagnosis?.primary?.toLowerCase().includes('diabetes')

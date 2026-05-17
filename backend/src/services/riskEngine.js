@@ -30,7 +30,14 @@ function normalizeFeatures(features = {}) {
     icuStayDays: toNumber(features.icuStayDays),
     phoneAccess: Boolean(features.phoneAccess),
     transportationDifficulty: Boolean(features.transportationDifficulty),
-    livesAlone: Boolean(features.livesAlone)
+    livesAlone: Boolean(features.livesAlone),
+    // Tanzania priority conditions — must all be present to support offline scoring
+    hasMalaria: Boolean(features.hasMalaria),
+    hasTuberculosis: Boolean(features.hasTuberculosis || features.hasTb),
+    hasSevereAcuteMalnutrition: Boolean(features.hasSevereAcuteMalnutrition || features.hasSam),
+    hasSickleCellDisease: Boolean(features.hasSickleCellDisease || features.hasSickleCell),
+    // HIV is used internally to adjust the risk score but is never added to visible factor contributions
+    hasHiv: Boolean(features.hasHiv || features.has_hiv)
   };
 }
 
@@ -68,11 +75,15 @@ function computeDataQuality(normalized, missing, imputed) {
 }
 
 function scoreToTier(score) {
-  if (score >= 70) {
+  if (score >= 85) {
+    return 'VeryHigh';
+  }
+
+  if (score >= 60) {
     return 'High';
   }
 
-  if (score >= 40) {
+  if (score >= 35) {
     return 'Medium';
   }
 
@@ -201,6 +212,32 @@ function runPrimaryModel(features, dataQuality) {
     addContribution(contributions, 'Lives alone', 5, 'Limited household support after discharge.');
   }
 
+  // Tanzania priority conditions — scored in offline mode for clinical accuracy
+  if (features.hasMalaria) {
+    score += 12;
+    addContribution(contributions, 'Active malaria episode', 12, 'Malaria significantly increases readmission risk in Tanzania.');
+  }
+
+  if (features.hasTuberculosis) {
+    score += 14;
+    addContribution(contributions, 'Active tuberculosis', 14, 'Tuberculosis prolongs recovery and increases post-discharge risk.');
+  }
+
+  if (features.hasSevereAcuteMalnutrition) {
+    score += 16;
+    addContribution(contributions, 'Severe acute malnutrition', 16, 'SAM is a strong driver of paediatric readmission in Tanzania.');
+  }
+
+  if (features.hasSickleCellDisease) {
+    score += 10;
+    addContribution(contributions, 'Sickle cell disease', 10, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+  }
+
+  // HIV weight applied to score internally — not added to contributions (privacy rule)
+  if (features.hasHiv) {
+    score += 12;
+  }
+
   if (dataQuality.missingCriticalFields.length > 0) {
     const missingPenalty = dataQuality.missingCriticalFields.length * 2;
     score += missingPenalty;
@@ -241,6 +278,32 @@ function runFallbackModel(features, dataQuality) {
   if (!features.phoneAccess || features.transportationDifficulty) {
     score += 8;
     addContribution(contributions, 'Follow-up barrier', 8, 'Communication or transport barriers identified.');
+  }
+
+  // Tanzania priority conditions (fallback model)
+  if (features.hasMalaria) {
+    score += 10;
+    addContribution(contributions, 'Active malaria episode', 10, 'Malaria significantly increases readmission risk in Tanzania.');
+  }
+
+  if (features.hasTuberculosis) {
+    score += 12;
+    addContribution(contributions, 'Active tuberculosis', 12, 'Tuberculosis prolongs recovery and increases post-discharge risk.');
+  }
+
+  if (features.hasSevereAcuteMalnutrition) {
+    score += 14;
+    addContribution(contributions, 'Severe acute malnutrition', 14, 'SAM is a strong driver of paediatric readmission in Tanzania.');
+  }
+
+  if (features.hasSickleCellDisease) {
+    score += 8;
+    addContribution(contributions, 'Sickle cell disease', 8, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+  }
+
+  // HIV applied to score internally (privacy rule — not in contributions)
+  if (features.hasHiv) {
+    score += 10;
   }
 
   score += dataQuality.missingCriticalFields.length * 3;

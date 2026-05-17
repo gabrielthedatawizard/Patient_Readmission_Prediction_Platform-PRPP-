@@ -7,7 +7,7 @@ import {
   usePredictionHistoryQuery,
 } from "../../hooks/useTrip";
 
-const TIERS = ["Low", "Medium", "High"];
+const TIERS = ["Low", "Medium", "High", "VeryHigh"];
 
 const PredictionHistory = ({
   patientId,

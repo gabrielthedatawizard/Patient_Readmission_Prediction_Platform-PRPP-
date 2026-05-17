@@ -27,6 +27,7 @@ const analyticsRoutes = require('./src/routes/analytics');
 const auditRoutes = require('./src/routes/audit');
 const syncRoutes = require('./src/routes/sync');
 const integrationsRoutes = require('./src/routes/integrations');
+const cdsHooksRoutes = require('./src/routes/cdsHooks');
 const workspaceRoutes = require('./src/routes/workspace');
 const { buildHealthSnapshot, isPlatformReady } = require('./src/services/systemHealth');
 
@@ -210,6 +211,7 @@ app.use('/api/workspace', workspaceRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/', cdsHooksRoutes);
 
 app.use((err, req, res, next) => {
   if (err.message && err.message.startsWith('CORS blocked')) {
