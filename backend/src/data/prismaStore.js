@@ -3,6 +3,25 @@ const { prisma, getDatabaseSchemaCapabilities } = require('../lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';
 
+// ICD-10 patterns for Tanzania priority conditions
+const ICD10_PATTERNS = {
+  hasMalaria:                 /^B5[0-4]/,
+  hasTuberculosis:            /^A1[5-9]/,
+  hasSevereAcuteMalnutrition: /^E4[0-6]/,
+  hasSickleCellDisease:       /^D57/,
+  hasHiv:                     /^B2[0-4]/,
+  neonatalRisk:               /^P/
+};
+
+function computeIcd10Flags(codes = []) {
+  const all = codes.filter(Boolean).map(String);
+  const flags = {};
+  for (const [key, pattern] of Object.entries(ICD10_PATTERNS)) {
+    flags[key] = all.some((c) => pattern.test(c));
+  }
+  return flags;
+}
+
 function toDateIso(value) {
   if (!value) {
     return null;
@@ -1190,6 +1209,21 @@ async function createVisitForUser(user, patientId, payload = {}) {
     throw new Error('You do not have access to record encounters outside your assigned ward.');
   }
 
+  // Compute disease flags from ICD-10 codes in the encounter payload
+  const icdCodes = [
+    payload.primaryIcd10,
+    payload.diagnosis,
+    ...(Array.isArray(payload.diagnoses) ? payload.diagnoses : []),
+    ...(Array.isArray(payload.secondaryIcd10) ? payload.secondaryIcd10 : []),
+    ...(Array.isArray(payload.diagnosisCodes) ? payload.diagnosisCodes : [])
+  ];
+  const icdFlags = computeIcd10Flags(icdCodes);
+
+  const rawPatient = await prisma.patient.findUnique({
+    where: { id: patientId },
+    select: { clinicalProfile: true }
+  });
+
   const capabilities = await getDatabaseSchemaCapabilities();
   const visit = await prisma.visit.create({
     data: sanitizeVisitWrite({
@@ -1216,7 +1250,11 @@ async function createVisitForUser(user, patientId, payload = {}) {
       id: patientId
     },
     data: {
-      status: 'admitted'
+      status: 'admitted',
+      clinicalProfile: {
+        ...(rawPatient?.clinicalProfile || {}),
+        ...icdFlags
+      }
     }
   });
 

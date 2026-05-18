@@ -37,7 +37,9 @@ function normalizeFeatures(features = {}) {
     hasSevereAcuteMalnutrition: Boolean(features.hasSevereAcuteMalnutrition || features.hasSam),
     hasSickleCellDisease: Boolean(features.hasSickleCellDisease || features.hasSickleCell),
     // HIV is used internally to adjust the risk score but is never added to visible factor contributions
-    hasHiv: Boolean(features.hasHiv || features.has_hiv)
+    hasHiv: Boolean(features.hasHiv || features.has_hiv),
+    onArt: Boolean(features.onArt || features.on_art),
+    neonatalRisk: Boolean(features.neonatalRisk || features.has_neonatal_risk)
   };
 }
 
@@ -214,28 +216,34 @@ function runPrimaryModel(features, dataQuality) {
 
   // Tanzania priority conditions — scored in offline mode for clinical accuracy
   if (features.hasMalaria) {
-    score += 12;
-    addContribution(contributions, 'Active malaria episode', 12, 'Malaria significantly increases readmission risk in Tanzania.');
+    score += 8;
+    addContribution(contributions, 'Active malaria episode', 8, 'Malaria significantly increases readmission risk in Tanzania.');
   }
 
   if (features.hasTuberculosis) {
-    score += 14;
-    addContribution(contributions, 'Active tuberculosis', 14, 'Tuberculosis prolongs recovery and increases post-discharge risk.');
+    score += 12;
+    addContribution(contributions, 'Active tuberculosis', 12, 'Tuberculosis prolongs recovery and increases post-discharge risk.');
   }
 
   if (features.hasSevereAcuteMalnutrition) {
-    score += 16;
-    addContribution(contributions, 'Severe acute malnutrition', 16, 'SAM is a strong driver of paediatric readmission in Tanzania.');
+    score += 18;
+    addContribution(contributions, 'Severe acute malnutrition', 18, 'SAM is a strong driver of paediatric readmission in Tanzania.');
   }
 
   if (features.hasSickleCellDisease) {
-    score += 10;
-    addContribution(contributions, 'Sickle cell disease', 10, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+    score += 14;
+    addContribution(contributions, 'Sickle cell disease', 14, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+  }
+
+  if (features.neonatalRisk) {
+    score += 12;
+    addContribution(contributions, 'Neonatal risk factors', 12, 'Neonatal conditions significantly increase readmission risk.');
   }
 
   // HIV weight applied to score internally — not added to contributions (privacy rule)
+  // ART-stratified: without ART +16, on ART +6
   if (features.hasHiv) {
-    score += 12;
+    score += features.onArt ? 6 : 16;
   }
 
   if (dataQuality.missingCriticalFields.length > 0) {
@@ -280,10 +288,10 @@ function runFallbackModel(features, dataQuality) {
     addContribution(contributions, 'Follow-up barrier', 8, 'Communication or transport barriers identified.');
   }
 
-  // Tanzania priority conditions (fallback model)
+  // Tanzania priority conditions (fallback model — same spec weights as primary)
   if (features.hasMalaria) {
-    score += 10;
-    addContribution(contributions, 'Active malaria episode', 10, 'Malaria significantly increases readmission risk in Tanzania.');
+    score += 8;
+    addContribution(contributions, 'Active malaria episode', 8, 'Malaria significantly increases readmission risk in Tanzania.');
   }
 
   if (features.hasTuberculosis) {
@@ -292,18 +300,24 @@ function runFallbackModel(features, dataQuality) {
   }
 
   if (features.hasSevereAcuteMalnutrition) {
-    score += 14;
-    addContribution(contributions, 'Severe acute malnutrition', 14, 'SAM is a strong driver of paediatric readmission in Tanzania.');
+    score += 18;
+    addContribution(contributions, 'Severe acute malnutrition', 18, 'SAM is a strong driver of paediatric readmission in Tanzania.');
   }
 
   if (features.hasSickleCellDisease) {
-    score += 8;
-    addContribution(contributions, 'Sickle cell disease', 8, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+    score += 14;
+    addContribution(contributions, 'Sickle cell disease', 14, 'Sickle cell disease raises risk of recurrent acute-care episodes.');
+  }
+
+  if (features.neonatalRisk) {
+    score += 12;
+    addContribution(contributions, 'Neonatal risk factors', 12, 'Neonatal conditions significantly increase readmission risk.');
   }
 
   // HIV applied to score internally (privacy rule — not in contributions)
+  // ART-stratified: without ART +16, on ART +6
   if (features.hasHiv) {
-    score += 10;
+    score += features.onArt ? 6 : 16;
   }
 
   score += dataQuality.missingCriticalFields.length * 3;

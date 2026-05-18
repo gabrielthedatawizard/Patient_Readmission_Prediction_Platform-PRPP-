@@ -17,6 +17,7 @@ const {
   listReadmissionEventsForUser,
   updatePatientForUser
 } = require('../data');
+const { prisma } = require('../lib/prisma');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/authorize');
 const { requireRoleFeature } = require('../middleware/roleAccess');
@@ -538,6 +539,86 @@ router.put(
       message: error.message
     });
   }
+  })
+);
+
+const DISCHARGE_CHECKLIST_STEPS = new Set([
+  'medication_review',
+  'follow_up_scheduled',
+  'patient_education',
+  'social_support',
+  'transport_arranged',
+  'documentation_complete'
+]);
+
+router.patch(
+  '/:id/encounters/:visitId/discharge-checklist',
+  requirePermission('patients:write'),
+  asyncHandler(async (req, res) => {
+  const patient = await getPatientForUser(req.user, req.params.id);
+
+  if (!patient) {
+    return res.status(404).json({ error: 'NotFound', message: 'Patient not found or not accessible.' });
+  }
+
+  const { step, completed, notes } = req.body || {};
+
+  if (!step || !DISCHARGE_CHECKLIST_STEPS.has(step)) {
+    return res.status(400).json({
+      error: 'ValidationError',
+      message: `step must be one of: ${[...DISCHARGE_CHECKLIST_STEPS].join(', ')}`
+    });
+  }
+
+  if (typeof completed !== 'boolean') {
+    return res.status(400).json({ error: 'ValidationError', message: 'completed must be a boolean.' });
+  }
+
+  const existing = await prisma.dischargeWorkflow.findFirst({
+    where: { visitId: req.params.visitId, visit: { patientId: patient.id } }
+  });
+
+  const currentSteps = (existing?.steps) || {};
+  const updatedSteps = {
+    ...currentSteps,
+    [step]: {
+      completed,
+      completedAt: completed ? new Date().toISOString() : null,
+      notes: notes || null
+    }
+  };
+
+  const allComplete = [...DISCHARGE_CHECKLIST_STEPS].every((s) => updatedSteps[s]?.completed);
+
+  let workflow;
+  if (existing) {
+    workflow = await prisma.dischargeWorkflow.update({
+      where: { id: existing.id },
+      data: {
+        steps: updatedSteps,
+        status: allComplete ? 'Completed' : 'InProgress',
+        completedAt: allComplete ? new Date() : null
+      }
+    });
+  } else {
+    workflow = await prisma.dischargeWorkflow.create({
+      data: {
+        visitId: req.params.visitId,
+        initiatedById: req.user.id,
+        steps: updatedSteps,
+        status: allComplete ? 'Completed' : 'InProgress',
+        completedAt: allComplete ? new Date() : null
+      }
+    });
+  }
+
+  await logAudit(req, {
+    action: 'discharge_checklist_updated',
+    resource: `patient:${patient.id}:visit:${req.params.visitId}`,
+    details: { step, completed }
+  });
+
+  return res.json({ workflow });
   })
 );
 

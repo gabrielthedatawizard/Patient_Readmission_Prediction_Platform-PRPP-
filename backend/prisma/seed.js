@@ -5,20 +5,67 @@ const { prisma } = require('../src/lib/prisma');
 
 const DEMO_PASSWORD = 'Trip@2026';
 
+// Tanzania 7 geographic zones (mainland + Zanzibar grouped under Eastern)
+const zones = [
+  { id: 'ZN-LAK', code: 'LAK', name: 'Lake Zone' },
+  { id: 'ZN-NOR', code: 'NOR', name: 'Northern Zone' },
+  { id: 'ZN-CEN', code: 'CEN', name: 'Central Zone' },
+  { id: 'ZN-SHL', code: 'SHL', name: 'Southern Highlands Zone' },
+  { id: 'ZN-EAS', code: 'EAS', name: 'Eastern Zone' },
+  { id: 'ZN-SOU', code: 'SOU', name: 'Southern Zone' },
+  { id: 'ZN-WES', code: 'WES', name: 'Western Zone' }
+];
+
+// All 31 Tanzania administrative regions mapped to zones
 const regions = [
-  { code: 'DAR', name: 'Dar es Salaam' },
-  { code: 'ARU', name: 'Arusha' },
-  { code: 'MWZ', name: 'Mwanza' },
-  { code: 'DOD', name: 'Dodoma' },
-  { code: 'MBE', name: 'Mbeya' }
+  // Lake Zone (6)
+  { code: 'MWZ', name: 'Mwanza',       zoneCode: 'LAK' },
+  { code: 'GEI', name: 'Geita',        zoneCode: 'LAK' },
+  { code: 'SIM', name: 'Simiyu',       zoneCode: 'LAK' },
+  { code: 'MAR', name: 'Mara',         zoneCode: 'LAK' },
+  { code: 'KAG', name: 'Kagera',       zoneCode: 'LAK' },
+  { code: 'SHY', name: 'Shinyanga',    zoneCode: 'LAK' },
+  // Northern Zone (4)
+  { code: 'ARU', name: 'Arusha',       zoneCode: 'NOR' },
+  { code: 'KIL', name: 'Kilimanjaro',  zoneCode: 'NOR' },
+  { code: 'MAN', name: 'Manyara',      zoneCode: 'NOR' },
+  { code: 'TAN', name: 'Tanga',        zoneCode: 'NOR' },
+  // Central Zone (2)
+  { code: 'DOD', name: 'Dodoma',       zoneCode: 'CEN' },
+  { code: 'SIN', name: 'Singida',      zoneCode: 'CEN' },
+  // Southern Highlands Zone (5)
+  { code: 'MBE', name: 'Mbeya',        zoneCode: 'SHL' },
+  { code: 'SON', name: 'Songwe',       zoneCode: 'SHL' },
+  { code: 'IRI', name: 'Iringa',       zoneCode: 'SHL' },
+  { code: 'NJO', name: 'Njombe',       zoneCode: 'SHL' },
+  { code: 'RUK', name: 'Rukwa',        zoneCode: 'SHL' },
+  // Eastern Zone — mainland (5) + Zanzibar (5) = 10
+  { code: 'DAR', name: 'Dar es Salaam', zoneCode: 'EAS' },
+  { code: 'MOR', name: 'Morogoro',     zoneCode: 'EAS' },
+  { code: 'PWA', name: 'Pwani',        zoneCode: 'EAS' },
+  { code: 'LIN', name: 'Lindi',        zoneCode: 'EAS' },
+  { code: 'MTW', name: 'Mtwara',       zoneCode: 'EAS' },
+  { code: 'ZNP', name: 'Kaskazini Pemba',          zoneCode: 'EAS' },
+  { code: 'ZSP', name: 'Kusini Pemba',             zoneCode: 'EAS' },
+  { code: 'ZNU', name: 'Kaskazini Unguja',          zoneCode: 'EAS' },
+  { code: 'ZSU', name: 'Kusini na Kati Unguja',     zoneCode: 'EAS' },
+  { code: 'ZMM', name: 'Mjini Magharibi (Zanzibar)', zoneCode: 'EAS' },
+  // Southern Zone (2)
+  { code: 'RUV', name: 'Ruvuma',       zoneCode: 'SOU' },
+  { code: 'KAT', name: 'Katavi',       zoneCode: 'SOU' },
+  // Western Zone (2)
+  { code: 'TAB', name: 'Tabora',       zoneCode: 'WES' },
+  { code: 'KIG', name: 'Kigoma',       zoneCode: 'WES' }
 ];
 
 const facilities = [
-  { id: 'FAC-MNH-001', name: 'Muhimbili National Hospital', level: 'national_referral', district: 'Ilala', regionCode: 'DAR' },
-  { id: 'FAC-ARH-001', name: 'Arusha Regional Hospital', level: 'regional_referral', district: 'Arusha', regionCode: 'ARU' },
-  { id: 'FAC-MWZ-001', name: 'Mwanza Regional Hospital', level: 'regional_referral', district: 'Nyamagana', regionCode: 'MWZ' },
-  { id: 'FAC-DOD-001', name: 'Dodoma District Hospital', level: 'district', district: 'Dodoma', regionCode: 'DOD' },
-  { id: 'FAC-MBE-001', name: 'Mbeya Zonal Hospital', level: 'zonal_referral', district: 'Mbeya', regionCode: 'MBE' }
+  { id: 'FAC-MNH-001', name: 'Muhimbili National Hospital',  level: 'national_referral', district: 'Ilala',     regionCode: 'DAR' },
+  { id: 'FAC-ARH-001', name: 'Arusha Regional Hospital',     level: 'regional_referral', district: 'Arusha',    regionCode: 'ARU' },
+  { id: 'FAC-MWZ-001', name: 'Mwanza Regional Hospital',     level: 'regional_referral', district: 'Nyamagana', regionCode: 'MWZ' },
+  { id: 'FAC-DOD-001', name: 'Dodoma District Hospital',     level: 'district',          district: 'Dodoma',    regionCode: 'DOD' },
+  { id: 'FAC-MBE-001', name: 'Mbeya Zonal Hospital',         level: 'zonal_referral',    district: 'Mbeya',     regionCode: 'MBE' },
+  { id: 'FAC-RUV-001', name: 'Ruvuma District Hospital',     level: 'district',          district: 'Songea',    regionCode: 'RUV' },
+  { id: 'FAC-TAB-001', name: 'Tabora Regional Hospital',     level: 'regional_referral', district: 'Tabora',    regionCode: 'TAB' }
 ];
 
 const roleAssignments = {
@@ -121,14 +168,36 @@ const patientSeeds = [
   }
 ];
 
-async function seedRegions() {
+async function seedZones() {
+  const zoneMap = new Map();
+
+  for (const zone of zones) {
+    const saved = await prisma.zone.upsert({
+      where: { id: zone.id },
+      update: { name: zone.name, code: zone.code },
+      create: zone
+    });
+
+    zoneMap.set(zone.code, saved);
+  }
+
+  return zoneMap;
+}
+
+async function seedRegions(zoneMap) {
   const regionMap = new Map();
 
   for (const region of regions) {
+    const zone = zoneMap ? zoneMap.get(region.zoneCode) : null;
+    const data = {
+      name: region.name,
+      ...(zone ? { zoneId: zone.id } : {})
+    };
+
     const saved = await prisma.region.upsert({
       where: { code: region.code },
-      update: { name: region.name },
-      create: region
+      update: data,
+      create: { code: region.code, ...data }
     });
 
     regionMap.set(saved.code, saved);
@@ -523,7 +592,8 @@ async function seedAuditLog() {
 async function main() {
   console.log('Seeding TRIP PostgreSQL baseline...');
 
-  const regionMap = await seedRegions();
+  const zoneMap = await seedZones();
+  const regionMap = await seedRegions(zoneMap);
   await seedFacilities(regionMap);
 
   const roleMap = await seedRoles();

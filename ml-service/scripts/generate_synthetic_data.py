@@ -57,11 +57,19 @@ ICD_CODES_OTHER = [
 ]
 
 
+MALARIA_SEASON_MONTHS = {4, 5, 6, 11, 12, 1}  # Long rains (Apr-Jun) + Short rains (Nov-Jan)
+
+
 def sigmoid(x: float) -> float:
     return 1.0 / (1.0 + math.exp(-x))
 
 
 def generate_row(patient_index: int, rng: random.Random) -> dict:
+    # Admission date determined first so seasonal factors can be applied below
+    admission_date = date(2024, 1, 1) + timedelta(days=patient_index - 1)
+    admission_month = admission_date.month
+    seasonal_malaria_mult = 1.5 if admission_month in MALARIA_SEASON_MONTHS else 1.0
+
     neonatal_case = rng.random() < 0.05
     if neonatal_case:
         age = 0
@@ -73,7 +81,7 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
     has_hf = False if neonatal_case else rng.random() < (0.25 if age > 65 else 0.08)
     has_dm = False if neonatal_case else rng.random() < (0.30 if age > 55 else 0.10)
     has_ckd = False if neonatal_case else rng.random() < (0.18 if age > 60 else 0.05)
-    has_malaria = rng.random() < (0.16 if neonatal_case else 0.08)
+    has_malaria = rng.random() < min(1.0, (0.16 if neonatal_case else 0.08) * seasonal_malaria_mult)
     has_hiv = False if neonatal_case else rng.random() < (0.12 if 18 <= age <= 49 else 0.06)
     on_art = has_hiv and rng.random() < 0.82
     has_tb = rng.random() < (0.18 if has_hiv else 0.03)
@@ -168,7 +176,6 @@ def generate_row(patient_index: int, rng: random.Random) -> dict:
 
     prob = sigmoid(log_odds)
     readmitted = 1 if rng.random() < prob else 0
-    admission_date = date(2024, 1, 1) + timedelta(days=patient_index - 1)
     discharge_date = admission_date + timedelta(days=max(1, los))
 
     return {
@@ -227,13 +234,18 @@ def main():
             line = ",".join(str(row[col]) for col in FEATURE_COLUMNS)
             f.write(line + "\n")
 
-    # Print summary
+    # Print summary and validate rate is within Tanzania target band
     with open(output_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     total = len(lines) - 1
     readmitted = sum(1 for line in lines[1:] if line.strip().endswith(",1"))
+    actual_rate = readmitted / total
     print(f"Generated {total} rows -> {output_path}")
-    print(f"Readmission rate: {readmitted}/{total} = {readmitted/total*100:.1f}%")
+    print(f"Readmission rate: {readmitted}/{total} = {actual_rate*100:.1f}%")
+    assert 0.10 <= actual_rate <= 0.15, (
+        f"Readmission rate {actual_rate:.3f} is outside the Tanzania target band (0.10–0.15). "
+        "Adjust intercept in generate_row() logistic model."
+    )
 
 
 if __name__ == "__main__":

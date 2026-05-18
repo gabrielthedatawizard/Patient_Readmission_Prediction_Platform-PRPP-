@@ -93,6 +93,19 @@ async function onDischarge({ visit, patient, user, req = null } = {}) {
       }
 
       if (req) {
+        // Real-time WebSocket alert to clinicians at the same facility (FR-034/035)
+        const wss = req.app?.get('wss');
+        if (wss && typeof wss.broadcastToFacility === 'function') {
+          wss.broadcastToFacility(patient.facilityId, 'READMISSION_ALERT', {
+            patientId: patient.id,
+            patientName: patient.name,
+            tier: prediction.tier,
+            score: prediction.score,
+            probability: prediction.probability,
+            topFactors: (prediction.factors || []).slice(0, 3).map((f) => f.factor || f.label)
+          });
+        }
+
         await dispatchRiskAlert({ req, patient, prediction }).catch(() => {});
       }
     }

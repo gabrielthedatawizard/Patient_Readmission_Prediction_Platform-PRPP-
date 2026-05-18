@@ -45,8 +45,28 @@ const {
   getSandboxTrainingDataset
 } = require('../services/sandboxDemoService');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { prisma } = require('../lib/prisma');
 
 const router = express.Router();
+
+// ICD-10 condition buckets — HIV bucket is labeled "Immunocompromised" (privacy constraint: never "HIV")
+const CONDITION_BUCKETS = [
+  { key: 'malaria',           label: 'Malaria',            pattern: /^B5[0-4]/ },
+  { key: 'tuberculosis',      label: 'Tuberculosis',        pattern: /^A1[5-9]/ },
+  { key: 'sam',               label: 'Severe Malnutrition', pattern: /^E4[0-6]/ },
+  { key: 'sickle_cell',       label: 'Sickle Cell Disease', pattern: /^D57/ },
+  { key: 'immunocompromised', label: 'Immunocompromised',   pattern: /^B2[0-4]/ },
+  { key: 'cardiovascular',    label: 'Cardiovascular',      pattern: /^I/ },
+  { key: 'respiratory',       label: 'Respiratory',         pattern: /^J/ }
+];
+
+function bucketIcd10(code) {
+  if (!code) return 'other';
+  for (const bucket of CONDITION_BUCKETS) {
+    if (bucket.pattern.test(code)) return bucket.key;
+  }
+  return 'other';
+}
 
 router.use(requireAuth);
 
@@ -517,6 +537,118 @@ router.get('/fairness', requirePermission('analytics:read'), asyncHandler(async 
     fairness,
     escalationRequired: fairness.fairnessStatus === 'alert'
   }, workspace));
+}));
+
+router.get('/readmission-by-condition', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const workspace = await buildAnalyticsWorkspace(req);
+
+  if (workspace.operationalMode === 'sandbox') {
+    const conditions = [
+      { key: 'malaria',           label: 'Malaria',            count: 28, rate: 23.3 },
+      { key: 'cardiovascular',    label: 'Cardiovascular',      count: 22, rate: 18.3 },
+      { key: 'tuberculosis',      label: 'Tuberculosis',        count: 19, rate: 15.8 },
+      { key: 'sam',               label: 'Severe Malnutrition', count: 15, rate: 12.5 },
+      { key: 'respiratory',       label: 'Respiratory',         count: 14, rate: 11.7 },
+      { key: 'immunocompromised', label: 'Immunocompromised',   count: 11, rate: 9.2 },
+      { key: 'sickle_cell',       label: 'Sickle Cell Disease', count: 8,  rate: 6.7 },
+      { key: 'other',             label: 'Other',               count: 3,  rate: 2.5 }
+    ];
+    return res.json(withScope({ total: 120, conditions }, workspace));
+  }
+
+  const days = Math.min(Number(req.query.days) || 30, 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const events = await prisma.readmissionEvent.findMany({
+    where: {
+      ...(workspace.facilityIds.length ? { facilityId: { in: workspace.facilityIds } } : {}),
+      detectedAt: { gte: since }
+    },
+    include: {
+      currentVisit: { select: { diagnosis: true, diagnoses: true } }
+    }
+  });
+
+  const bucketCounts = {};
+  for (const event of events) {
+    const codes = [
+      event.currentVisit?.diagnosis,
+      ...(Array.isArray(event.currentVisit?.diagnoses) ? event.currentVisit.diagnoses : [])
+    ].filter(Boolean);
+    const bucket = codes.length ? bucketIcd10(codes[0]) : 'other';
+    bucketCounts[bucket] = (bucketCounts[bucket] || 0) + 1;
+  }
+
+  const total = events.length;
+  const allBuckets = [...CONDITION_BUCKETS, { key: 'other', label: 'Other' }];
+  const conditions = allBuckets
+    .map(({ key, label }) => ({
+      key,
+      label,
+      count: bucketCounts[key] || 0,
+      rate: total > 0 ? Number(((bucketCounts[key] || 0) / total * 100).toFixed(1)) : 0
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  await logAudit(req, {
+    action: 'analytics_readmission_by_condition_viewed',
+    resource: 'analytics:readmission_by_condition',
+    details: { total, days }
+  });
+
+  return res.json(withScope({ total, conditions }, workspace));
+}));
+
+router.get('/readmission-trend', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  const workspace = await buildAnalyticsWorkspace(req);
+
+  if (workspace.operationalMode === 'sandbox') {
+    const now = new Date();
+    const data = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+      const base = 11 + Math.sin(i * 0.55) * 1.8;
+      return {
+        date: d.toISOString().slice(0, 7),
+        rate: Number(base.toFixed(1)),
+        count: Math.round(8 + i * 0.4)
+      };
+    });
+    return res.json(withScope({ data }, workspace));
+  }
+
+  const days = Math.min(Number(req.query.days) || 365, 730);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const events = await prisma.readmissionEvent.findMany({
+    where: {
+      ...(workspace.facilityIds.length ? { facilityId: { in: workspace.facilityIds } } : {}),
+      detectedAt: { gte: since }
+    },
+    select: { detectedAt: true, within30Days: true }
+  });
+
+  const monthly = new Map();
+  for (const event of events) {
+    const key = event.detectedAt.toISOString().slice(0, 7);
+    if (!monthly.has(key)) {
+      monthly.set(key, { total: 0, within30: 0 });
+    }
+    monthly.get(key).total += 1;
+    if (event.within30Days) {
+      monthly.get(key).within30 += 1;
+    }
+  }
+
+  const data = [...monthly.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, { total, within30 }]) => ({
+      date,
+      count: within30,
+      totalEvents: total,
+      rate: Number((within30 * 100 / Math.max(total, 1)).toFixed(1))
+    }));
+
+  return res.json(withScope({ data }, workspace));
 }));
 
 module.exports = router;
