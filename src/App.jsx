@@ -6,6 +6,7 @@ import {
   ArrowUpCircle,
   BarChart3,
   Bell,
+  BookOpen,
   ChevronRight,
   Globe,
   LayoutDashboard,
@@ -52,9 +53,11 @@ import Card from "./components/common/Card";
 import WorkspaceScopeBar from "./components/workspace/WorkspaceScopeBar";
 import ThemeToggle from "./components/ThemeToggle";
 import useKeyboardShortcut from "./hooks/useKeyboardShortcut";
+import { useWebSocket } from "./hooks/useWebSocket";
 
 // Lazy Loaded Dashboards & Views
 const Analytics = lazy(() => import("./components/analytics/Analytics"));
+const ProtocolGuide = lazy(() => import("./pages/ProtocolGuide"));
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
 const PatientsList = lazy(() => import("./components/patient/PatientsList"));
@@ -167,6 +170,7 @@ const Layout = ({ children }) => {
     setLanguage,
     t,
   } = useI18n();
+  useWebSocket();
   const { isUsingOfflineData } = usePatient();
   const { pendingSyncCount, isUsingOfflineTasks } = useTask();
   const { riskAlerts, notifications, showNotifications, setShowNotifications } = useAlert();
@@ -220,8 +224,9 @@ const Layout = ({ children }) => {
     { id: "/patients", label: t("patients"), icon: Users },
     { id: "/tasks", label: t("tasks"), icon: ListChecks },
     { id: "/analytics", label: t("analytics"), icon: BarChart3 },
+    { id: "/protocol", label: t("protocolGuide", "Protocol Guide"), icon: BookOpen, alwaysShow: true },
     { id: "/settings", label: t("settings"), icon: Settings2 },
-  ].filter((item) => getAllowedWorkspaceNavIds(userRole).includes(item.id));
+  ].filter((item) => item.alwaysShow || getAllowedWorkspaceNavIds(userRole).includes(item.id));
   const canViewNotifications = canReceiveOperationalNotifications(userRole);
   const toggleDesktopSidebar = React.useCallback(() => {
     setSidebarCollapsed((collapsed) => !collapsed);
@@ -741,6 +746,7 @@ const App = () => {
                 <Route path="/discharge/:id" element={<DischargeRoute />} />
                 <Route path="/tasks" element={<TasksRoute />} />
                 <Route path="/analytics" element={<AnalyticsRoute />} />
+                <Route path="/protocol" element={<ProtocolGuide />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
