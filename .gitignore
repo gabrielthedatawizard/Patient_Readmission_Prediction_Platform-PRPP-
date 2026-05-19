@@ -18,6 +18,10 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+# deployment credential reference — contains secrets, keep local only
+deploy-env-reference.txt
+# ml-service local env
+ml-service/.env
 
 # IDE
 .vscode/
