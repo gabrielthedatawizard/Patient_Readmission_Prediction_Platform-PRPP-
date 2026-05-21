@@ -145,6 +145,15 @@ app.use(pinoHttp({ logger }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    message: 'TRIP Platform Backend API is running.',
+    documentation: '/api',
+    systemStatus: '/api/health'
+  });
+});
+
 app.get('/api/health', async (req, res, next) => {
   try {
     const snapshot = await buildHealthSnapshot();
