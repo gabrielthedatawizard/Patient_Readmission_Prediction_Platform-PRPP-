@@ -19,7 +19,7 @@ describe('riskEngine', () => {
       icuStayDays: 3
     });
 
-    expect(prediction.tier).toBe('High');
+    expect(prediction.tier).toBe('VeryHigh');
     expect(prediction.score).toBeGreaterThanOrEqual(70);
     expect(prediction.factors.length).toBeGreaterThan(0);
     expect(prediction.factors.length).toBeLessThanOrEqual(5);

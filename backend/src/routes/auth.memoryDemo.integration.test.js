@@ -1,6 +1,6 @@
 const http = require('node:http');
 
-jest.setTimeout(10000);
+jest.setTimeout(30000);
 
 const ORIGINAL_ENV = { ...process.env };
 

@@ -113,6 +113,10 @@ function generateExplanation(tier, factors) {
 
   const factorSummary = factors.slice(0, 3).map((factor) => factor.factor).join(', ');
 
+  if (tier === 'VeryHigh') {
+    return `Very high risk due to ${factorSummary}. Action required within 24 hours.`;
+  }
+
   if (tier === 'High') {
     return `High risk because of ${factorSummary}.`;
   }
