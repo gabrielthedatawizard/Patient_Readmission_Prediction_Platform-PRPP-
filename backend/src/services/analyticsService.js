@@ -7,6 +7,8 @@ const {
 } = require('../data');
 const { prisma } = require('../lib/prisma');
 
+const HIGH_RISK_TIERS = new Set(['High', 'VeryHigh']);
+
 function toDate(value, fallback) {
   if (!value) {
     return fallback;
@@ -147,7 +149,7 @@ async function getDashboardKPIs(user, options = {}) {
   const totalPatients = patients.length;
   const highRiskCount = patients.reduce((count, patient) => {
     const prediction = predictionByPatient.get(patient.id);
-    return prediction?.tier === 'High' ? count + 1 : count;
+    return HIGH_RISK_TIERS.has(prediction?.tier) ? count + 1 : count;
   }, 0);
   const readmissions = patients.reduce((count, patient) => {
     const priorAdmissions = Number(patient.clinicalProfile?.priorAdmissions12m || 0);
@@ -206,7 +208,7 @@ async function getFacilityComparison(user, options = {}) {
     bucket.readmissions += Number(patient.clinicalProfile?.priorAdmissions12m || 0) > 0 ? 1 : 0;
 
     const prediction = predictionByPatient.get(patient.id);
-    if (prediction?.tier === 'High') {
+    if (HIGH_RISK_TIERS.has(prediction?.tier)) {
       bucket.highRiskCount += 1;
     }
 
@@ -337,7 +339,7 @@ async function getBedForecast(user, options = {}) {
 
       const highRiskCount = facilityActive.reduce((count, patient) => {
         const prediction = predictionByPatient.get(patient.id);
-        return prediction?.tier === 'High' ? count + 1 : count;
+        return HIGH_RISK_TIERS.has(prediction?.tier) ? count + 1 : count;
       }, 0);
       const highRiskShare =
         facilityActive.length > 0 ? highRiskCount / facilityActive.length : 0;
@@ -461,7 +463,7 @@ async function getAutomationSummary(user, options = {}) {
   const mlPredictions = flattenedPredictions.filter((prediction) => !prediction.fallbackUsed).length;
   const fallbackPredictions = flattenedPredictions.filter((prediction) => prediction.fallbackUsed).length;
   const highRiskPredictions = flattenedPredictions.filter(
-    (prediction) => Number(prediction.score || 0) >= 80 || prediction.tier === 'High'
+    (prediction) => Number(prediction.score || 0) >= 80 || HIGH_RISK_TIERS.has(prediction.tier)
   ).length;
 
   const scopedTasks = tasks.filter((task) => isInWindow(task.createdAt, startDate, endDate));

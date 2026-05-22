@@ -1,24 +1,22 @@
 const { PrismaClient } = require('@prisma/client');
-const { assertEncryptionConfig } = require('./src/lib/encryption');
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL
+    }
+  }
+});
 
-async function test() {
-  process.env.NODE_ENV = 'production';
-  process.env.TRIP_DATA_PROVIDER = 'prisma';
-  process.env.DATABASE_URL = 'postgresql://postgres.oqxofvyurudlcgwsghqj:TheBrighttommoro@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require';
-  process.env.ENCRYPTION_KEY = '';
-
-  const { prisma, getDatabaseSchemaCapabilities } = require('./src/lib/prisma');
+async function main() {
   try {
-    const facilities = await prisma.facility.findMany();
-    console.log('Facilities count:', facilities.length);
-    
-    // Now trigger a query that decrypts
-    const patients = await prisma.patient.findMany({ take: 5 });
-    console.log('Patients count:', patients.length);
-  } catch (e) {
-    console.log('CAUGHT AN ERROR:', e.code, e.statusCode, e.publicMessage);
-    console.error(e);
+    console.log('Testing connection...');
+    const result = await prisma.$queryRaw`SELECT 1`;
+    console.log('Connection successful:', result);
+  } catch (error) {
+    console.error('Connection failed:', error);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-test();
+main();

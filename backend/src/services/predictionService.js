@@ -106,7 +106,9 @@ async function onDischarge({ visit, patient, user, req = null } = {}) {
           });
         }
 
-        await dispatchRiskAlert({ req, patient, prediction }).catch(() => {});
+        await dispatchRiskAlert({ req, patient, prediction }).catch((err) => {
+          logger.warn({ err: err?.message, patientId: patient.id, predictionId: prediction.id }, 'Risk alert dispatch failed during auto-discharge');
+        });
       }
     }
 

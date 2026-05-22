@@ -185,7 +185,7 @@ router.put(
     outcome,
     notes,
     outcomeDetails,
-    completedAt: completedAt || (status === 'Completed' ? new Date().toISOString() : undefined)
+    completedAt: completedAt || (status === 'completed' ? new Date().toISOString() : undefined)
   });
 
   if (!updated) {

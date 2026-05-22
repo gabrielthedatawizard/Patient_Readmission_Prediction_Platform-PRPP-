@@ -356,20 +356,39 @@ router.get(
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
   const assignedTo = String(req.query.clinicianId || '').trim();
 
-  let patients = await listPatientsForUser(req.user, {});
+  // Build facility-scoped WHERE directly instead of loading all patients
+  const where = {};
 
-  if (assignedTo) {
-    const assignedKey = assignedTo === 'self' ? req.user.id : assignedTo;
-    patients = patients.filter((patient) => {
-      const assignedClinicianId = String(patient.clinicalProfile?.assignedClinicianId || '').trim();
-      return !assignedClinicianId || assignedClinicianId === assignedKey;
-    });
+  // Scope by user's accessible facilities via patient relation
+  const userFacilityId = req.user?.facilityId;
+  if (userFacilityId) {
+    where.facilityId = userFacilityId;
   }
 
-  const patientIds = patients.map(p => p.id);
-  
+  // If clinician filter is set, narrow via patient's assignedClinicianId through a subquery
+  if (assignedTo) {
+    const assignedKey = assignedTo === 'self' ? req.user.id : assignedTo;
+    const matchingPatientIds = await prisma.patient.findMany({
+      where: {
+        ...(userFacilityId ? { facilityId: userFacilityId } : {}),
+        clinicalProfile: {
+          path: ['assignedClinicianId'],
+          equals: assignedKey
+        }
+      },
+      select: { id: true }
+    }).then(rows => rows.map(r => r.id)).catch(() => []);
+
+    // If clinician has no assigned patients, also include unassigned patients
+    if (matchingPatientIds.length === 0) {
+      // No filtering — show all facility predictions
+    } else {
+      where.patientId = { in: matchingPatientIds };
+    }
+  }
+
   const rawPredictions = await prisma.prediction.findMany({
-    where: { patientId: { in: patientIds } },
+    where,
     orderBy: { generatedAt: 'desc' },
     take: limit
   });

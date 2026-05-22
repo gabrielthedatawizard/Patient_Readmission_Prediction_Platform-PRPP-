@@ -284,6 +284,8 @@ model Prediction {
   @@index([facilityId, generatedAt])
   @@index([score, tier])
   @@index([facilityId, tier])
+  @@index([facilityId, tier, generatedAt])
+  @@index([tier, generatedAt])
 }
 
 model DischargeWorkflow {
@@ -369,6 +371,7 @@ model ReadmissionEvent {
   @@index([patientId, detectedAt])
   @@index([facilityId, detectedAt])
   @@index([priorVisitId])
+  @@index([facilityId, within30Days, detectedAt])
 }
 
 model Alert {
@@ -422,6 +425,7 @@ model Task {
   @@index([facilityId, dueDate])
   @@index([patientId, status])
   @@index([status, priority, dueDate])
+  @@index([facilityId, status, createdAt])
 }
 
 model AuditLog {
@@ -435,6 +439,8 @@ model AuditLog {
   details    Json?
   ipAddress  String?
   createdAt  DateTime  @default(now())
+  hash         String?
+  previousHash String?
 
   @@index([userId, action, createdAt])
   @@index([facilityId, createdAt])

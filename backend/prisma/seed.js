@@ -588,9 +588,10 @@ async function seedClinicalRecords() {
   ]);
   if (!clinician) return;
 
-  const chwId   = chw?.id || clinician.id;
-  const base    = new Date('2026-05-18T00:00:00Z');
+  const now = new Date();
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const daysOut = (n) => { const d = new Date(base); d.setDate(d.getDate() + n); return d; };
+  const daysAgo = (n) => { const d = new Date(base); d.setDate(d.getDate() - n); return d; };
 
   const TIER = {
     VeryHigh: RiskTier.VeryHigh, High: RiskTier.High,
@@ -605,8 +606,8 @@ async function seedClinicalRecords() {
   const priorVisits = [
     {
       id: 'VIS-PT-2026-0001-P', patientId: 'PT-2026-0001', facilityId: 'FAC-MNH-001',
-      admissionDate: new Date('2025-12-03T10:30:00Z'),
-      dischargeDate: new Date('2025-12-08T14:00:00Z'),
+      admissionDate: daysAgo(170),
+      dischargeDate: daysAgo(165),
       diagnosis: 'I50.9', diagnoses: ['I50.9'], medications: ['Furosemide'],
       labResults: { egfr: 56, hemoglobin: 10.4 },
       vitalSigns: { bpSystolic: 150, bpDiastolic: 88 },
@@ -615,8 +616,8 @@ async function seedClinicalRecords() {
     },
     {
       id: 'VIS-PT-2026-0009-P', patientId: 'PT-2026-0009', facilityId: 'FAC-ARH-001',
-      admissionDate: new Date('2026-04-10T08:00:00Z'),
-      dischargeDate: new Date('2026-04-16T12:00:00Z'),
+      admissionDate: daysAgo(42),
+      dischargeDate: daysAgo(36),
       diagnosis: 'A15.0', diagnoses: ['A15.0'],
       medications: ['Rifampicin', 'Isoniazid', 'Pyrazinamide', 'Ethambutol'],
       labResults: { egfr: 70, hemoglobin: 10.2 },
@@ -635,7 +636,7 @@ async function seedClinicalRecords() {
   const records = [
     // [1] PT-2026-0001  Amina      FAC-MNH-001  High
     { visitId: 'VIS-TRIP-DEMO-0001', patientId: 'PT-2026-0001', facilityId: 'FAC-MNH-001',
-      admDate: new Date('2026-02-10'), diagnosis: 'E11.65', diagnoses: ['E11.65', 'N18.3'],
+      admDate: daysAgo(102), diagnosis: 'E11.65', diagnoses: ['E11.65', 'N18.3'],
       medications: ['Metformin', 'Furosemide', 'Lisinopril'], ward: 'Medical Ward B', los: 9,
       labs: { egfr: 52, hemoglobin: 9.6, hba1c: 8.9 }, vitals: { bpSystolic: 148, bpDiastolic: 92 },
       social: { phoneAccess: true, transportationDifficulty: true, livesAlone: false },
@@ -918,7 +919,7 @@ async function seedClinicalRecords() {
 
     // [13] PT-2026-0003  Rehema    FAC-DOD-001  High
     { visitId: 'VIS-PT-2026-0003', patientId: 'PT-2026-0003', facilityId: 'FAC-DOD-001',
-      admDate: new Date('2026-05-04'), diagnosis: 'I25.9', diagnoses: ['I25.9'],
+      admDate: daysAgo(18), diagnosis: 'I25.9', diagnoses: ['I25.9'],
       medications: ['Aspirin', 'Atorvastatin', 'Metoprolol'], ward: 'Medical Ward', los: 11,
       labs: { hemoglobin: 10.1 }, vitals: {},
       social: { phoneAccess: false, transportationDifficulty: true, livesAlone: true },
@@ -941,7 +942,7 @@ async function seedClinicalRecords() {
 
     // [14] PT-2026-0014  Celestina FAC-DOD-001  High
     { visitId: 'VIS-PT-2026-0014', patientId: 'PT-2026-0014', facilityId: 'FAC-DOD-001',
-      admDate: new Date('2026-05-06'), diagnosis: 'E11.65', diagnoses: ['E11.65', 'N18.3'],
+      admDate: daysAgo(16), diagnosis: 'E11.65', diagnoses: ['E11.65', 'N18.3'],
       medications: ['Insulin glargine', 'Metformin', 'Furosemide', 'Amlodipine'],
       ward: 'Medical Ward A', los: 8,
       labs: { egfr: 44, hemoglobin: 10.4, hba1c: 9.8 }, vitals: { bpSystolic: 156, bpDiastolic: 96 },
@@ -965,7 +966,7 @@ async function seedClinicalRecords() {
 
     // [15] PT-2026-0015  Ahmed     FAC-DOD-001  Medium
     { visitId: 'VIS-PT-2026-0015', patientId: 'PT-2026-0015', facilityId: 'FAC-DOD-001',
-      admDate: new Date('2026-05-09'), diagnosis: 'A15.0', diagnoses: ['A15.0', 'B54'],
+      admDate: daysAgo(13), diagnosis: 'A15.0', diagnoses: ['A15.0', 'B54'],
       medications: ['Rifampicin', 'Isoniazid', 'Pyrazinamide', 'Artemether-Lumefantrine'],
       ward: 'TB Ward', los: 6,
       labs: { egfr: 76, hemoglobin: 9.4 }, vitals: { bpSystolic: 118, bpDiastolic: 76 },
@@ -988,7 +989,7 @@ async function seedClinicalRecords() {
 
     // [16] PT-2026-0016  Rosa      FAC-MBE-001  VeryHigh
     { visitId: 'VIS-PT-2026-0016', patientId: 'PT-2026-0016', facilityId: 'FAC-MBE-001',
-      admDate: new Date('2026-04-22'), diagnosis: 'I50.0', diagnoses: ['I50.0', 'N18.5'],
+      admDate: daysAgo(30), diagnosis: 'I50.0', diagnoses: ['I50.0', 'N18.5'],
       medications: ['Furosemide', 'Spironolactone', 'Carvedilol', 'Aspirin', 'Amlodipine'],
       ward: 'Cardiac ICU', los: 18,
       labs: { egfr: 16, hemoglobin: 8.1 }, vitals: { bpSystolic: 178, bpDiastolic: 106 },
@@ -1180,7 +1181,7 @@ async function seedClinicalRecords() {
       dataQuality: { completeness: 0.85, missingCriticalFields: [], imputedValues: {} },
       featureSnapshot: { encounter: { diagnosis: rec.diagnosis, lengthOfStayDays: rec.los }, labs: rec.labs },
       analysisSummary: { tier: rec.tier },
-      generatedAt: new Date()
+      generatedAt: rec.admDate
     };
     const pred = await prisma.prediction.upsert({
       where: { visitId: rec.visitId },
@@ -1248,37 +1249,35 @@ async function seedClinicalRecords() {
   }
 
   // ── ReadmissionEvents ──────────────────────────────────────────────────────
-  await prisma.readmissionEvent.upsert({
-    where: { currentVisitId: 'VIS-TRIP-DEMO-0001' },
-    update: {
-      patientId: 'PT-2026-0001', facilityId: 'FAC-MNH-001',
-      priorVisitId: 'VIS-PT-2026-0001-P',
-      daysSinceLastDischarge: 64, within30Days: false,
-      notes: 'Re-admitted 64 days after prior discharge — chronic heart failure progression with CKD'
-    },
-    create: {
-      patientId: 'PT-2026-0001', facilityId: 'FAC-MNH-001',
-      currentVisitId: 'VIS-TRIP-DEMO-0001', priorVisitId: 'VIS-PT-2026-0001-P',
-      daysSinceLastDischarge: 64, within30Days: false,
-      notes: 'Re-admitted 64 days after prior discharge — chronic heart failure progression with CKD'
-    }
-  });
+  const events = [
+    { currentVisitId: 'VIS-TRIP-DEMO-0001', patientId: 'PT-2026-0001', facilityId: 'FAC-MNH-001', priorVisitId: 'VIS-PT-2026-0001-P', days: 64, within30: false, notes: 'Heart failure progression', date: daysAgo(102) },
+    { currentVisitId: 'VIS-PT-2026-0009', patientId: 'PT-2026-0009', facilityId: 'FAC-ARH-001', priorVisitId: 'VIS-PT-2026-0009-P', days: 22, within30: true, notes: 'TB treatment interruption', date: daysAgo(12) },
+    // Add more events for trend visibility
+    { currentVisitId: 'VIS-PT-2026-0016', patientId: 'PT-2026-0016', facilityId: 'FAC-MBE-001', priorVisitId: null, days: 5, within30: true, notes: 'Recent acute flare', date: daysAgo(5) },
+    { currentVisitId: 'VIS-PT-2026-0021', patientId: 'PT-2026-0021', facilityId: 'FAC-TAB-001', priorVisitId: null, days: 14, within30: true, notes: 'Malaria relapse', date: daysAgo(8) },
+    { currentVisitId: 'VIS-PT-2026-0011', patientId: 'PT-2026-0011', facilityId: 'FAC-MWZ-001', priorVisitId: null, days: 35, within30: false, notes: 'Scheduled review readmission', date: daysAgo(35) },
+    { currentVisitId: 'VIS-PT-2026-0012', patientId: 'PT-2026-0012', facilityId: 'FAC-MWZ-001', priorVisitId: null, days: 18, within30: true, notes: 'Infection secondary', date: daysAgo(18) },
+    { currentVisitId: 'VIS-PT-2026-0014', patientId: 'PT-2026-0014', facilityId: 'FAC-DOD-001', priorVisitId: null, days: 25, within30: true, notes: 'Glycemic crisis', date: daysAgo(25) },
+    { currentVisitId: 'VIS-PT-2026-0003', patientId: 'PT-2026-0003', facilityId: 'FAC-DOD-001', priorVisitId: null, days: 45, within30: false, notes: 'Cardiac stabilization', date: daysAgo(45) },
+  ];
 
-  await prisma.readmissionEvent.upsert({
-    where: { currentVisitId: 'VIS-PT-2026-0009' },
-    update: {
-      patientId: 'PT-2026-0009', facilityId: 'FAC-ARH-001',
-      priorVisitId: 'VIS-PT-2026-0009-P',
-      daysSinceLastDischarge: 22, within30Days: true,
-      notes: 'Readmitted 22 days post-discharge — TB treatment interruption with hyperglycaemic crisis'
-    },
-    create: {
-      patientId: 'PT-2026-0009', facilityId: 'FAC-ARH-001',
-      currentVisitId: 'VIS-PT-2026-0009', priorVisitId: 'VIS-PT-2026-0009-P',
-      daysSinceLastDischarge: 22, within30Days: true,
-      notes: 'Readmitted 22 days post-discharge — TB treatment interruption with hyperglycaemic crisis'
-    }
-  });
+  for (const event of events) {
+    await prisma.readmissionEvent.upsert({
+      where: { currentVisitId: event.currentVisitId },
+      update: {
+        patientId: event.patientId, facilityId: event.facilityId,
+        priorVisitId: event.priorVisitId,
+        daysSinceLastDischarge: event.days, within30Days: event.within30,
+        notes: event.notes, detectedAt: event.date
+      },
+      create: {
+        patientId: event.patientId, facilityId: event.facilityId,
+        currentVisitId: event.currentVisitId, priorVisitId: event.priorVisitId,
+        daysSinceLastDischarge: event.days, within30Days: event.within30,
+        notes: event.notes, detectedAt: event.date
+      }
+    });
+  }
 }
 
 // PLACEHOLDER — replaced by new function above
