@@ -5,6 +5,7 @@ const {
   listPredictionsForPatient,
   listTasksForUser
 } = require('../data');
+const { prisma } = require('../lib/prisma');
 
 function toDate(value, fallback) {
   if (!value) {
@@ -87,14 +88,23 @@ function getPatientFacilityTimestamp(patient) {
 }
 
 async function buildPredictionIndex(user, patients) {
-  const entries = await Promise.all(
-    patients.map(async (patient) => {
-      const predictions = await listPredictionsForPatient(user, patient.id);
-      return [patient.id, predictions[0] || null];
-    })
-  );
+  if (!patients || patients.length === 0) return new Map();
 
-  return new Map(entries);
+  const patientIds = patients.map(p => p.id);
+  const predictions = await prisma.prediction.findMany({
+    where: { patientId: { in: patientIds } },
+    orderBy: { generatedAt: 'desc' },
+    select: { patientId: true, tier: true, score: true }
+  });
+
+  const entries = new Map();
+  for (const pred of predictions) {
+    if (!entries.has(pred.patientId)) {
+      entries.set(pred.patientId, pred);
+    }
+  }
+
+  return entries;
 }
 
 function createScopedFacilitySet(options = {}) {
@@ -439,14 +449,15 @@ async function getAutomationSummary(user, options = {}) {
   const tasks = await listTasksForUser(user, {});
   const auditLogs = await listAuditLogsForUser(user, { limit: 500 });
 
-  const predictions = await Promise.all(
-    scopedPatients.map(async (patient) => {
-      const rows = await listPredictionsForPatient(user, patient.id);
-      return rows.filter((prediction) => isInWindow(prediction.generatedAt, startDate, endDate));
-    })
-  );
-
-  const flattenedPredictions = predictions.flat();
+  const patientIds = scopedPatients.map(p => p.id);
+  const allPredictions = await prisma.prediction.findMany({
+    where: { 
+      patientId: { in: patientIds },
+      generatedAt: { gte: startDate, lte: endDate }
+    }
+  });
+  
+  const flattenedPredictions = allPredictions;
   const mlPredictions = flattenedPredictions.filter((prediction) => !prediction.fallbackUsed).length;
   const fallbackPredictions = flattenedPredictions.filter((prediction) => prediction.fallbackUsed).length;
   const highRiskPredictions = flattenedPredictions.filter(

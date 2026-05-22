@@ -113,7 +113,7 @@ async function onDischarge({ visit, patient, user, req = null } = {}) {
     return prediction;
   } catch (error) {
     logger.warn(`Auto-discharge prediction failed for visit ${visit?.id}: ${error.message}`);
-    return null;
+    throw error;
   }
 }
 

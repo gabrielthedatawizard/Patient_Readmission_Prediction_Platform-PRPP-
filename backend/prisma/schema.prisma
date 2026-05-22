@@ -213,6 +213,7 @@ model Patient {
   @@index([facilityId])
   @@index([status])
   @@index([createdAt])
+  @@index([facilityId, status, createdAt])
 }
 
 model Visit {
@@ -282,6 +283,7 @@ model Prediction {
   @@index([patientId, generatedAt])
   @@index([facilityId, generatedAt])
   @@index([score, tier])
+  @@index([facilityId, tier])
 }
 
 model DischargeWorkflow {
@@ -419,6 +421,7 @@ model Task {
   @@index([predictionId, status])
   @@index([facilityId, dueDate])
   @@index([patientId, status])
+  @@index([status, priority, dueDate])
 }
 
 model AuditLog {

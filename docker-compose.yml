@@ -56,6 +56,7 @@ services:
       ML_TIMEOUT_MS: 5000
       ML_HEALTH_TIMEOUT_MS: 2000
       ML_FALLBACK_ENABLED: "true"
+      ENCRYPTION_KEY: local-dev-encryption-key-at-least-32-characters-long
     command: >
       sh -c "npm run prisma:generate &&
              npm run prisma:migrate:deploy &&

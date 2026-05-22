@@ -26,6 +26,7 @@ const { extractDischargeSummary } = require('../services/nlpService');
 const { buildPredictionFeatures } = require('../services/predictionFeatureBuilder');
 const { buildPredictionWorkflowSummary } = require('../services/workflowVerificationService');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { prisma } = require('../lib/prisma');
 
 const router = express.Router();
 
@@ -365,25 +366,22 @@ router.get(
     });
   }
 
-  const predictionRows = await Promise.all(
-    patients.map(async (patient) => {
-      const predictions = await listPredictionsForPatient(req.user, patient.id);
-      return predictions;
-    })
-  );
+  const patientIds = patients.map(p => p.id);
+  
+  const rawPredictions = await prisma.prediction.findMany({
+    where: { patientId: { in: patientIds } },
+    orderBy: { generatedAt: 'desc' },
+    take: limit
+  });
 
-  const predictions = predictionRows
-    .flat()
-    .sort((left, right) => new Date(right.generatedAt).getTime() - new Date(left.generatedAt).getTime())
-    .slice(0, limit)
-    .map((prediction) => ({
-      ...prediction,
-      method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
-      probability:
-        prediction.probability !== undefined && prediction.probability !== null
-          ? prediction.probability
-          : Number((Number(prediction.score || 0) / 100).toFixed(3))
-    }));
+  const predictions = rawPredictions.map((prediction) => ({
+    ...prediction,
+    method: prediction.method || (prediction.fallbackUsed ? 'rules' : 'ml'),
+    probability:
+      prediction.probability !== undefined && prediction.probability !== null
+        ? prediction.probability
+        : Number((Number(prediction.score || 0) / 100).toFixed(3))
+  }));
 
   return res.json({
     count: predictions.length,

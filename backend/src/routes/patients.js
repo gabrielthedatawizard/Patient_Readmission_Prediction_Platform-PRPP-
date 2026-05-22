@@ -211,13 +211,25 @@ router.get(
 
   const paginatedPatients = patients.slice(startIndex, endIndex);
 
+  const patientIds = paginatedPatients.map(p => p.id);
+  const [allPredictions, allTasks] = await Promise.all([
+    include.has('predictions') ? prisma.prediction.findMany({ where: { patientId: { in: patientIds } }, orderBy: { generatedAt: 'desc' } }) : Promise.resolve([]),
+    include.has('tasks') ? listTasksForUser(req.user, {}) : Promise.resolve([]) // tasks list is usually small for a user, or we can use prisma
+  ]);
+
+  const predictionsByPatient = new Map();
+  if (include.has('predictions')) {
+    for (const p of allPredictions) {
+      if (!predictionsByPatient.has(p.patientId)) predictionsByPatient.set(p.patientId, []);
+      predictionsByPatient.get(p.patientId).push(p);
+    }
+  }
+
   const withFacility = await Promise.all(
     paginatedPatients.map(async (patient) => {
-      const [facility, predictions, tasks] = await Promise.all([
-        getFacilityById(patient.facilityId),
-        include.has('predictions') ? listPredictionsForPatient(req.user, patient.id) : Promise.resolve([]),
-        include.has('tasks') ? listTasksForUser(req.user, { patientId: patient.id }) : Promise.resolve([])
-      ]);
+      const facility = await getFacilityById(patient.facilityId);
+      const predictions = predictionsByPatient.get(patient.id) || [];
+      const tasks = allTasks.filter(t => t.patientId === patient.id);
 
       return {
         ...patient,

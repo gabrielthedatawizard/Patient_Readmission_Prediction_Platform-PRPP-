@@ -17,6 +17,7 @@ const { requireRoleFeature } = require('../middleware/roleAccess');
 const { buildTaskPatientSummary } = require('../config/roleAccess');
 const { logAudit } = require('../services/auditService');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { prisma } = require('../lib/prisma');
 
 const router = express.Router();
 
@@ -53,13 +54,13 @@ router.get(
     const [todaySchedules, overdueSchedules] = await Promise.all([
       listFollowUpSchedulesForUser(req.user, {
         assignedToId: assigneeId,
-        status: 'Pending',
+        status: 'scheduled',
         scheduledFrom: dayStart.toISOString(),
         scheduledTo: dayEnd.toISOString()
       }),
       listFollowUpSchedulesForUser(req.user, {
         assignedToId: assigneeId,
-        status: 'Pending',
+        status: 'scheduled',
         scheduledTo: new Date(dayStart.getTime() - 1).toISOString()
       })
     ]);
@@ -113,10 +114,19 @@ router.get(
   const patients = await listPatientsForUser(req.user, { status: 'followup' });
   const normalizedPatients = patients.length ? patients : await listPatientsForUser(req.user, {});
 
+  const patientIds = normalizedPatients.map(p => p.id);
+  const allPreds = await prisma.prediction.findMany({
+    where: { patientId: { in: patientIds } },
+    orderBy: { generatedAt: 'desc' }
+  });
+  const predMap = new Map();
+  for (const p of allPreds) {
+    if (!predMap.has(p.patientId)) predMap.set(p.patientId, p);
+  }
+
   const scoredPatients = await Promise.all(
     normalizedPatients.map(async (patient) => {
-      const predictions = await listPredictionsForPatient(req.user, patient.id);
-      const latest = predictions[0] || null;
+      const latest = predMap.get(patient.id) || null;
       return {
         patientSummary: buildTaskPatientSummary(req.user, patient, { latestPrediction: latest }),
         riskTier: latest?.tier || 'Low'

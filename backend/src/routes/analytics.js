@@ -565,15 +565,17 @@ router.get('/readmission-by-condition', requirePermission('analytics:read'), asy
       detectedAt: { gte: since }
     },
     include: {
-      currentVisit: { select: { diagnosis: true, diagnoses: true } }
+      currentVisit: { select: { diagnosis: true, diagnoses: true } },
+      priorVisit: { select: { diagnosis: true, diagnoses: true } }
     }
   });
 
   const bucketCounts = {};
   for (const event of events) {
+    const targetVisit = event.priorVisit || event.currentVisit;
     const codes = [
-      event.currentVisit?.diagnosis,
-      ...(Array.isArray(event.currentVisit?.diagnoses) ? event.currentVisit.diagnoses : [])
+      targetVisit?.diagnosis,
+      ...(Array.isArray(targetVisit?.diagnoses) ? targetVisit.diagnoses : [])
     ].filter(Boolean);
     const bucket = codes.length ? bucketIcd10(codes[0]) : 'other';
     bucketCounts[bucket] = (bucketCounts[bucket] || 0) + 1;
