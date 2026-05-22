@@ -47,6 +47,5 @@ lerna-debug.log*
 /public/workbox-*
 
 # Package managers
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
