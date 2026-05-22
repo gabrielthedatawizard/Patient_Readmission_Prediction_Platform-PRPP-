@@ -13,7 +13,7 @@ function getSmsProvider() {
     .trim()
     .toLowerCase();
 
-  return SUPPORTED_PROVIDERS.has(configured) ? configured : configured || 'disabled';
+  return SUPPORTED_PROVIDERS.has(configured) ? configured : 'disabled';
 }
 
 function getSmsTargetMode() {
@@ -295,12 +295,8 @@ function mapAfricasTalkingDeliveryStatus(providerStatus, statusCode) {
 }
 
 function mapBeemDeliveryStatus(responseCode) {
-  const code = Number(responseCode);
-  // Beem successful submission code is 100
-  if (code === 100) {
-    return 'submitted';
-  }
-  return 'failed';
+  // Beem success code is 100
+  return Number(responseCode) === 100 ? 'submitted' : 'failed';
 }
 
 function conciseError(error) {
@@ -311,48 +307,10 @@ function conciseError(error) {
   return String(error?.message || error || 'Unknown SMS gateway error').split('\n')[0];
 }
 
-async function sendSmsMessage({ to, message, enqueue = true } = {}, options = {}) {
-  const provider = getSmsProvider();
-  const target = normalizePhoneNumber(to);
-  const attemptedAt = new Date().toISOString();
-
-  if (!getSmsAlertsEnabled()) {
-    return {
-      status: 'disabled',
-      provider,
-      target: target || null,
-      attemptedAt
-    };
-  }
-
-  if (!target) {
-    return {
-      status: 'skipped_missing_target',
-      provider,
-      target: null,
-      attemptedAt
-    };
-  }
-
-  if (!String(message || '').trim()) {
-    return {
-      status: 'skipped_empty_message',
-      provider,
-      target,
-      attemptedAt
-    };
-  }
-
-  if (provider !== 'africastalking' && provider !== 'beem') {
-    return {
-      status: provider === 'disabled' ? 'provider_disabled' : 'provider_not_configured',
-      provider,
-      target,
-      attemptedAt
-    };
-  }
-
+async function sendViaAfricasTalking({ target, message, enqueue, attemptedAt }, options = {}) {
+  const provider = 'africastalking';
   const credentials = getAfricasTalkingCredentials();
+
   if (!credentials.username || !credentials.apiKey) {
     return {
       status: 'provider_not_configured',
@@ -409,14 +367,7 @@ async function sendSmsMessage({ to, message, enqueue = true } = {}, options = {}
     };
   } catch (error) {
     const messageText = conciseError(error);
-    logger.error(
-      {
-        err: messageText,
-        provider,
-        target
-      },
-      'SMS delivery attempt failed.'
-    );
+    logger.error({ err: messageText, provider, target }, 'SMS delivery attempt failed.');
 
     return {
       status: 'failed',
@@ -426,79 +377,109 @@ async function sendSmsMessage({ to, message, enqueue = true } = {}, options = {}
       error: messageText
     };
   }
+}
+
+async function sendViaBeem({ target, message, attemptedAt }, options = {}) {
+  const provider = 'beem';
+  const credentials = getBeemCredentials();
+
+  if (!credentials.apiKey || !credentials.secretKey) {
+    return {
+      status: 'provider_not_configured',
+      provider,
+      target,
+      attemptedAt,
+      error: 'BEEM_API_KEY and BEEM_SECRET_KEY are required.'
+    };
+  }
+
+  // Beem expects numbers without leading '+' (e.g. 255700000000)
+  const beemTarget = target.startsWith('+') ? target.substring(1) : target;
+  const authString = Buffer.from(`${credentials.apiKey}:${credentials.secretKey}`).toString('base64');
+
+  const requestBody = {
+    source_addr: credentials.senderId || 'INFO',
+    schedule_time: '',
+    encoding: 0,
+    message: String(message).trim(),
+    recipients: [{ recipient_id: 1, dest_addr: beemTarget }]
+  };
+
+  const httpClient = options.httpClient || axios;
+
+  try {
+    const response = await httpClient.post(
+      'https://apisms.beem.africa/v1/send',
+      requestBody,
+      {
+        timeout: getSmsTimeoutMs(),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${authString}`
+        }
+      }
+    );
+
+    const responseBody = response.data || {};
+    const code = responseBody?.code;
+    const responseMessage = responseBody?.message;
+
+    return {
+      status: mapBeemDeliveryStatus(code),
+      provider,
+      providerStatus: responseMessage || 'Unknown',
+      providerStatusCode: code ?? null,
+      target,
+      messageId: null,
+      cost: null,
+      responseMessage,
+      attemptedAt
+    };
+  } catch (error) {
+    const messageText = conciseError(error);
+    logger.error({ err: messageText, provider, target }, 'SMS delivery attempt failed (Beem).');
+
+    return {
+      status: 'failed',
+      provider,
+      target,
+      attemptedAt,
+      error: messageText
+    };
+  }
+}
+
+async function sendSmsMessage({ to, message, enqueue = true } = {}, options = {}) {
+  const provider = getSmsProvider();
+  const target = normalizePhoneNumber(to);
+  const attemptedAt = new Date().toISOString();
+
+  if (!getSmsAlertsEnabled()) {
+    return { status: 'disabled', provider, target: target || null, attemptedAt };
+  }
+
+  if (!target) {
+    return { status: 'skipped_missing_target', provider, target: null, attemptedAt };
+  }
+
+  if (!String(message || '').trim()) {
+    return { status: 'skipped_empty_message', provider, target, attemptedAt };
+  }
+
+  if (provider === 'africastalking') {
+    return sendViaAfricasTalking({ target, message, enqueue, attemptedAt }, options);
+  }
 
   if (provider === 'beem') {
-    const credentials = getBeemCredentials();
-    if (!credentials.apiKey || !credentials.secretKey) {
-      return {
-        status: 'provider_not_configured',
-        provider,
-        target,
-        attemptedAt,
-        error: 'BEEM_API_KEY and BEEM_SECRET_KEY are required.'
-      };
-    }
-
-    let beemTarget = target.startsWith('+') ? target.substring(1) : target;
-    const authString = Buffer.from(`${credentials.apiKey}:${credentials.secretKey}`).toString('base64');
-    
-    const requestBody = {
-      source_addr: credentials.senderId || 'INFO',
-      schedule_time: '',
-      encoding: 0,
-      message: String(message).trim(),
-      recipients: [
-        { recipient_id: 1, dest_addr: beemTarget }
-      ]
-    };
-
-    const httpClient = options.httpClient || axios;
-
-    try {
-      const response = await httpClient.post(
-        'https://apisms.beem.africa/v1/send',
-        requestBody,
-        {
-          timeout: getSmsTimeoutMs(),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${authString}`
-          }
-        }
-      );
-
-      const responseBody = response.data || {};
-      const code = responseBody?.code;
-      const responseMessage = responseBody?.message;
-      const status = mapBeemDeliveryStatus(code);
-
-      return {
-        status,
-        provider,
-        providerStatus: responseMessage || 'Unknown',
-        providerStatusCode: code || null,
-        target,
-        messageId: null,
-        cost: null,
-        responseMessage,
-        attemptedAt
-      };
-    } catch (error) {
-      const messageText = conciseError(error);
-      logger.error(
-        { err: messageText, provider, target },
-        'SMS delivery attempt failed (Beem).'
-      );
-
-      return {
-        status: 'failed',
-        provider,
-        target,
-        attemptedAt,
-        error: messageText
-      };
-    }
+    return sendViaBeem({ target, message, attemptedAt }, options);
   }
+
+  return {
+    status: provider === 'disabled' ? 'provider_disabled' : 'provider_not_configured',
+    provider,
+    target,
+    attemptedAt
+  };
 }
 
 module.exports = {

@@ -256,9 +256,9 @@ function SettingsPage() {
   const avatarStyle = getAvatarStyle(userRole);
   const userInitials = getUserInitials(currentUser?.fullName, t("userFallback"));
   const roleLabel = getUserRoleLabel(userRole, t);
-  const canManageDhis2 = ["moh", "ml-engineer"].includes(String(userRole || ""));
-  const canManageNotifications = ["moh", "ml-engineer"].includes(String(userRole || ""));
-  const canReviewSchema = ["moh", "ml-engineer"].includes(String(userRole || ""));
+  const canManageDhis2 = ["moh", "ml_engineer"].includes(String(userRole || ""));
+  const canManageNotifications = ["moh", "ml_engineer"].includes(String(userRole || ""));
+  const canReviewSchema = ["moh", "ml_engineer"].includes(String(userRole || ""));
   const canVerifyWorkflow = canVerifyOperationalWorkflow(userRole);
   const usingOfflineSnapshot = isUsingOfflineData || isUsingOfflineTasks;
 

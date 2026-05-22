@@ -35,10 +35,6 @@ function isInWindow(value, startDate, endDate) {
   return parsed >= startDate && parsed <= endDate;
 }
 
-function extractPatientTimestamp(patient) {
-  return patient.admissionDate || patient.dischargeDate || patient.updatedAt || patient.createdAt;
-}
-
 function extractLengthOfStay(patient) {
   const profile = patient.clinicalProfile || {};
   const los = Number(
@@ -137,31 +133,65 @@ function filterPatientsByFacilityScope(patients = [], options = {}) {
 async function getDashboardKPIs(user, options = {}) {
   const { startDate, endDate } = normalizeDateRange(options);
   const allPatients = await listPatientsForUser(user, {});
-  const patients = filterPatientsByFacilityScope(allPatients, options).filter((patient) =>
-    isInWindow(extractPatientTimestamp(patient), startDate, endDate)
-  );
-
-  const predictionByPatient = await buildPredictionIndex(user, patients);
-  const tasks = await listTasksForUser(user, {});
-  const scopedTaskPatientIds = new Set(patients.map((patient) => patient.id));
-  const scopedTasks = tasks.filter((task) => scopedTaskPatientIds.has(task.patientId));
+  // Do NOT apply a date-window filter to patient counts — totals reflect current census.
+  const patients = filterPatientsByFacilityScope(allPatients, options);
 
   const totalPatients = patients.length;
-  const highRiskCount = patients.reduce((count, patient) => {
-    const prediction = predictionByPatient.get(patient.id);
-    return HIGH_RISK_TIERS.has(prediction?.tier) ? count + 1 : count;
-  }, 0);
-  const readmissions = patients.reduce((count, patient) => {
-    const priorAdmissions = Number(patient.clinicalProfile?.priorAdmissions12m || 0);
-    return priorAdmissions > 0 ? count + 1 : count;
-  }, 0);
-  const completedTasks = scopedTasks.filter((task) => task.status === 'done').length;
-  const totalTasks = scopedTasks.length;
-  const avgLengthOfStayRaw = patients.reduce((sum, patient) => sum + extractLengthOfStay(patient), 0);
-  const avgLengthOfStay = totalPatients
-    ? Number((avgLengthOfStayRaw / totalPatients).toFixed(1))
-    : 0;
+  if (!totalPatients) {
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      totalPatients: 0,
+      highRiskCount: 0,
+      readmissions: 0,
+      readmissionRate: 0,
+      interventionRate: 0,
+      avgLengthOfStay: 0
+    };
+  }
 
+  const patientIds = patients.map((p) => p.id);
+
+  const [highRiskCount, readmissions, completedTasks, totalTasks, losResult] = await Promise.all([
+    prisma.prediction.count({
+      where: {
+        patientId: { in: patientIds },
+        tier: { in: ['High', 'VeryHigh'] },
+        generatedAt: { gte: startDate, lte: endDate }
+      }
+    }),
+    prisma.readmissionEvent.count({
+      where: {
+        patientId: { in: patientIds },
+        within30Days: true,
+        detectedAt: { gte: startDate, lte: endDate }
+      }
+    }),
+    prisma.task.count({
+      where: {
+        patientId: { in: patientIds },
+        status: 'done',
+        createdAt: { gte: startDate, lte: endDate }
+      }
+    }),
+    prisma.task.count({
+      where: {
+        patientId: { in: patientIds },
+        createdAt: { gte: startDate, lte: endDate }
+      }
+    }),
+    prisma.visit.aggregate({
+      where: {
+        patientId: { in: patientIds },
+        admissionDate: { gte: startDate, lte: endDate }
+      },
+      _avg: { lengthOfStay: true }
+    })
+  ]);
+
+  const avgLengthOfStay = losResult._avg.lengthOfStay
+    ? Number(losResult._avg.lengthOfStay.toFixed(1))
+    : 0;
   const readmissionRate = totalPatients
     ? Number(((readmissions / totalPatients) * 100).toFixed(1))
     : 0;
@@ -183,10 +213,8 @@ async function getDashboardKPIs(user, options = {}) {
 
 async function getFacilityComparison(user, options = {}) {
   const { startDate, endDate } = normalizeDateRange(options);
-  const patients = await listPatientsForUser(user, {});
-  const scopedPatients = filterPatientsByFacilityScope(patients, options).filter((patient) =>
-    isInWindow(extractPatientTimestamp(patient), startDate, endDate)
-  );
+  const allPatients = await listPatientsForUser(user, {});
+  const scopedPatients = filterPatientsByFacilityScope(allPatients, options);
   const predictionByPatient = await buildPredictionIndex(user, scopedPatients);
 
   const grouped = new Map();
@@ -197,7 +225,6 @@ async function getFacilityComparison(user, options = {}) {
         facilityId,
         totalPatients: 0,
         highRiskCount: 0,
-        readmissions: 0,
         scoreTotal: 0,
         scoreCount: 0
       });
@@ -205,7 +232,6 @@ async function getFacilityComparison(user, options = {}) {
 
     const bucket = grouped.get(facilityId);
     bucket.totalPatients += 1;
-    bucket.readmissions += Number(patient.clinicalProfile?.priorAdmissions12m || 0) > 0 ? 1 : 0;
 
     const prediction = predictionByPatient.get(patient.id);
     if (HIGH_RISK_TIERS.has(prediction?.tier)) {
@@ -218,11 +244,28 @@ async function getFacilityComparison(user, options = {}) {
     }
   }
 
+  if (!grouped.size) return [];
+
+  const facilityIdList = Array.from(grouped.keys());
+  const readmissionCounts = await prisma.readmissionEvent.groupBy({
+    by: ['facilityId'],
+    where: {
+      facilityId: { in: facilityIdList },
+      within30Days: true,
+      detectedAt: { gte: startDate, lte: endDate }
+    },
+    _count: { _all: true }
+  });
+  const readmissionByFacility = new Map(
+    readmissionCounts.map((r) => [r.facilityId, r._count._all])
+  );
+
   const rows = await Promise.all(
     Array.from(grouped.values()).map(async (bucket) => {
       const facility = await getFacilityById(bucket.facilityId);
+      const readmissions = readmissionByFacility.get(bucket.facilityId) || 0;
       const readmissionRate = bucket.totalPatients
-        ? Number(((bucket.readmissions / bucket.totalPatients) * 100).toFixed(1))
+        ? Number(((readmissions / bucket.totalPatients) * 100).toFixed(1))
         : 0;
       const averageRiskScore = bucket.scoreCount
         ? Number((bucket.scoreTotal / bucket.scoreCount).toFixed(1))

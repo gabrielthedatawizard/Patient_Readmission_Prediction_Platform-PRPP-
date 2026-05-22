@@ -13,15 +13,19 @@ const {
   sendEmailMessage
 } = require('./emailGateway');
 
-const ALERT_THRESHOLD = Number(process.env.RISK_ALERT_THRESHOLD || 80);
+// Default to 60 so High and VeryHigh tier patients both trigger alerts.
+// Override with RISK_ALERT_THRESHOLD env var if needed.
+const ALERT_THRESHOLD = Number(process.env.RISK_ALERT_THRESHOLD || 60);
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function buildAlertMessage(patient, prediction, threshold) {
+function buildAlertMessage(patient, prediction, _threshold) {
   const tier = String(prediction?.tier || 'High');
-  return `TRIP alert: patient ${patient.id} is ${tier.toLowerCase()} risk with score ${prediction.score}/100 (threshold ${threshold}). Review discharge and follow-up plan.`;
+  const urgency = tier === 'VeryHigh' ? 'URGENT' : 'ALERT';
+  const patientRef = patient.name ? `${patient.name} (${patient.id})` : patient.id;
+  return `TRIP ${urgency}: ${patientRef} is ${tier} risk, score ${prediction.score}/100. Immediate discharge review and follow-up plan required.`;
 }
 
 function maskTarget(target) {

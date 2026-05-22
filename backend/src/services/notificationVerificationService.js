@@ -59,10 +59,11 @@ function buildLiveSendAllowanceSms(gateway, recipients) {
     };
   }
 
-  if (getSmsProvider() !== 'africastalking') {
+  const provider = getSmsProvider();
+  if (!['africastalking', 'beem'].includes(provider)) {
     return {
       allowed: false,
-      reason: gateway.message || "A live smoke test requires Africa's Talking to be configured."
+      reason: `Live smoke tests require a supported SMS provider (africastalking or beem). Current: ${provider}.`
     };
   }
 
