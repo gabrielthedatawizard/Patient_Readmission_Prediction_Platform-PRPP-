@@ -5,8 +5,8 @@ WORKDIR /app
 # Install OpenSSL — required by Prisma client generation
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY package.json ./
+RUN npm install --omit=dev
 
 COPY prisma ./prisma
 RUN npx prisma generate
