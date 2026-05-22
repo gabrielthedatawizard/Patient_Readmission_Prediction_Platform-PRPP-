@@ -2,6 +2,9 @@ FROM node:20.19-bookworm-slim
 
 WORKDIR /app
 
+# Install OpenSSL — required by Prisma client generation
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY package.json ./
 RUN npm install
 
