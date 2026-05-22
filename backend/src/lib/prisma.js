@@ -283,13 +283,21 @@ function createPrismaClient() {
   });
 }
 
-const prisma = globalForPrisma.__tripPrismaClient || createPrismaClient();
+let _lazyPrismaClient = null;
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.__tripPrismaClient = prisma;
+function getPrismaClient() {
+  if (!_lazyPrismaClient) {
+    _lazyPrismaClient = globalForPrisma.__tripPrismaClient || createPrismaClient();
+    if (process.env.NODE_ENV !== 'production') {
+      globalForPrisma.__tripPrismaClient = _lazyPrismaClient;
+    }
+  }
+  return _lazyPrismaClient;
 }
 
 module.exports = {
-  prisma,
-  getDatabaseSchemaCapabilities: () => getDatabaseSchemaCapabilities(prisma)
+  get prisma() {
+    return getPrismaClient();
+  },
+  getDatabaseSchemaCapabilities: () => getDatabaseSchemaCapabilities(getPrismaClient())
 };

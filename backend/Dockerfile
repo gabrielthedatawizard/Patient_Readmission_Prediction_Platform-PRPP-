@@ -20,4 +20,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 5000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run migrations at startup (needs runtime DATABASE_URL), then start the app
-CMD ["sh", "-c", "npx prisma migrate deploy --schema ./prisma/schema.prisma && npm start"]
+CMD ["sh", "-c", "echo \"[BOOT] PORT=$PORT NODE_ENV=$NODE_ENV TRIP_DATA_PROVIDER=$TRIP_DATA_PROVIDER ENCRYPTION_KEY_SET=$(test -n \"$ENCRYPTION_KEY\" && echo YES || echo NO) DATABASE_URL_SET=$(test -n \"$DATABASE_URL\" && echo YES || echo NO)\" && npx prisma migrate deploy --schema ./prisma/schema.prisma && npm start"]
