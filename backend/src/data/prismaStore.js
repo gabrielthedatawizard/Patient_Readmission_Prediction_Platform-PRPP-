@@ -2292,7 +2292,6 @@ module.exports = {
   listPatientsForUser,
   getPatientById,
   getPatientForUser,
-  listVisitsForUser,
   getVisitById,
   getVisitForUser,
   listVisitsForPatient,
