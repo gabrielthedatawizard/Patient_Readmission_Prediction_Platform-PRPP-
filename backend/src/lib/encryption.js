@@ -129,27 +129,51 @@ function decryptValue(value) {
   }
 
   const stringValue = String(value);
-  if (!isEncryptedValue(stringValue)) {
-    return stringValue;
+
+  // Current format: enc:v1:iv.authTag.ciphertext
+  if (isEncryptedValue(stringValue)) {
+    const payload = stringValue.slice(ENCRYPTION_PREFIX.length);
+    const [ivPart, authTagPart, ciphertextPart] = payload.split('.');
+
+    if (!ivPart || !authTagPart || !ciphertextPart) {
+      throw new Error('Encrypted patient field is malformed.');
+    }
+
+    const { key } = assertEncryptionConfig();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivPart, 'base64'));
+    decipher.setAuthTag(Buffer.from(authTagPart, 'base64'));
+
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(ciphertextPart, 'base64')),
+      decipher.final()
+    ]);
+
+    return plaintext.toString('utf8');
   }
 
-  const payload = stringValue.slice(ENCRYPTION_PREFIX.length);
-  const [ivPart, authTagPart, ciphertextPart] = payload.split('.');
-
-  if (!ivPart || !authTagPart || !ciphertextPart) {
-    throw new Error('Encrypted patient field is malformed.');
+  // Legacy format written by encryption.service.js: iv:authTag:ciphertext (colon-separated, no prefix)
+  const colonParts = stringValue.split(':');
+  if (colonParts.length === 3) {
+    try {
+      const legacyKey = Buffer.from(
+        String(process.env.ENCRYPTION_KEY_32BYTE || 'trip-demo-key-must-be-32-bytes-c'),
+        'utf-8'
+      );
+      const iv = Buffer.from(colonParts[0], 'base64');
+      const authTag = Buffer.from(colonParts[1], 'base64');
+      const decipher = crypto.createDecipheriv('aes-256-gcm', legacyKey, iv);
+      decipher.setAuthTag(authTag);
+      const plaintext = Buffer.concat([
+        decipher.update(Buffer.from(colonParts[2], 'base64')),
+        decipher.final()
+      ]);
+      return plaintext.toString('utf8');
+    } catch {
+      // Not legacy-encrypted — fall through and return as plain text
+    }
   }
 
-  const { key } = assertEncryptionConfig();
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivPart, 'base64'));
-  decipher.setAuthTag(Buffer.from(authTagPart, 'base64'));
-
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(ciphertextPart, 'base64')),
-    decipher.final()
-  ]);
-
-  return plaintext.toString('utf8');
+  return stringValue;
 }
 
 function protectPatientPiiWrite(data) {

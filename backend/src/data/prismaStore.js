@@ -1006,7 +1006,9 @@ async function listPatientsForUser(user, filters = {}) {
   const where = {
     facilityId: {
       in: accessibleFacilityIds
-    }
+    },
+    // Exclude integration/E2E test patients that leak into production DB
+    NOT: { id: { startsWith: 'PT-E2E-' } }
   };
   const wardConstraint = buildWardScopedPatientConstraint(user, accessibleFacilityIds);
   if (wardConstraint) {
