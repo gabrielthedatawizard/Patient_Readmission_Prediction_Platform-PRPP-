@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Network,
   Activity,
+  Check,
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
 import { TRIPLogoFull } from "../components/common/TRIPLogo";
