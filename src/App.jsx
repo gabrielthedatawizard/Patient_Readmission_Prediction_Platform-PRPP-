@@ -20,6 +20,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { TRIPLogoCompact, TRIPLogoIcon } from "./components/common/TRIPLogo";
 
 // Context Hooks
 import { useAuth } from "./context/AuthProvider";
@@ -93,10 +94,23 @@ const ProtectedRoute = ({ children }) => {
 
   if (isBootstrapping) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center">
-          <Activity className="w-8 h-8 text-teal-600 animate-pulse mb-4" />
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Loading TRIP...</p>
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-[#0B1B3D] transition-colors duration-700">
+        <div className="flex flex-col items-center gap-5">
+          <TRIPLogoIcon size={72} animate withGlow />
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 tracking-wide">
+              Loading TRIP
+            </p>
+            <div className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-[#00B8D9] animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -246,47 +260,37 @@ const Layout = ({ children }) => {
   }, [sidebarCollapsed]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 font-sans transition-colors duration-500 overflow-x-hidden">
-      <div className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm dark:bg-slate-950/90 dark:border-slate-800 backdrop-blur-xl">
-        <div className="px-3 sm:px-6">
-          <div className="h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1B3D] text-slate-900 dark:text-slate-100 selection:bg-cyan-500/30 font-sans transition-colors duration-700 overflow-x-hidden">
+      <div className="bg-white/80 dark:bg-[#121E3D]/80 border-b border-slate-200/50 dark:border-white/10 sticky top-0 z-50 shadow-sm dark:shadow-[#0B1B3D]/50 backdrop-blur-2xl">
+        <div className="px-4 sm:px-6">
+          <div className="h-16 sm:h/[72px] flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 onClick={() => setIsMobileSidebarOpen((open) => !open)}
                 aria-label={navToggleCopy.mobile}
                 aria-expanded={isMobileSidebarOpen}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:hover:bg-slate-800 dark:focus-visible:ring-offset-slate-950"
+                className="lg:hidden p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 transition-colors"
               >
-                <Menu className="w-6 h-6 text-gray-700 dark:text-slate-100" />
+                <Menu className="w-5 h-5 text-slate-700 dark:text-slate-100" />
               </button>
               <button
                 type="button"
                 onClick={toggleDesktopSidebar}
                 aria-label={sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}
                 title={`${sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close} (${navToggleCopy.shortcut})`}
-                className="hidden lg:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900 dark:focus-visible:ring-offset-slate-950"
+                className="hidden lg:inline-flex items-center gap-2 rounded-xl border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 bg-transparent px-2.5 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 transition-all hover:bg-slate-50 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
               >
                 {sidebarCollapsed ? (
-                  <PanelLeftOpen className="w-4 h-4" />
+                  <PanelLeftOpen className="w-[18px] h-[18px]" />
                 ) : (
-                  <PanelLeftClose className="w-4 h-4" />
+                  <PanelLeftClose className="w-[18px] h-[18px]" />
                 )}
-                <span>{sidebarCollapsed ? navToggleCopy.open : navToggleCopy.close}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  {navToggleCopy.shortcut}
-                </span>
               </button>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-none">TRIP</h1>
-                  <p className="mt-1 hidden text-xs font-medium text-slate-500 lg:block">
-                    {scopeLabel.title || t("facilityFallback")}
-                  </p>
-                </div>
-              </div>
+              <TRIPLogoCompact
+                iconSize={40}
+                scopeLabel={scopeLabel.title || t("facilityFallback")}
+                className="pl-1"
+              />
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -485,13 +489,13 @@ const Layout = ({ children }) => {
                   title={sidebarCollapsed && !isMobileSidebarOpen ? item.label : undefined}
                   className={`
                     group relative w-full flex items-center ${sidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "gap-3"}
-                    px-3 py-2.5 rounded-xl transition-all
+                    px-3 py-2.5 rounded-xl transition-all duration-200
                     ${
                       isActive
-                        ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white"
-                        : "hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300"
+                        ? "bg-white/60 dark:bg-white/10 text-cyan-700 dark:text-[#00B8D9] shadow-sm shadow-slate-200/50 dark:shadow-none border border-slate-200/50 dark:border-white/5"
+                        : "hover:bg-slate-100/50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400"
                     }
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500
                   `}
                 >
                   <Icon className="w-4 h-4" />
