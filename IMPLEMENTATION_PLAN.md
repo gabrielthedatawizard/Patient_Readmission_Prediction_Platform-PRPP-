@@ -16,7 +16,7 @@
 - [x] Phase 7: Fairness and data quality dashboards with alert thresholds.
 - [x] Phase 8: Security hardening (MFA/TOTP flows, secrets management, rate limiting, audit export).
 - [x] Phase 9: CI/CD, observability, and deployment manifests.
-- [ ] Phase 10: Clinical validation protocol tooling and documentation package.
+- [x] Phase 10: Clinical validation protocol tooling and documentation package.
 
 ## National AI Engine Extensions (Delivered)
 - [x] FHIR Mediator and Polling Service — real-time EMR ingestion with configurable FHIR_BASE_URL
@@ -40,6 +40,7 @@
 - Health check endpoints and structured logging in Express
 - Deployment documentation updated for Docker workflows
 
-## Phase 10 — next priority
-- Evaluation toolkit to extract cohorts and evaluate prediction accuracy (ROC AUC, Precision/Recall) against real 30-day outcomes.
-- Regulatory documentation template (Data Processing Agreement, Model Card).
+## Phase 10 deliverables
+- Evaluation toolkit CLI script (`backend/scripts/evaluateCohort.js`) to extract cohorts and evaluate prediction accuracy (ROC AUC, Precision/Recall, F1) against ground truth outcomes.
+- Model Card Template (`docs/validation/MODEL_CARD.md`) for regulatory transparency.
+- Data Processing Agreement (DPA) Template (`docs/validation/DPA_TEMPLATE.md`).
