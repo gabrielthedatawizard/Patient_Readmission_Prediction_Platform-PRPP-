@@ -43,10 +43,10 @@ const RiskScoreDisplay = ({
       badge: "danger"
     },
     VeryHigh: {
-      text: "text-purple-700 dark:text-purple-300",
-      bg: "bg-purple-50 dark:bg-purple-950/20",
-      border: "border-purple-300 dark:border-purple-700/50",
-      accent: "bg-purple-600",
+      text: "text-rose-700 dark:text-rose-300",
+      bg: "bg-rose-50 dark:bg-rose-950/20",
+      border: "border-rose-300 dark:border-rose-700/50",
+      accent: "bg-rose-600",
       badge: "critical"
     },
   };

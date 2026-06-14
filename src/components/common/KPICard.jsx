@@ -23,7 +23,7 @@ const KPICard = ({
     emerald: "from-emerald-500 to-emerald-600",
     amber: "from-amber-500 to-amber-600",
     red: "from-red-500 to-red-600",
-    purple: "from-sky-500 to-sky-600",
+    indigo: "from-sky-500 to-sky-600",
     blue: "from-blue-500 to-blue-600",
     pink: "from-rose-500 to-rose-600",
     indigo: "from-indigo-500 to-indigo-600",
