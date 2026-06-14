@@ -15,7 +15,7 @@
 - [x] Phase 6: Explainability UI (factor bars, CI display, clinician override workflow).
 - [x] Phase 7: Fairness and data quality dashboards with alert thresholds.
 - [x] Phase 8: Security hardening (MFA/TOTP flows, secrets management, rate limiting, audit export).
-- [ ] Phase 9: CI/CD, observability, and deployment manifests.
+- [x] Phase 9: CI/CD, observability, and deployment manifests.
 - [ ] Phase 10: Clinical validation protocol tooling and documentation package.
 
 ## National AI Engine Extensions (Delivered)
@@ -33,27 +33,13 @@
 - [x] Edge AI Observability UI — Model version, sync status, and manual sync in Settings
 - [x] CHW SMS Dispatch Indicators — Real-time delivery status in NotificationPanel
 
-## Phase 2 deliverables
-- Prisma schema at `backend/prisma/schema.prisma`.
-- Initial SQL migration at `backend/prisma/migrations/202602230001_init/migration.sql`.
-- Seed script at `backend/prisma/seed.js`.
-- DB setup guide at `backend/prisma/README.md`.
-- Data provider selector at `backend/src/data/index.js`.
-- Prisma-backed repository implementation at `backend/src/data/prismaStore.js`.
-- Prisma route e2e coverage at `backend/src/e2e/prisma.routes.e2e.test.js`.
-
-## Phase 3 deliverables
-- Sync pull/push APIs at `backend/src/routes/sync.js`.
-- Idempotency replay service at `backend/src/services/idempotencyService.js`.
-- Sync event feed functions in both data providers.
-
-## Phase 4 deliverables
-- Centralized i18n context/provider with persistent language preference at `src/context/I18nProvider.jsx`.
-- Swahili-first translation catalog and clinical terminology pack.
-- App shell, login flow, and landing page consume shared translations.
-
-## Phase 9 — next priority
-- GitHub Actions CI workflow for lint + test on PR/push
+## Phase 9 deliverables
+- GitHub Actions CI workflow for lint + test on PR/push + security scan + docker build verification
 - Docker Compose production manifest for backend + frontend
-- Health check endpoints and structured logging
-- Deployment documentation update
+- Production Dockerfile and nginx configuration for frontend SPA
+- Health check endpoints and structured logging in Express
+- Deployment documentation updated for Docker workflows
+
+## Phase 10 — next priority
+- Evaluation toolkit to extract cohorts and evaluate prediction accuracy (ROC AUC, Precision/Recall) against real 30-day outcomes.
+- Regulatory documentation template (Data Processing Agreement, Model Card).
