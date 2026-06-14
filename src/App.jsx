@@ -62,6 +62,7 @@ const Analytics = lazy(() => import("./components/analytics/Analytics"));
 const ProtocolGuide = lazy(() => import("./pages/ProtocolGuide"));
 const DischargeWorkflow = lazy(() => import("./components/discharge/DischargeWorkflow"));
 const PatientDetail = lazy(() => import("./components/patient/PatientDetail"));
+const SmartFhirEmbed = lazy(() => import("./pages/SmartFhirEmbed"));
 const PatientsList = lazy(() => import("./components/patient/PatientsList"));
 const Tasks = lazy(() => import("./components/dashboard/Tasks"));
 const MoHNationalDashboard = lazy(() => import("./dashboards/MoHNationalDashboard"));
@@ -740,6 +741,18 @@ const App = () => {
       <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
       
+      {/* SMART-on-FHIR Embedded Route (No Layout/Sidebar) */}
+      <Route 
+        path="/smart-embed/:id" 
+        element={
+          <ProtectedRoute>
+             <Suspense fallback={<div className="p-4">Loading Clinical View...</div>}>
+                <SmartFhirEmbed />
+             </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+
       <Route
         path="/*"
         element={

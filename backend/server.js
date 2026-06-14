@@ -30,6 +30,7 @@ const integrationsRoutes = require('./src/routes/integrations');
 const cdsHooksRoutes = require('./src/routes/cdsHooks');
 const workspaceRoutes = require('./src/routes/workspace');
 const { buildHealthSnapshot, isPlatformReady } = require('./src/services/systemHealth');
+const { startPolling: startFhirPolling } = require('./src/services/fhirPollingService');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -277,6 +278,9 @@ if (require.main === module) {
     console.log(`TRIP Backend API running on http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`API docs: http://localhost:${PORT}/api`);
+    
+    // Start background jobs
+    startFhirPolling();
   });
 }
 
