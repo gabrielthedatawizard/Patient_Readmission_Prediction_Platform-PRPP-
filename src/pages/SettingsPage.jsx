@@ -4,13 +4,17 @@ import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
+  Brain,
   Check,
+  Cpu,
   Database,
   RefreshCw,
+  Shield,
   User,
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { getEdgeModelMetadata, syncEdgeModel } from "../services/OfflinePredictor";
 import { useAuth } from "../context/AuthProvider";
 import { useI18n } from "../context/I18nProvider";
 import { usePatient } from "../context/PatientProvider";
@@ -98,6 +102,14 @@ const SETTINGS_COPY = {
     notificationsProvider: "Provider",
     notificationsTargetMode: "Target mode",
     notificationsEnvironment: "Environment",
+    edgeAiTitle: "Edge AI & Offline Prediction Engine",
+    edgeAiIntro: "TRIP uses a surrogate model replica for offline predictions in the clinic. Manage the local model artifact cache here to ensure the latest clinical patterns are available even without connectivity.",
+    edgeAiSync: "Sync Edge Model Artifact",
+    edgeAiSyncing: "Syncing artifact...",
+    edgeAiLastSync: "Last Synced",
+    edgeAiVersion: "Model Version",
+    edgeAiSyncSuccess: "Edge model artifact synced successfully.",
+    edgeAiSyncFailure: "Failed to sync edge model artifact.",
     notificationsRecipientsEmail: "Operations email recipients",
     notificationsEmailIntro:
       "Optional SMTP path for operations alerts. Opt in with ALERT_EMAIL_ENABLED=true and configure SMTP_HOST plus ALERT_EMAIL_FROM.",
@@ -182,6 +194,14 @@ const SETTINGS_COPY = {
     notificationsProvider: "Mtoa huduma",
     notificationsTargetMode: "Njia ya walengwa",
     notificationsEnvironment: "Mazingira",
+    edgeAiTitle: "Edge AI na Injini ya Utabiri",
+    edgeAiIntro: "TRIP hutumia kielelezo mbadala kwa utabiri wa nje ya mtandao kliniki. Dhibiti akiba ya kielelezo hapa ili kuhakikisha ruwaza za hivi karibuni zinapatikana hata bila mtandao.",
+    edgeAiSync: "Sawazisha Kielelezo cha Edge",
+    edgeAiSyncing: "Inasawazisha...",
+    edgeAiLastSync: "Imesawazishwa Mwisho",
+    edgeAiVersion: "Toleo la Kielelezo",
+    edgeAiSyncSuccess: "Kielelezo cha Edge kimesawazishwa kikamilifu.",
+    edgeAiSyncFailure: "Imeshindwa kusawazisha kielelezo cha Edge.",
     notificationsRecipientsEmail: "Walengwa wa barua pepe wa operations",
     notificationsEmailIntro:
       "Njia ya hiari ya SMTP kwa tahadhari za operations. Wezesha kwa ALERT_EMAIL_ENABLED=true na usanidi wa SMTP_HOST pamoja na ALERT_EMAIL_FROM.",
@@ -400,6 +420,14 @@ function SettingsPage() {
   const workflow = workflowQuery.data || null;
   const integrationActionsBlocked = !isOnline;
 
+  const [edgeModelMetadata, setEdgeModelMetadata] = useState(getEdgeModelMetadata());
+  const edgeModelSyncMutation = useMutation({
+    mutationFn: syncEdgeModel,
+    onSuccess: (success) => {
+      if (success) setEdgeModelMetadata(getEdgeModelMetadata());
+    },
+  });
+
   const serviceCards = useMemo(
     () => [
       { label: "Database", status: services.database?.status || "unknown", detail: services.database?.provider || "prisma" },
@@ -408,6 +436,7 @@ function SettingsPage() {
       { label: "SMS", status: services.sms?.status || "unknown", detail: services.sms?.message || "Operational notification path" },
       { label: "Email", status: services.email?.status || "unknown", detail: services.email?.message || "SMTP alert path" },
       { label: "ML", status: services.ml?.status || "unknown", detail: services.ml?.message || "Model services" },
+      { label: "Edge ML", status: edgeModelMetadata.source === "builtin-edge" ? "warning" : "emerald", detail: edgeModelMetadata.version },
     ],
     [
       services.database?.provider,
@@ -422,6 +451,8 @@ function SettingsPage() {
       services.sms?.status,
       services.email?.message,
       services.email?.status,
+      edgeModelMetadata.source,
+      edgeModelMetadata.version,
     ],
   );
 
@@ -1150,7 +1181,74 @@ function SettingsPage() {
                 </div>
               ) : null}
 
-              <div className="border-t border-slate-200 pt-4">
+                <div className="mt-8 border-t border-slate-200 pt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-indigo-50 p-2.5 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        <Brain className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-950">{copy.edgeAiTitle}</h3>
+                        <p className="text-sm text-slate-600">{copy.edgeAiIntro}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                          {copy.edgeAiVersion}
+                        </p>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          <Cpu className="h-3 w-3" />
+                          {edgeModelMetadata.type}
+                        </span>
+                      </div>
+                      <p className="text-xl font-black text-slate-900">{edgeModelMetadata.version}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Source: <span className="font-semibold">{edgeModelMetadata.source}</span>
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-2">
+                        {copy.edgeAiLastSync}
+                      </p>
+                      <p className="text-xl font-black text-slate-900">
+                        {edgeModelMetadata.lastSync !== 'Never' 
+                          ? new Date(edgeModelMetadata.lastSync).toLocaleString(language === 'sw' ? 'sw-TZ' : 'en-US') 
+                          : edgeModelMetadata.lastSync}
+                      </p>
+                      <div className="mt-3">
+                         <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<RefreshCw className={`h-3.5 w-3.5 ${edgeModelSyncMutation.isPending ? 'animate-spin' : ''}`} />}
+                          onClick={() => edgeModelSyncMutation.mutate()}
+                          disabled={edgeModelSyncMutation.isPending || integrationActionsBlocked}
+                        >
+                          {edgeModelSyncMutation.isPending ? copy.edgeAiSyncing : copy.edgeAiSync}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {edgeModelSyncMutation.isSuccess && (
+                    <div className="mt-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+                      <Check className="h-4 w-4" />
+                      {copy.edgeAiSyncSuccess}
+                    </div>
+                  )}
+                  {edgeModelSyncMutation.isError && (
+                    <div className="mt-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">
+                      <AlertTriangle className="h-4 w-4" />
+                      {copy.edgeAiSyncFailure}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 border-t border-slate-200 pt-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">

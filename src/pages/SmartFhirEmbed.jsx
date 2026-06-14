@@ -1,11 +1,11 @@
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useAuth } from "../../context/AuthProvider";
-import { usePatient } from "../../context/PatientProvider";
-import RiskScoreDisplay from "../common/RiskScoreDisplay";
-import Badge from "../common/Badge";
-import ShapExplanation from "../prediction/ShapExplanation";
-import { canAccessWorkspaceFeature } from "../../services/roleAccess";
+import { useAuth } from "../context/AuthProvider";
+import { usePatient } from "../context/PatientProvider";
+import RiskScoreDisplay from "../components/common/RiskScoreDisplay";
+import Badge from "../components/common/Badge";
+import ShapExplanation from "../components/prediction/ShapExplanation";
+import { canAccessWorkspaceFeature } from "../services/roleAccess";
 
 const TIER_BADGE = {
   veryhigh: "critical",

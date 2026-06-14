@@ -66,6 +66,7 @@ export async function syncEdgeModel() {
       const artifact = await response.json();
       MODEL_ARTIFACT = artifact;
       localStorage.setItem('trip_edge_model_artifact', JSON.stringify(artifact));
+      localStorage.setItem('trip_edge_model_sync_time', new Date().toISOString());
       console.log('Successfully synced edge model artifact: ', artifact.model_version);
       return true;
     }
@@ -73,6 +74,19 @@ export async function syncEdgeModel() {
     console.warn('Silent failure syncing edge model, using current cache/builtin.', error);
   }
   return false;
+}
+
+/**
+ * Returns read-only metadata about the currently loaded edge model
+ */
+export function getEdgeModelMetadata() {
+  return {
+    name: MODEL_ARTIFACT.model_name,
+    version: MODEL_ARTIFACT.model_version,
+    type: MODEL_ARTIFACT.model_type,
+    source: MODEL_ARTIFACT.artifact_source,
+    lastSync: localStorage.getItem('trip_edge_model_sync_time') || 'Never'
+  };
 }
 
 const FEATURE_LABELS = {

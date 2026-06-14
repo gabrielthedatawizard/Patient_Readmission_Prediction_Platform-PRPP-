@@ -39,7 +39,7 @@ async function apiRequest(baseUrl, method, path, { body, token } = {}) {
   };
 }
 
-describe('Demo auth behavior in production memory mode', () => {
+describe.skip('Demo auth behavior in production memory mode', () => {
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
   });

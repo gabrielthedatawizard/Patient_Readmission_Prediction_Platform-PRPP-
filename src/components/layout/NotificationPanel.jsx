@@ -120,10 +120,34 @@ const NotificationPanel = () => {
                                 </span>
                               </div>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
                               Risk score increased to <span className="font-bold text-rose-600">{alert.score}%</span> 
                               {" "}passing the {alert.threshold}% threshold.
                             </p>
+
+                            {/* Alert Channels (SMS/CHW Dispatch) */}
+                            {alert.channels && alert.channels.length > 0 && (
+                              <div className="mb-4 space-y-1.5">
+                                {alert.channels.map((ch, idx) => {
+                                  const isSms = ch.type === 'sms' || ch.channel === 'sms';
+                                  const status = String(ch.status || 'pending').toLowerCase();
+                                  const isSuccess = ['delivered', 'sent', 'submitted'].includes(status);
+                                  const isError = ['failed', 'error', 'rejected'].includes(status);
+                                  
+                                  return (
+                                    <div key={idx} className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+                                      <span className="text-slate-500 flex items-center gap-1">
+                                        {isSms && <div className="w-1 h-1 rounded-full bg-teal-400" />}
+                                        {ch.label || (isSms ? "CHW SMS Dispatch" : "Alert Channel")}
+                                      </span>
+                                      <span className={isSuccess ? "text-emerald-500" : isError ? "text-rose-500" : "text-amber-500"}>
+                                        {status}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleAcknowledgeAlert(alert.id)}
