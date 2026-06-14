@@ -1,4 +1,4 @@
-# TRIP Platform Deployment Guide (Vercel)
+# TRIP Platform Deployment Guide (Vercel & Docker)
 
 This repository is configured to deploy **frontend + backend API** together on Vercel.
 
@@ -129,9 +129,47 @@ Optional frontend override:
   - `fallback_only` when the rules engine is the chosen MVP runtime
   - `up` with `runtimeMode=external_ml` or `external_with_fallback` when an external service is active
 
+## 5. Docker Compose Deployment (Self-Hosted Production)
+
+Instead of Vercel, you can deploy the complete platform on a single server (like a VPS or internal hospital server) using Docker Compose. The repository contains a comprehensive docker-compose.yml that provisions:
+- PostgreSQL database
+- ML Model Service container
+- Express Backend API
+- Nginx-served Frontend SPA
+
+### Prerequisites
+- Docker and Docker Compose installed
+- `nginx.conf` and `Dockerfile` exist in the root
+- `backend/Dockerfile` and `ml-service/Dockerfile` exist
+
+### Steps
+1. Create a `.env` file in the root based on the environment variables defined above:
+   ```bash
+   NODE_ENV=production
+   TRIP_DATA_PROVIDER=prisma
+   TRIP_STRICT_DATA_PROVIDER=true
+   JWT_SECRET=your-strong-production-jwt-secret
+   ENCRYPTION_KEY=your-strong-production-encryption-key-32-chars
+   POSTGRES_PASSWORD=your-secure-db-password
+   ```
+
+2. Note: The default `docker-compose.yml` mounts code for local development (`trip-local`). To run a pure production instance, remove the volume mounts for the backend and frontend services from `docker-compose.yml`, or copy the production compose configuration if provided in a separate file (e.g., `docker-compose.prod.yml`).
+
+3. Start the stack:
+   ```bash
+   docker-compose build
+   docker-compose up -d
+   ```
+
+4. Verify health:
+   ```bash
+   curl http://localhost:5000/api/health
+   ```
+
+5. The platform will be accessible on port 3000 (frontend) by default, or port 80 if utilizing the production multi-stage Dockerfile configuration for nginx routing.
+
 ## Notes
 
-- Use the pooled Supabase URL for `DATABASE_URL`.
-- Use the direct Supabase database host for `DIRECT_URL` when running Prisma migrations.
+- Use the pooled Supabase URL for `DATABASE_URL` entirely if using Vercel.
 - Vercel serverless functions do not provide a persistent WebSocket server; use polling or explicit refresh for realtime-sensitive views.
 - SMS alerts are safer when routed to operational escalation contacts via `ALERT_SMS_TARGET_MODE=operations`. Switch to patient-targeted SMS only if that workflow is explicitly approved.
