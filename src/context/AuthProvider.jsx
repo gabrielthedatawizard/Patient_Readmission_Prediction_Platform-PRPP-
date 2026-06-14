@@ -11,6 +11,7 @@ import {
   fetchCurrentUser,
   logout as logoutRequest,
 } from "../services/apiClient";
+import { syncEdgeModel } from "../services/OfflinePredictor";
 import { trackEvent } from "../services/analytics";
 
 const AuthContext = createContext(null);
@@ -29,6 +30,7 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(user);
         setUserRole(user.role);
         setIsAuthenticated(true);
+        setTimeout(() => syncEdgeModel().catch(() => {}), 100);
       } catch (error) {
         clearSession();
       } finally {
@@ -44,6 +46,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(session.user);
     setUserRole(session.user.role);
     setIsAuthenticated(true);
+    syncEdgeModel().catch(() => {});
     queryClient.invalidateQueries({ queryKey: ["trip"] });
   }, [queryClient]);
 

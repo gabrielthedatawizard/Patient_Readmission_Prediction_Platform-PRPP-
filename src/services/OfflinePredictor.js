@@ -7,7 +7,8 @@
  */
 
 // Model weights synced from app/predictor.py (v2.1 fallback)
-const MODEL_ARTIFACT = {
+// Hard-coded default in case of initial startup failure
+const DEFAULT_MODEL_ARTIFACT = {
   model_name: "TRIP Edge Surrogate Model",
   model_version: "trip-clinical-edge-v1",
   model_type: "logistic_regression_surrogate",
@@ -42,6 +43,37 @@ const MODEL_ARTIFACT = {
       neonatal_risk_flag: 0.62,
   }
 };
+
+let MODEL_ARTIFACT = { ...DEFAULT_MODEL_ARTIFACT };
+
+try {
+  const cached = localStorage.getItem('trip_edge_model_artifact');
+  if (cached) {
+    MODEL_ARTIFACT = JSON.parse(cached);
+  }
+} catch (e) {
+  console.warn("Failed to load cached edge model artifact", e);
+}
+
+/**
+ * Syncs the latest edge model weights from the ML service
+ */
+export async function syncEdgeModel() {
+  try {
+    const mlUrl = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${mlUrl}/api/v1/model/edge-artifact`);
+    if (response.ok) {
+      const artifact = await response.json();
+      MODEL_ARTIFACT = artifact;
+      localStorage.setItem('trip_edge_model_artifact', JSON.stringify(artifact));
+      console.log('Successfully synced edge model artifact: ', artifact.model_version);
+      return true;
+    }
+  } catch (error) {
+    console.warn('Silent failure syncing edge model, using current cache/builtin.', error);
+  }
+  return false;
+}
 
 const FEATURE_LABELS = {
   age_scaled: "Advanced age",

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from .config import get_settings
-from .predictor import TripPredictor
+from .predictor import TripPredictor, DEFAULT_ARTIFACT
 from .schemas import HealthResponse, PredictionRequest, PredictionResponse
 
 
@@ -46,3 +46,10 @@ def health() -> HealthResponse:
 def predict(request: PredictionRequest) -> PredictionResponse:
     result = predictor.predict(request.visitId, request.feature_payload())
     return PredictionResponse(**result)
+
+
+@app.get("/api/v1/model/edge-artifact", tags=["model"])
+def get_edge_artifact() -> dict:
+    """Returns the logistic regression surrogate artifact for the frontend PWA to cache."""
+    return DEFAULT_ARTIFACT
+
