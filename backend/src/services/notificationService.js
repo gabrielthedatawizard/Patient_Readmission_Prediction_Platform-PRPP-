@@ -12,6 +12,7 @@ const {
   getEmailGatewayStatus,
   sendEmailMessage
 } = require('./emailGateway');
+const { dispatchChwAlert } = require('./chwAlertDispatcher');
 
 // Default to 60 so High and VeryHigh tier patients both trigger alerts.
 // Override with RISK_ALERT_THRESHOLD env var if needed.
@@ -337,6 +338,17 @@ async function dispatchRiskAlert({ req, patient, prediction }) {
       message,
       channels: finalChannels
     });
+
+    const chwChannel = await dispatchChwAlert(req, {
+      patient,
+      prediction,
+      facilityId: patient.facilityId,
+      alertId: persistedAlert.id
+    });
+    
+    if (chwChannel) {
+      finalChannels.push(chwChannel);
+    }
 
     const updatedAlert = await updateAlertChannels(persistedAlert.id, finalChannels);
     if (updatedAlert) {

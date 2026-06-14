@@ -195,4 +195,67 @@ router.post('/notifications/test', requirePermission('analytics:read'), asyncHan
   return res.json(result);
 }));
 
+const {
+  getPollingStatus,
+  triggerImmediatePoll,
+  getPollHistory
+} = require('../services/fhirPollingService');
+const { isConfigured: isCTC2Configured } = require('../integrations/ctc2Mediator');
+const { isConfigured: isElmisConfigured } = require('../integrations/elmisMediator');
+
+// --- FHIR Polling Admin Endpoints ---
+
+router.get('/fhir/status', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDhis2AdminAccess(req.user);
+
+  const status = getPollingStatus();
+
+  await logAudit(req, {
+    action: 'integration_fhir_status_viewed',
+    resource: 'integrations:fhir:status',
+    details: { configured: status.configured, isRunning: status.isRunning }
+  });
+
+  return res.json({
+    ...status,
+    enrichment: {
+      ctc2: { configured: isCTC2Configured() },
+      elmis: { configured: isElmisConfigured() }
+    }
+  });
+}));
+
+router.post('/fhir/poll', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDhis2AdminAccess(req.user);
+
+  const result = await triggerImmediatePoll();
+
+  await logAudit(req, {
+    action: 'integration_fhir_poll_triggered',
+    resource: 'integrations:fhir:poll',
+    details: {
+      status: result.status,
+      patients: result.patients || 0,
+      encounters: result.encounters || 0
+    }
+  });
+
+  return res.json({ triggered: true, result });
+}));
+
+router.get('/fhir/history', requirePermission('analytics:read'), asyncHandler(async (req, res) => {
+  ensureDhis2AdminAccess(req.user);
+
+  const limit = Math.min(Number(req.query.limit) || 10, 20);
+  const history = getPollHistory(limit);
+
+  await logAudit(req, {
+    action: 'integration_fhir_history_viewed',
+    resource: 'integrations:fhir:history',
+    details: { count: history.length }
+  });
+
+  return res.json({ count: history.length, history });
+}));
+
 module.exports = router;
