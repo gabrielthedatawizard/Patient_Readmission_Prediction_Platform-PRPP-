@@ -144,6 +144,7 @@ export const MLEngineerDashboard = () => {
   const mlRuntime = healthQuery.data?.services?.ml || null;
   const queryIssues = monitoringQuery.data?.issues || monitoringQuery.error?.issues || [];
   const runtime = runtimeStatus(monitoring, mlRuntime);
+  const drift = monitoringData?.drift || monitoringQuery.data?.drift || {}; // Extract drift
   const modelVersions = sortBreakdownEntries(monitoring.modelVersionBreakdown);
   const methods = sortBreakdownEntries(monitoring.methodBreakdown);
   const tiers = sortBreakdownEntries(monitoring.tierBreakdown);
@@ -381,6 +382,45 @@ export const MLEngineerDashboard = () => {
           </div>
         </DashboardSection>
       </div>
+
+      {/* Advanced Telemetry: Data Drift & Validation */}
+      {drift && drift.signals && drift.signals.length > 0 && (
+        <DashboardSection 
+          title="Telemetry Data Drift Baseline vs Recent" 
+          subtitle="Measures distribution changes between incoming clinical integration payloads and the historically calibrated baseline."
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {drift.signals.map((signal) => {
+              const Icon = signal.status === 'alert' ? AlertTriangle : Activity;
+              const isDanger = signal.status === 'alert';
+              return (
+                <div key={signal.metric} className={`p-4 rounded-xl border ${isDanger ? 'border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-900/10' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{signal.metric.replace(/([A-Z])/g, ' $1').trim()}</p>
+                    <Icon className={`w-4 h-4 ${isDanger ? 'text-rose-500' : 'text-slate-400'}`} />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                      {formatPercent(signal.recent, 1)}
+                    </span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">Recent</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Baseline</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{formatPercent(signal.baseline, 1)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Delta</span>
+                    <span className={`font-bold ${isDanger ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {signal.delta > 0 ? '+' : ''}{formatPercent(signal.delta, 1)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DashboardSection>
+      )}
     </DashboardLayout>
   );
 };
