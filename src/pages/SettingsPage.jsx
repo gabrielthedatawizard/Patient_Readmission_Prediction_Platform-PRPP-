@@ -282,6 +282,13 @@ function SettingsPage() {
     staleTime: 60 * 1000,
   });
 
+  const fhirStatusQuery = useQuery({
+    queryKey: ["trip", "integrations", "fhir", "status"],
+    queryFn: () => requestJson("/integrations/fhir/status"),
+    enabled: canManageDhis2, // Reusing same permission block
+    staleTime: 60 * 1000,
+  });
+
   const dhis2SyncMutation = useMutation({
     mutationFn: () => requestJson("/integrations/dhis2/sync", {
       method: "POST",
@@ -314,6 +321,14 @@ function SettingsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "notifications", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
+    },
+  });
+
+  const fhirPollMutation = useMutation({
+    mutationFn: () => requestJson("/integrations/fhir/poll", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", "integrations", "fhir", "status"] });
       queryClient.invalidateQueries({ queryKey: ["trip", "system", "health"] });
     },
   });
@@ -375,6 +390,7 @@ function SettingsPage() {
   });
 
   const dhis2Status = dhis2StatusQuery.data || null;
+  const fhirStatus = fhirStatusQuery.data || null;
   const dryRunSummary = dhis2SyncMutation.data?.summary || null;
   const notificationStatus = notificationStatusQuery.data || null;
   const notificationPreview = notificationDryRunMutation.data || null;
@@ -1038,6 +1054,69 @@ function SettingsPage() {
                     {copy.openDhis2}
                     <ArrowUpRight className="h-4 w-4" />
                   </a>
+                ) : null}
+              </div>
+
+              {/* FHIR & Clinical Integrations */}
+              <div className="border-t border-slate-200 mt-6 pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Clinical Data Pipelines</p>
+                    <h3 className="mt-1 text-lg font-bold text-slate-950">FHIR, CTC2 & eLMIS</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Background workers pull predictive features from the national EMR ecosystem directly into TRIP.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <HealthPill label="FHIR EMR" status={fhirStatus?.configured ? "up" : "missing"} />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2 mt-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">FHIR Base URL</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">{fhirStatus?.fhirBaseUrl || "Not configured"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Service State</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">
+                      {fhirStatus?.isRunning ? "Active background polling" : "Halted / Manual only"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Last Poll Result</p>
+                    {fhirStatus?.history?.[0] ? (
+                      <div className="mt-2">
+                        <p className="text-sm font-medium text-slate-900">
+                          {new Date(fhirStatus.history[0].timestamp).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {fhirStatus.history[0].status === "success"
+                            ? `Indexed ${fhirStatus.history[0].details?.mapped_encounters || 0} encounters.`
+                            : "No new data or error occurred."}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">No recent polling history.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center mt-4 gap-3">
+                  <Button
+                    variant="primary"
+                    icon={<RefreshCw className="h-4 w-4" />}
+                    onClick={() => fhirPollMutation.mutate()}
+                    loading={fhirPollMutation.isPending}
+                    disabled={!fhirStatus?.configured || integrationActionsBlocked}
+                  >
+                    Force Manual Priority Poll
+                  </Button>
+                </div>
+                {fhirPollMutation.isSuccess ? (
+                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    FHIR polling executed successfully. Encounter imports and CTC2/eLMIS augmentations have completed.
+                  </div>
                 ) : null}
               </div>
 
