@@ -62,8 +62,6 @@ const PatientDetail = ({
   const sortedRiskFactors = [...(patient.riskFactors || [])].sort(
     (a, b) => Math.abs(b.weight) - Math.abs(a.weight)
   );
-  const positiveFactors = sortedRiskFactors.filter((f) => f.weight < 0);
-  const negativeFactors = sortedRiskFactors.filter((f) => f.weight > 0);
 
   const clinicalHistory = patient.priorAdmissions > 0
     ? [
@@ -182,55 +180,7 @@ const PatientDetail = ({
           title="Driver Analysis"
           subtitle="Dynamic weighting of contributing signals"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 py-4">
-            {/* Risk Drivers */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Escalation Drivers</p>
-                <div className="h-[1px] flex-1 bg-rose-100 dark:bg-rose-900/30" />
-              </div>
-              <div className="space-y-5">
-                {negativeFactors.slice(0, 3).map((f, i) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="text-slate-900 dark:text-slate-300 font-bold">{f.factor}</span>
-                      <span className="text-rose-600 font-black tabular-nums">+{Math.round(f.weight * 100)}%</span>
-                    </div>
-                    <div className="h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.4)]"
-                        style={{ width: `${Math.min(100, f.weight * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Protective Factors */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Stability Weights</p>
-                <div className="h-[1px] flex-1 bg-emerald-100 dark:bg-emerald-900/30" />
-              </div>
-              <div className="space-y-5">
-                {positiveFactors.slice(0, 3).map((f, i) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="text-slate-900 dark:text-slate-300 font-bold">{f.factor}</span>
-                      <span className="text-emerald-600 font-black tabular-nums">{Math.round(f.weight * 100)}%</span>
-                    </div>
-                    <div className="h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                        style={{ width: `${Math.min(100, Math.abs(f.weight) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ShapExplanation factors={patient.riskFactors || []} />
         </DashboardSection>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -349,6 +299,19 @@ const PatientDetail = ({
               ))}
             </div>
           )}
+        </DashboardSection>
+      </div>
+      
+      <div className="col-span-12 xl:col-span-12 space-y-6 mt-6">
+        <DashboardSection
+          title="Inference Log & History"
+          subtitle="Chronological record of model predictions and clinical overrides"
+        >
+          <PredictionHistory
+            patientId={patient.id}
+            canOverride={canOverridePrediction}
+            onPredictionOverridden={onPredictionOverridden}
+          />
         </DashboardSection>
       </div>
     </DashboardLayout>

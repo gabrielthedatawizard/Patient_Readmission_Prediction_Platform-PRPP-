@@ -47,6 +47,7 @@ import SettingsPage from "./pages/SettingsPage";
 
 // Components
 import Sidebar from "./components/layout/Sidebar";
+import NotificationPanel from "./components/layout/NotificationPanel";
 import PageTransition from "./components/PageTransition";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { PatientCardSkeleton } from "./design-system/components/Skeleton";
@@ -261,6 +262,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1B3D] text-slate-900 dark:text-slate-100 selection:bg-cyan-500/30 font-sans transition-colors duration-700 overflow-x-hidden">
+      <NotificationPanel />
       <div className="bg-white/80 dark:bg-[#121E3D]/80 border-b border-slate-200/50 dark:border-white/10 sticky top-0 z-50 shadow-sm dark:shadow-[#0B1B3D]/50 backdrop-blur-2xl">
         <div className="px-4 sm:px-6">
           <div className="h-16 sm:h/[72px] flex items-center justify-between gap-3 sm:gap-4">
