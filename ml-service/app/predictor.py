@@ -802,13 +802,17 @@ class TripPredictor:
             c for c in derived.get("tanzaniaPriorityConditions", [])
             if c not in HIV_SUPPRESSED_CONDITIONS
         ]
+        treatment_signals = [
+            s for s in derived.get("treatmentSignals", [])
+            if s not in HIV_SUPPRESSED_CONDITIONS
+        ]
         analysis_summary = {
             "labAbnormalities": derived.get("labAbnormalities", []),
             "socialRiskFlags": derived.get("socialRiskFlags", []),
             "diagnoses": derived.get("diagnoses", []),
             "tanzaniaPriorityConditions": priority_conditions,
             "neonatalRiskFactors": derived.get("neonatalRiskFactors", []),
-            "treatmentSignals": derived.get("treatmentSignals", []),
+            "treatmentSignals": treatment_signals,
             "missingCriticalFields": data_quality["missingCriticalFields"],
             "utilizationRiskLevel": (
                 "high" if normalized["priorAdmissions12m"] >= 3 else "moderate" if normalized["priorAdmissions12m"] >= 1 else "low"
@@ -940,13 +944,17 @@ class TripPredictor:
             c for c in derived.get("tanzaniaPriorityConditions", [])
             if c not in HIV_SUPPRESSED_CONDITIONS
         ]
+        treatment_signals_ml = [
+            s for s in derived.get("treatmentSignals", [])
+            if s not in HIV_SUPPRESSED_CONDITIONS
+        ]
         analysis_summary = {
             "labAbnormalities": derived.get("labAbnormalities", []),
             "socialRiskFlags": derived.get("socialRiskFlags", []),
             "diagnoses": derived.get("diagnoses", []),
             "tanzaniaPriorityConditions": priority_conditions_ml,
             "neonatalRiskFactors": derived.get("neonatalRiskFactors", []),
-            "treatmentSignals": derived.get("treatmentSignals", []),
+            "treatmentSignals": treatment_signals_ml,
             "missingCriticalFields": data_quality["missingCriticalFields"],
             "utilizationRiskLevel": (
                 "high" if normalized["priorAdmissions12m"] >= 3 else "moderate" if normalized["priorAdmissions12m"] >= 1 else "low"

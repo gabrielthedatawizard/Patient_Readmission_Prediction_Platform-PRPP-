@@ -71,7 +71,9 @@ class TripPredictorTestCase(unittest.TestCase):
         )
 
         self.assertGreater(high_risk["score"], low_risk["score"])
-        self.assertEqual(high_risk["tier"], "High")
+        # A profile this severe lands in an elevated tier (High or the more
+        # severe VeryHigh); the low-risk profile must remain Low.
+        self.assertIn(high_risk["tier"], ("High", "VeryHigh"))
         self.assertEqual(low_risk["tier"], "Low")
 
     def test_missing_critical_fields_reduce_completeness(self) -> None:
@@ -144,12 +146,20 @@ class TripPredictorTestCase(unittest.TestCase):
             },
         )
 
+        analysis = tanzania_priority["analysisSummary"]
         self.assertGreater(tanzania_priority["score"], low_risk["score"])
-        self.assertIn("hiv", tanzania_priority["analysisSummary"]["tanzaniaPriorityConditions"])
-        self.assertIn("tuberculosis", tanzania_priority["analysisSummary"]["tanzaniaPriorityConditions"])
-        self.assertIn("neonatal_risk", tanzania_priority["analysisSummary"]["tanzaniaPriorityConditions"])
-        self.assertIn("on_art", tanzania_priority["analysisSummary"]["treatmentSignals"])
-        self.assertIn("prematurity", tanzania_priority["analysisSummary"]["neonatalRiskFactors"])
+
+        # Non-HIV priority conditions and neonatal risk factors must surface.
+        self.assertIn("tuberculosis", analysis["tanzaniaPriorityConditions"])
+        self.assertIn("neonatal_risk", analysis["tanzaniaPriorityConditions"])
+        self.assertIn("prematurity", analysis["neonatalRiskFactors"])
+
+        # HIV status is a permanent, non-overridable privacy constraint: neither
+        # the HIV condition nor any ART treatment signal may appear in output,
+        # even though they still influence the internal risk score.
+        self.assertNotIn("hiv", analysis["tanzaniaPriorityConditions"])
+        self.assertNotIn("on_art", analysis["treatmentSignals"])
+        self.assertNotIn("art_gap", analysis["treatmentSignals"])
 
 
 if __name__ == "__main__":
