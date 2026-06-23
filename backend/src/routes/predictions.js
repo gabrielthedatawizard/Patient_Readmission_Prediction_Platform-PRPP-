@@ -22,7 +22,7 @@ const { predictionRateLimit } = require('../middleware/rateLimit');
 const { logAudit } = require('../services/auditService');
 const { generatePrediction } = require('../services/mlService');
 const { dispatchRiskAlert } = require('../services/notificationService');
-const { extractDischargeSummary } = require('../services/nlpService');
+const { enhanceDischargeSummary } = require('../services/nlpService');
 const { buildPredictionFeatures } = require('../services/predictionFeatureBuilder');
 const { buildPredictionWorkflowSummary } = require('../services/workflowVerificationService');
 const { asyncHandler } = require('../utils/asyncHandler');
@@ -469,7 +469,7 @@ router.post(
     });
   }
 
-  const extraction = extractDischargeSummary({
+  const extraction = await enhanceDischargeSummary({
     notes,
     workflow: req.body.workflow || {},
     patient,
@@ -485,7 +485,10 @@ router.post(
         medications: extraction.entities.medications.length,
         redFlags: extraction.entities.redFlags.length,
         socialRisks: extraction.entities.socialRisks.length
-      }
+      },
+      // Records whether the discharge note was transmitted to an external LLM.
+      llmUsed: Boolean(extraction.llm && extraction.llm.used),
+      llmProvider: extraction.llm ? extraction.llm.provider : null
     }
   });
 

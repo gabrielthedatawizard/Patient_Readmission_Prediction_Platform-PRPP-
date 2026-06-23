@@ -1,3 +1,5 @@
+const { isLlmConfigured, generateJson } = require('./llmService');
+
 const KNOWN_DIAGNOSES = [
   'heart failure',
   'hypertension',
@@ -167,7 +169,79 @@ function extractDischargeSummary({
   };
 }
 
+function buildEnhancementPrompt(baseline, notes) {
+  return [
+    'You are a clinical discharge-planning assistant for a Tanzanian hospital readmission-prevention program.',
+    'You are given a discharge note and a baseline rule-based extraction.',
+    'Return STRICT JSON only, with exactly these keys:',
+    '  "summaryNarrative": a plain-language summary (<= 2 sentences) for a community health worker.',
+    '  "personalizedCarePlan": an array of <= 5 concise, actionable follow-up steps tailored to this patient.',
+    '  "patientFriendlyInstructions": an array of <= 4 short instructions in simple language.',
+    'Rules: Do NOT invent diagnoses, medications, or facts not present in the note or baseline.',
+    'Do NOT add identifiers or PII beyond what is provided. If information is missing, keep guidance general.',
+    '',
+    `Discharge note: """${notes}"""`,
+    `Baseline entities: ${JSON.stringify(baseline.entities)}`,
+    `Risk tier: ${baseline.riskTier}. Planned follow-up days: ${baseline.followUpDays.join(', ')}.`
+  ].join('\n');
+}
+
+function sanitizeStringList(value, max) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim())
+    .slice(0, max);
+}
+
+/**
+ * Computes the deterministic baseline extraction, then — only when the LLM is
+ * explicitly enabled and configured — enriches it with a generated narrative
+ * and personalized care plan. On any LLM failure the baseline is returned
+ * unchanged. The returned `llm.used` flag records whether the note was sent to
+ * the external provider (for audit / governance traceability).
+ */
+async function enhanceDischargeSummary(input = {}) {
+  const baseline = extractDischargeSummary(input);
+  // Stable response shape regardless of whether the LLM ran.
+  const withoutLlm = (llm) => ({
+    ...baseline,
+    personalizedCarePlan: [],
+    patientFriendlyInstructions: [],
+    llm
+  });
+
+  if (!isLlmConfigured()) {
+    return withoutLlm({ used: false, provider: null });
+  }
+
+  try {
+    const enriched = await generateJson(buildEnhancementPrompt(baseline, normalizeText(input.notes)));
+    if (!enriched || typeof enriched !== 'object') {
+      return withoutLlm({ used: false, provider: 'google-gemini', reason: 'no_response' });
+    }
+
+    const summaryNarrative =
+      typeof enriched.summaryNarrative === 'string' && enriched.summaryNarrative.trim()
+        ? enriched.summaryNarrative.trim()
+        : baseline.summaryNarrative;
+
+    return {
+      ...baseline,
+      summaryNarrative,
+      personalizedCarePlan: sanitizeStringList(enriched.personalizedCarePlan, 5),
+      patientFriendlyInstructions: sanitizeStringList(enriched.patientFriendlyInstructions, 4),
+      llm: { used: true, provider: 'google-gemini' }
+    };
+  } catch (error) {
+    return withoutLlm({ used: false, provider: 'google-gemini', reason: 'error' });
+  }
+}
+
 module.exports = {
-  extractDischargeSummary
+  extractDischargeSummary,
+  enhanceDischargeSummary
 };
 
