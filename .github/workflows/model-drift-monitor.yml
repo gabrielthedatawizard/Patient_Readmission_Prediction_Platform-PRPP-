@@ -1,0 +1,88 @@
+name: Model Drift Monitor
+
+# Runs the TRIP readmission model AUC drift monitor on a daily schedule.
+#
+# Required configuration (Settings -> Secrets and variables -> Actions):
+#   secret  MONITORING_DATABASE_URL  PostgreSQL URL with read access to the
+#                                    "Prediction" and "ReadmissionEvent" tables.
+#   var     TRIP_BASELINE_AUC        (optional) training baseline AUC; defaults
+#                                    to 0.78 if unset.
+#
+# If MONITORING_DATABASE_URL is not configured the job skips gracefully so the
+# scheduled run does not fail before monitoring is wired up. When drift exceeds
+# the threshold the monitor exits 2 and this job fails, surfacing a GitHub
+# notification plus a JSON alert in the run summary and as an artifact.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      window_days:
+        description: "Look-back window in days"
+        default: "30"
+      drift_threshold:
+        description: "AUC drop that triggers an alert"
+        default: "0.05"
+
+jobs:
+  drift-monitor:
+    name: AUC Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - require monitoring database secret
+        id: guard
+        run: |
+          if [ -z "${{ secrets.MONITORING_DATABASE_URL }}" ]; then
+            echo "MONITORING_DATABASE_URL is not configured; skipping drift check." >> "$GITHUB_STEP_SUMMARY"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.guard.outputs.configured == 'true'
+        run: pip install --no-cache-dir psycopg2-binary
+
+      - name: Run drift monitor
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.MONITORING_DATABASE_URL }}
+          TRIP_BASELINE_AUC: ${{ vars.TRIP_BASELINE_AUC || '0.78' }}
+          WINDOW_DAYS: ${{ github.event.inputs.window_days || '30' }}
+          DRIFT_THRESHOLD: ${{ github.event.inputs.drift_threshold || '0.05' }}
+        run: |
+          set +e
+          python ml-service/scripts/monitor_model_drift.py \
+            --window-days "$WINDOW_DAYS" \
+            --drift-threshold "$DRIFT_THRESHOLD" \
+            --output drift_alert.jsonl > drift_alert.json
+          code=$?
+          {
+            echo "### Model Drift Check"
+            echo ""
+            echo '```json'
+            cat drift_alert.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "2" ]; then
+            echo "::error::Model drift detected — AUC dropped beyond the threshold (see job summary)."
+          elif [ "$code" != "0" ]; then
+            echo "::warning::Drift monitor did not complete cleanly (exit $code)."
+          fi
+          exit $code
+
+      - name: Upload drift alert artifact
+        if: ${{ always() && steps.guard.outputs.configured == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-alert
+          path: drift_alert.jsonl
+          if-no-files-found: ignore
