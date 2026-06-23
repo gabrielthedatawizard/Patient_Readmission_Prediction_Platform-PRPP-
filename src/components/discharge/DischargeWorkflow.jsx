@@ -1045,7 +1045,12 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
 
       {summaryInsights && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
-          <p className="text-sm font-semibold text-blue-900">NLP Summary Insights</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-blue-900">NLP Summary Insights</p>
+            {summaryInsights?.llm?.used && (
+              <Badge variant="info">AI-enhanced</Badge>
+            )}
+          </div>
           <p className="text-sm text-blue-800">{summaryInsights.summaryNarrative}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div>
@@ -1081,6 +1086,28 @@ const DischargeWorkflow = ({ patient, onBack, onComplete }) => {
               </p>
             </div>
           </div>
+
+          {summaryInsights?.personalizedCarePlan?.length > 0 && (
+            <div className="text-sm">
+              <p className="font-semibold text-blue-900">Personalized Care Plan</p>
+              <ul className="mt-1 list-disc list-inside space-y-1 text-blue-800">
+                {summaryInsights.personalizedCarePlan.map((step, index) => (
+                  <li key={`care-plan-${index}`}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summaryInsights?.patientFriendlyInstructions?.length > 0 && (
+            <div className="text-sm">
+              <p className="font-semibold text-blue-900">Patient-Friendly Instructions</p>
+              <ul className="mt-1 list-disc list-inside space-y-1 text-blue-800">
+                {summaryInsights.patientFriendlyInstructions.map((instruction, index) => (
+                  <li key={`patient-instruction-${index}`}>{instruction}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
