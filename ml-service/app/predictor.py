@@ -686,6 +686,7 @@ class TripPredictor:
         self.model_dir = model_dir
         self.model = None
         self.explainer = None
+        self.preprocessor = None
         self.metadata = deepcopy(DEFAULT_ARTIFACT)
         self.is_fallback = True
 
@@ -706,6 +707,7 @@ class TripPredictor:
             try:
                 model_path = model_dir / "trip_readmission_model.joblib"
                 explainer_path = model_dir / "trip_shap_explainer.joblib"
+                preprocessor_path = model_dir / "trip_preprocessor.joblib"
                 metadata_path = model_dir / "model_metadata.json"
 
                 if model_path.exists():
@@ -716,6 +718,10 @@ class TripPredictor:
                 if explainer_path.exists():
                     self.explainer = joblib.load(explainer_path)
                     logger.info(f"Loaded SHAP explainer from {explainer_path}")
+
+                if preprocessor_path.exists():
+                    self.preprocessor = joblib.load(preprocessor_path)
+                    logger.info(f"Loaded preprocessor from {preprocessor_path}")
 
                 if metadata_path.exists():
                     with open(metadata_path, "r", encoding="utf-8") as f:
@@ -868,59 +874,57 @@ class TripPredictor:
         high_score = int(round(clamp(probability + interval_width, 0.0, 1.0) * 100))
 
         factors = []
-        if self.explainer is not None:
+        if self.explainer is not None and self.preprocessor is not None:
             try:
-                # Need to use the preprocessor to transform features for the explainer
-                # unless the explainer uses the untransformed dataframe directly.
-                # In train_model.py, we created the explainer on X_transformed (for non-XGBoost)
-                # or the model natively (for XGBoost).
-                # To be safe, let's just use naive feature importance if explainer fails.
-                
-                # Check if it's TreeExplainer or KernelExplainer
-                if hasattr(self.explainer, "expected_value"):
-                    # For TreeExplainer on XGBoost
-                    if "preprocessor" in self.model.named_steps:
-                        X_trans = self.model.named_steps["preprocessor"].transform(df)
-                        shap_values = self.explainer.shap_values(X_trans)
-                    else:
-                        shap_values = self.explainer.shap_values(df)
-                    
-                    if isinstance(shap_values, list): # For multi-class, though ours is binary
-                        shap_values = shap_values[1]
-                        
-                    shap_vals = shap_values[0]
-                    
-                    try:
-                        feature_names = self.model.named_steps["preprocessor"].get_feature_names_out()
-                    except:
-                        feature_names = df.columns
+                # The explainer was fitted in train_model.py against the saved
+                # preprocessor's transformed output (KernelExplainer on the LR
+                # classifier, or TreeExplainer on XGBoost). Reuse that exact
+                # preprocessor so feature spaces line up regardless of which
+                # sub-model scored the visit.
+                X_trans = self.preprocessor.transform(df)
+                shap_output = self.explainer.shap_values(X_trans)
 
-                    contributions = list(zip(feature_names, shap_vals))
-                    contributions.sort(key=lambda x: abs(x[1]), reverse=True)
-                    
-                    total_abs = sum(abs(item[1]) for item in contributions) or 1.0
-                    
-                    visible_contributions_ml = [
-                        (fname, contrib) for fname, contrib in contributions
-                        if fname.split("__")[-1] not in HIV_SUPPRESSED_KEYS
-                    ]
-                    total_abs = sum(abs(item[1]) for item in visible_contributions_ml) or 1.0
-                    for fname, contrib in visible_contributions_ml[:5]:
-                        # Strip standard prefixes from feature names if present (e.g. num__, cat__)
-                        clean_fname = fname.split("__")[-1] if "__" in fname else fname
+                # Normalize to per-feature contributions for the positive class.
+                # shap may return a list [class0, class1] or an ndarray shaped
+                # (n_samples, n_features) or (n_samples, n_features, n_classes).
+                if isinstance(shap_output, list):
+                    shap_arr = np.asarray(shap_output[-1])
+                else:
+                    shap_arr = np.asarray(shap_output)
 
-                        original_val = ml_features.get(clean_fname, "")
-                        direction = "increase" if contrib >= 0 else "decrease"
-                        factors.append({
-                            "factor": format_factor(clean_fname, original_val),
-                            "weight": round(abs(contrib) / total_abs, 3),
-                            "contribution": round(contrib, 3),
-                            "direction": direction,
-                            "impact": FEATURE_IMPACTS.get(clean_fname, f"Model impact: {direction} risk."),
-                        })
+                row = shap_arr[0]
+                if row.ndim == 2:
+                    row = row[:, -1]
+
+                try:
+                    feature_names = list(self.preprocessor.get_feature_names_out())
+                except Exception:
+                    feature_names = list(df.columns)
+
+                visible_contributions_ml = [
+                    (fname, float(contrib))
+                    for fname, contrib in zip(feature_names, row)
+                    if fname.split("__")[-1] not in HIV_SUPPRESSED_KEYS
+                ]
+                visible_contributions_ml.sort(key=lambda item: abs(item[1]), reverse=True)
+                total_abs = sum(abs(item[1]) for item in visible_contributions_ml) or 1.0
+
+                for fname, contrib in visible_contributions_ml[:5]:
+                    # Strip standard prefixes from feature names if present (e.g. num__, cat__)
+                    clean_fname = fname.split("__")[-1] if "__" in fname else fname
+
+                    original_val = ml_features.get(clean_fname, "")
+                    direction = "increase" if contrib >= 0 else "decrease"
+                    factors.append({
+                        "factor": format_factor(clean_fname, original_val),
+                        "weight": round(abs(contrib) / total_abs, 3),
+                        "contribution": round(contrib, 3),
+                        "direction": direction,
+                        "impact": FEATURE_IMPACTS.get(clean_fname, f"Model impact: {direction} risk."),
+                    })
             except Exception as e:
                 logger.error(f"SHAP explanation failed: {e}")
-                
+
         # If SHAP failed or no explainer
         if not factors:
             factors.append({
