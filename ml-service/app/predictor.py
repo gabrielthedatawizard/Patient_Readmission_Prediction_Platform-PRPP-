@@ -842,11 +842,11 @@ class TripPredictor:
             active_model = base_pipeline
             
             dis_models = self.model.get("disease_models", {})
-            if ml_features.get("has_sickle_cell") == 1 and "has_sickle_cell" in dis_models:
+            if ml_features.get("has_sickle_cell_disease") == 1 and "has_sickle_cell" in dis_models:
                 active_model = dis_models["has_sickle_cell"]
-            elif ml_features.get("has_sam") == 1 and "has_sam" in dis_models:
+            elif ml_features.get("has_severe_acute_malnutrition") == 1 and "has_sam" in dis_models:
                 active_model = dis_models["has_sam"]
-            elif ml_features.get("has_tb") == 1 and "has_tb" in dis_models:
+            elif ml_features.get("has_tuberculosis") == 1 and "has_tb" in dis_models:
                 active_model = dis_models["has_tb"]
             elif ml_features.get("has_hiv") == 1 and "has_hiv" in dis_models:
                 active_model = dis_models["has_hiv"]

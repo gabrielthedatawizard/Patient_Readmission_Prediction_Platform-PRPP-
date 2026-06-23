@@ -19,6 +19,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
@@ -133,6 +134,21 @@ DEFAULT_FEATURE_VALUES = {
     "has_sickle_cell_disease": 0,
     "neonatal_risk": 0,
 }
+
+# Disease-specific sub-models. Keys are the routing keys the predictor looks up
+# (see app/predictor.py::_predict_ml); values are the dataset columns used to
+# slice each cohort. A sub-model is only trained when its cohort is large enough
+# and has both outcome classes; otherwise the predictor falls back to "global".
+DISEASE_SUBMODEL_COLUMNS = {
+    "has_malaria": "has_malaria",
+    "has_hiv": "has_hiv",
+    "has_tb": "has_tuberculosis",
+    "has_sam": "has_severe_acute_malnutrition",
+    "has_sickle_cell": "has_sickle_cell_disease",
+}
+
+# Minimum cohort size before a disease-specific sub-model is worth training.
+MIN_SUBMODEL_ROWS = 50
 
 
 def ensure_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -335,6 +351,63 @@ def select_best_temporal_model(candidates, X_train, y_train, X_validation, y_val
     return best_entry, evaluations
 
 
+def train_disease_submodels(
+    pipeline_template: Pipeline,
+    training_df: pd.DataFrame,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """Train one calibrated sub-model per disease cohort.
+
+    Cohorts that are too small or single-class are skipped; the predictor falls
+    back to the global model for those patients. Returns (models, summaries).
+    """
+    submodels: dict[str, Any] = {}
+    summaries: dict[str, dict[str, Any]] = {}
+
+    for route_key, column in DISEASE_SUBMODEL_COLUMNS.items():
+        if column not in training_df.columns:
+            summaries[route_key] = {"trained": False, "reason": "missing_column", "rows": 0}
+            continue
+
+        cohort = training_df[training_df[column] == 1]
+        row_count = len(cohort)
+        y_cohort = cohort[TARGET].values
+
+        if row_count < MIN_SUBMODEL_ROWS:
+            summaries[route_key] = {"trained": False, "reason": "insufficient_rows", "rows": row_count}
+            continue
+        if len(np.unique(y_cohort)) < 2:
+            summaries[route_key] = {"trained": False, "reason": "single_class", "rows": row_count}
+            continue
+
+        X_cohort = cohort[ALL_FEATURES].copy()
+        fitted = clone(pipeline_template)
+        fitted.fit(X_cohort, y_cohort)
+
+        method, cv_folds = resolve_calibration_config(y_cohort)
+        if method is not None and cv_folds is not None:
+            model = CalibratedClassifierCV(fitted, cv=cv_folds, method=method)
+            model.fit(X_cohort, y_cohort)
+            calibrated = True
+        else:
+            model = fitted
+            calibrated = False
+
+        submodels[route_key] = model
+        summaries[route_key] = {
+            "trained": True,
+            "rows": row_count,
+            "calibrated": calibrated,
+            "calibration_method": method,
+            "readmission_rate": round(float(y_cohort.mean()), 4),
+        }
+        print(
+            f"  [submodel] {route_key}: rows={row_count}"
+            f" calibrated={calibrated} method={method}"
+        )
+
+    return submodels, summaries
+
+
 def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool = True) -> None:
     data_path = Path(data_path)
     output_dir = Path(output_dir)
@@ -491,13 +564,23 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
     metadata_path = output_dir / "model_metadata.json"
     preprocessor_path = output_dir / "trip_preprocessor.joblib"
 
+    print("\nTraining disease-specific sub-models...")
+    disease_models, disease_submodel_summary = train_disease_submodels(
+        pipeline_map[best_label],
+        combined_train_df,
+    )
+    trained_submodels = [key for key, info in disease_submodel_summary.items() if info["trained"]]
+    print(f"Disease sub-models trained: {trained_submodels or 'none'}")
+
     print(f"\nSaving model bundle to {model_path}")
-    
-    # Save the dictionary of sub-models instead of just one model
+
+    # Bundle the calibrated global model plus any disease-specific sub-models.
+    # `calibrated` falls back to `best_pipeline` when calibration was skipped,
+    # so this always reflects the shipped artifact whose metrics are reported.
     bundle = {
-        "global": best_pipeline,
-        "disease_models": calibrated_models,
-        "facility_models": facility_calibrations
+        "global": calibrated,
+        "disease_models": disease_models,
+        "facility_models": {},
     }
     joblib.dump(bundle, model_path)
     joblib.dump(best_pipeline.named_steps["preprocessor"], preprocessor_path)
@@ -523,6 +606,7 @@ def train_and_save(data_path: str | Path, output_dir: str | Path, use_shap: bool
             entry["label"]: entry["validation_metrics"] for entry in candidate_evaluations
         },
         "calibration": calibration_summary,
+        "disease_submodels": disease_submodel_summary,
         "temporal_split": {
             "event_date_source": df.attrs.get("event_date_source", "unknown"),
             "train_rows": len(train_df),
